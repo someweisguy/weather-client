@@ -17,7 +17,7 @@ static const char *RED { "\x1b[31m" }, *YELLOW { "\x1b[33m" },
 		*MAGENTA { "\x1b[35m" }, *CYAN { "\x1b[36m" }, *WHITE { "\x1b[0m" };
 #endif
 
-static log_level_t LEVEL { LOG_DEBUG };
+static log_level_t LEVEL { DEBUG };
 static char* LOG_FILE_NAME { 0 };
 
 
@@ -34,27 +34,26 @@ static void write_log(const log_level_t log_level, const char *tag,
 	// Set the log char
 	char log_char;
 	switch (log_level) {
-	case LOG_VERBOSE:
+	case VERBOSE:
 		log_char = 'V';
 		break;
 
-	case LOG_DEBUG:
+	case DEBUG:
 		log_char = 'D';
 		break;
 
-	case LOG_INFO:
+	case INFO:
 		log_char = 'I';
 		break;
 
-	case LOG_WARNING:
+	case WARNING:
 		log_char = 'W';
 		break;
 
-	case LOG_ERROR:
+	case ERROR:
 		log_char = 'E';
 		break;
 
-	case LOG_WTF:
 	default:
 		log_char = '?';
 		break;
@@ -72,25 +71,24 @@ static void write_log(const log_level_t log_level, const char *tag,
 	// Set the console color
 	const char* log_color;
 	switch (log_level) {
-	case LOG_VERBOSE:
+	case VERBOSE:
 		log_color = MAGENTA;
 		break;
 
-	case LOG_DEBUG:
+	case DEBUG:
 		log_color = CYAN;
 		break;
 
-	case LOG_INFO:
+	case INFO:
 	default:
 		log_color = WHITE;
 		break;
 
-	case LOG_WARNING:
+	case WARNING:
 		log_color = YELLOW;
 		break;
 
-	case LOG_ERROR:
-	case LOG_WTF:
+	case ERROR:
 		log_color = RED;
 		break;
 	}
@@ -149,34 +147,34 @@ void logger_set_level(log_level_t level) {
 void verbose(const char *log_tag, const char *msg, ...) {
 	va_list args;
 	va_start(args, msg);
-	write_log(LOG_VERBOSE, log_tag, msg, args);
+	write_log(VERBOSE, log_tag, msg, args);
 	va_end(args);
 }
 
 void debug(const char *log_tag, const char *msg, ...) {
 	va_list args;
 	va_start(args, msg);
-	write_log(LOG_DEBUG, log_tag, msg, args);
+	write_log(DEBUG, log_tag, msg, args);
 	va_end(args);
 }
 
 void info(const char *tag, const char *msg, ...) {
 	va_list args;
 	va_start(args, msg);
-	write_log(LOG_INFO, tag, msg, args);
+	write_log(INFO, tag, msg, args);
 	va_end(args);
 }
 
 void warning(const char *tag, const char *msg, ...) {
 	va_list args;
 	va_start(args, msg);
-	write_log(LOG_WARNING, tag, msg, args);
+	write_log(WARNING, tag, msg, args);
 	va_end(args);
 }
 
 void error(const char *tag, const char *msg, ...) {
 	va_list args;
 	va_start(args, msg);
-	write_log(LOG_ERROR, tag, msg, args);
+	write_log(ERROR, tag, msg, args);
 	va_end(args);
 }

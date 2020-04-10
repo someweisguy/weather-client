@@ -18,12 +18,11 @@
 #include "esp_log.h"
 
 enum log_level_t {
-	LOG_VERBOSE = 0,
-	LOG_DEBUG,
-	LOG_INFO,
-	LOG_WARNING,
-	LOG_ERROR,
-	LOG_WTF
+	VERBOSE = 0,
+	DEBUG,
+	INFO,
+	WARNING,
+	ERROR
 };
 
 esp_err_t logger_start(const char* log_file_name);
