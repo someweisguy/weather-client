@@ -35,11 +35,10 @@ const char* esp_reset_to_name(esp_reset_reason_t code) {
 void strip(char *s) {
     char *p2 = s;
     while (*s != '\0') {
-        if (*s != '\t' && *s != '\n') {
+        if (*s != '\t' && *s != '\n')
             *p2++ = *s++;
-        } else {
+        else
             ++s;
-        }
     }
     *p2 = '\0';
 }
@@ -77,8 +76,7 @@ void set_cpu_time(const time_t unix_time) {
 }
 
 time_t get_cpu_time() {
-	const time_t unix_time { time(nullptr) };
-	return unix_time;
+	return time(nullptr);
 }
 
 int32_t get_line_length(FILE *f) {
@@ -98,3 +96,4 @@ int32_t get_line_length(FILE *f) {
 	fsetpos(f, &start_pos);
 	return count;
 }
+

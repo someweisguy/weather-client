@@ -14,6 +14,7 @@
 #include "esp_system.h"
 #include "esp_event.h"
 #include "freertos/event_groups.h"
+#include "driver/adc.h"
 
 #include "logger.h"
 
