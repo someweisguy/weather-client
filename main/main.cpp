@@ -38,50 +38,55 @@ static Sensor* sensors[] { new BME280, new PMS5003 };
 
 // TODO: clean up main code - lots of repeating code can go into functions
 
-extern "C" void app_main() {
-	logger_set_level(LOG_LEVEL);
+void services_start() {
 	// Start ESP required services
 	debug(TAG, "Starting ESP required services");
 	verbose(TAG, "Initializing non-volatile flash storage");
-    ESP_ERROR_CHECK(nvs_flash_init());
-    verbose(TAG, "Initializing TCP/IP adapter");
-    tcpip_adapter_init();
-    verbose(TAG, "Creating default ESP event loop");
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
+	ESP_ERROR_CHECK(nvs_flash_init());
+	verbose(TAG, "Initializing TCP/IP adapter");
+	tcpip_adapter_init();
+	verbose(TAG, "Creating default ESP event loop");
+	ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    // Start GNDCTRL required services
-    debug(TAG, "Starting hardware services");
-    verbose(TAG, "Mounting SD card");
-    ESP_ERROR_CHECK(sdcard_mount(SDCARD_MOUNT_POINT));
-    ESP_ERROR_CHECK(logger_start(SDCARD_MOUNT_POINT LOG_FILE_NAME));
-    debug(TAG, "Begin GNDCTRL log");
-    verbose(TAG, "Checking configuration file is formatted correctly");
-    // TODO: ensure config file setup is correct
-    verbose(TAG, "Starting i2c");
-    ESP_ERROR_CHECK(i2c_start());
-    verbose(TAG, "Starting UART");
-    ESP_ERROR_CHECK(uart_start());
+	// Start GNDCTRL required services
+	debug(TAG, "Starting hardware services");
+	verbose(TAG, "Mounting SD card");
+	ESP_ERROR_CHECK(sdcard_mount(SDCARD_MOUNT_POINT));
+	ESP_ERROR_CHECK(logger_start(SDCARD_MOUNT_POINT LOG_FILE_NAME));
+	debug(TAG, "Begin GNDCTRL log");
+	verbose(TAG, "Checking configuration file is formatted correctly");
+	// TODO: ensure config file setup is correct
+	verbose(TAG, "Starting i2c");
+	ESP_ERROR_CHECK(i2c_start());
+	verbose(TAG, "Starting UART");
+	ESP_ERROR_CHECK(uart_start());
+}
 
-	// Log what we are waking up for
-	if (wakeup_reason == UNEXPECTED_REASON) {
-		error(TAG, "Woke up for an unexpected reason (%s)",
-				esp_reset_to_name(esp_reset_reason()));
-	} else if (wakeup_reason == READY_SENSORS) {
-		info(TAG, "Woke up to get the sensing hardware ready");
-	} else { // wakeup_reason == TAKE_MEASUREMENT
-		info(TAG, "Woke up to take weather data measurements");
+extern "C" void app_main() {
 
-		// Ready sensors to take measurements
-		debug(TAG, "Readying sensors to take data");
-		for (Sensor *sensor : sensors) {
-			if (!sensor->ready())
-				error(TAG, "Unable to ready %s for data", sensor->get_name());
-		}
+	logger_set_level(LOG_LEVEL);
+
+	// Begin services
+	services_start();
+
+	// Declare broad scope variables
+	bool wifi_connected { false }, mqtt_connected { false };
+	config_t config; // values stored in config file
+
+	// Read the configuration file values from SD card
+	if (wakeup_reason != READY_SENSORS) {
+		debug(TAG, "Reading configuration values from file");
+		ESP_ERROR_CHECK(sdcard_get_config_vals(CONFIG_FILE_NAME, config));
 	}
 
-	bool wifi_connected { false }, mqtt_connected { false };
+
 
 	if (wakeup_reason == UNEXPECTED_REASON) {
+
+		// Log wakeup
+		error(TAG, "Woke up for an unexpected reason (%s)",
+				esp_reset_to_name(esp_reset_reason()));
+
 		// Attempt to synchronize time with DS3231
 		bool time_is_synchronized, lost_power;
 		ESP_ERROR_CHECK(ds3231_lost_power(lost_power));
@@ -98,14 +103,12 @@ extern "C" void app_main() {
 
 		// Connect to WiFi to synchronize clock anyway
 		debug(TAG, "Getting WiFi credentials from SD card");
-		char ssid[32], pass[64];
-		ESP_ERROR_CHECK(get_wifi_credentials(CONFIG_FILE_NAME, ssid, pass));
 		info(TAG, "Connecting to WiFi...");
-		if (wifi_connect(ssid, pass) == ESP_OK) {
-			info(TAG, "Connected to SSID \"%s\"", ssid);
+		if (wifi_connect(config.wifi_ssid, config.wifi_password) == ESP_OK) {
+			info(TAG, "Connected to SSID \"%s\"", config.wifi_ssid);
 			wifi_connected = true;
 		} else {
-			error(TAG, "Could not connect to SSID \"%s\"", ssid);
+			error(TAG, "Could not connect to SSID \"%s\"", config.wifi_ssid);
 		}
 
 		// Synchronize real-time clock to NTP server
@@ -134,68 +137,40 @@ extern "C" void app_main() {
 				error(TAG, "Unable to setup %s", sensor->get_name());
 		}
 
-		// Wait 1 second for setup to complete
+		// Wait 1 second for setup to complete, then put sensors to sleep
 		vTaskDelay(1000 / portTICK_PERIOD_MS);
-
 		info(TAG, "Putting sensors to sleep");
 		for (Sensor *sensor : sensors) {
 			if (!sensor->sleep())
 				error(TAG, "Could not put %s to sleep", sensor->get_name());
 		}
 
-		// Check if there is sensor data to transmit on SD card
-		bool backlogged_sensor_data_exists;
-		ESP_ERROR_CHECK(sdcard_file_exists(SENSOR_DATA_FILE_NAME,
-				backlogged_sensor_data_exists));
-		if (wifi_connected && backlogged_sensor_data_exists) {
-			info(TAG, "There is backlogged sensor data on file");
-			char *mqtt_broker, *topic;
-			ESP_ERROR_CHECK(get_mqtt_credentials(CONFIG_FILE_NAME, &mqtt_broker,
-							&topic));
-			info(TAG, "Connecting to MQTT...");
-			if (mqtt_connect(mqtt_broker) == ESP_OK) {
-				info(TAG, "Connected to MQTT broker \"%s\"", mqtt_broker);
-				mqtt_connected = true;
-
-				// Publish the backlogged sensor data
-				info(TAG, "Publishing backlogged sensor data to MQTT");
-				FILE *f { sdcard_open_file_readonly(SENSOR_DATA_FILE_NAME) };
-				do {
-					// Read a line from the file into memory
-					int32_t line_len { get_line_length(f) };
-					char json_string[line_len + 1];
-					fgets(json_string, line_len + 1, f);
-
-					if (mqtt_publish(topic, json_string) != ESP_OK) {
-						error(TAG, "Could not publish JSON string to "
-								"MQTT");
-						// FIXME: ensure data gets saved and not sent twice?
-					}
-				} while (fgetc(f) == '\n');
-				fclose(f);
-				sdcard_delete_file(SENSOR_DATA_FILE_NAME);
-
-			} else {
-				error(TAG, "Could not connect to MQTT broker \"%s\"",
-						mqtt_broker);
-			}
-			delete[] mqtt_broker;
-			delete[] topic;
-		}
-
 	} else if (wakeup_reason == READY_SENSORS) {
+
+		// Log wakeup
+		info(TAG, "Woke up to get the sensing hardware ready");
+
+		// Wake up sensors
 		info(TAG, "Waking up sensors");
 		for (Sensor* sensor : sensors) {
 			if (!sensor->wakeup())
 				error(TAG, "Unable to wake up %s", sensor->get_name());
 		}
-
-		const time_t unix_time { get_cpu_time() };
-		if (unix_time + 300 - unix_time % 300 - SENSOR_READY_SEC < unix_time) {
+		if (measurement_time - SENSOR_READY_SEC < get_cpu_time())
 			warning(TAG, "Sensors were not woken up before the deadline");
-		}
 
 	} else { // wakeup_reason == TAKE_MEASUREMENT
+
+		// Log wakeup
+		info(TAG, "Woke up to take weather data measurements");
+
+		// Ready sensors to take measurements
+		debug(TAG, "Readying sensors to take data");
+		for (Sensor *sensor : sensors) {
+			if (!sensor->ready())
+				error(TAG, "Unable to ready %s for data", sensor->get_name());
+		}
+
 		// Build a JSON root object
 		cJSON* json_root { cJSON_CreateObject() };
 		cJSON_AddNumberToObject(json_root, "unix time", measurement_time);
@@ -221,12 +196,8 @@ extern "C" void app_main() {
 
 		// Check to make sure data was measured on time
 		const time_t actual_measurement_time { get_cpu_time() };
-		if (measurement_time < actual_measurement_time) {
-			// TODO: Should the measurement_time in the JSON object be changed?
-			//cJSON_GetObjectItem(json_root, "unix time")
-			//		->valueint = actual_measurement_time;
+		if (measurement_time < actual_measurement_time)
 			warning(TAG, "Data was not measured before the deadline");
-		}
 
 		// Build the JSON string for MQTT and delete the JSON object
 		char *json_string { cJSON_Print(json_root) };
@@ -249,61 +220,35 @@ extern "C" void app_main() {
 		// Connect to WiFi
 		debug(TAG, "Getting WiFi credentials from SD card");
 		char ssid[32], pass[64];
-		ESP_ERROR_CHECK(get_wifi_credentials(CONFIG_FILE_NAME, ssid, pass));
 		info(TAG, "Connecting to WiFi...");
 		if (wifi_connect(ssid, pass) == ESP_OK) {
 			info(TAG, "Connected to SSID \"%s\"", ssid);
 			wifi_connected = true;
 
 			// Connect to MQTT
-			char *mqtt_broker, *topic;
-			ESP_ERROR_CHECK(
-					get_mqtt_credentials(CONFIG_FILE_NAME, &mqtt_broker, &topic));
 			info(TAG, "Connecting to MQTT...");
-			if (mqtt_connect(mqtt_broker) == ESP_OK) {
-				info(TAG, "Connected to MQTT broker \"%s\"", mqtt_broker);
+			if (mqtt_connect(config.mqtt_broker) == ESP_OK) {
+				info(TAG, "Connected to MQTT broker \"%s\"", config.mqtt_broker);
 				mqtt_connected = true;
 
 				// Publish the latest data to MQTT
 				debug(TAG, "Publishing to MQTT broker");
-				if (mqtt_publish(topic, json_string) != ESP_OK) {
+				if (mqtt_publish(config.mqtt_topic, json_string) != ESP_OK) {
 					error(TAG, "Could not publish the JSON string to MQTT");
 				} else {
 					sensor_data_published_mqtt = true;
 
-					// Check if there is backlogged data to publish
-					bool backlogged_sensor_data_exists;
-					ESP_ERROR_CHECK(sdcard_file_exists(SENSOR_DATA_FILE_NAME,
-							backlogged_sensor_data_exists));
-					if (backlogged_sensor_data_exists) {
-						info(TAG, "Publishing backlogged sensor data to MQTT");
-						FILE *f { sdcard_open_file_readonly(
-						SENSOR_DATA_FILE_NAME) };
-						do {
-							// Read a line from the file into memory
-							int32_t line_len { get_line_length(f) };
-							char json_string[line_len + 1];
-							fgets(json_string, line_len + 1, f);
-							if (mqtt_publish(topic, json_string) != ESP_OK) {
-								error(TAG, "Could not publish JSON string to "
-										"MQTT");
-								// FIXME: ensure data gets saved and not sent twice?
-							}
-						} while (fgetc(f) == '\n');
-						fclose(f);
-						sdcard_delete_file(SENSOR_DATA_FILE_NAME);
-					}
+
 				}
 			} else {
 				error(TAG, "Could not connect to MQTT broker \"%s\"",
-						mqtt_broker);
+						config.mqtt_broker);
 			}
-			delete[] mqtt_broker;
-			delete[] topic;
 		} else {
 			error(TAG, "Could not connect to SSID \"%s\"", ssid);
 		}
 
+		// Store data on SD card if it wasn't published to MQTT
 		if (!sensor_data_published_mqtt) {
 			info(TAG, "Storing sensor data to file");
 			strip(json_string); // removes newlines
@@ -324,6 +269,46 @@ extern "C" void app_main() {
 		} else if (!wifi_connected) {
 			warning(TAG, "Overdue for onboard real-time clock synchronization");
 		}
+
+	}
+
+
+
+	// Check if there is backlogged data to transmit to MQTT
+	if (wakeup_reason != READY_SENSORS) {
+
+
+		// Check if there is backlogged data to publish
+		bool backlogged_sensor_data_exists;
+		ESP_ERROR_CHECK(sdcard_file_exists(SENSOR_DATA_FILE_NAME,
+				backlogged_sensor_data_exists));
+		if (backlogged_sensor_data_exists) {
+
+			// TODO: connect to wifi
+
+			// TODO: connect to mqtt
+
+
+			info(TAG, "Publishing backlogged sensor data to MQTT");
+			FILE *f { sdcard_open_file_readonly(
+			SENSOR_DATA_FILE_NAME) };
+			do {
+				// Read a line from the file into memory
+				int32_t line_len { get_line_length(f) };
+				char json_string[line_len + 1];
+				fgets(json_string, line_len + 1, f);
+				if (mqtt_publish(config.mqtt_topic, json_string) != ESP_OK) {
+					error(TAG, "Could not publish JSON string to "
+							"MQTT");
+					// FIXME: ensure data gets saved and not sent twice?
+				}
+			} while (fgetc(f) == '\n');
+			fclose(f);
+			sdcard_delete_file(SENSOR_DATA_FILE_NAME);
+		}
+
+
+
 
 	}
 

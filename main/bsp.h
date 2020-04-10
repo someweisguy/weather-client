@@ -24,6 +24,13 @@ enum wakeup_reason_t {
 	TAKE_MEASUREMENT
 };
 
+struct config_t {
+	char *wifi_ssid;
+	char *wifi_password;
+	char *mqtt_broker;
+	char *mqtt_topic;
+};
+
 const char* esp_reset_to_name(esp_reset_reason_t code);
 
 void strip(char *s);

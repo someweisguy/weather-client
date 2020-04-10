@@ -70,7 +70,7 @@ void sdcard_delete_file(const char* file_name) {
 	remove(full_file_path);
 }
 
-esp_err_t get_wifi_credentials(const char* file_name, char *ssid, char *pass) {
+esp_err_t sdcard_get_config_vals(const char *file_name, config_t &config) {
 	// Construct a string with the full path of the file
 	const size_t path_len { strlen(fs_root) + strlen(file_name) };
 	char full_file_path[path_len + 1];
@@ -97,52 +97,19 @@ esp_err_t get_wifi_credentials(const char* file_name, char *ssid, char *pass) {
 		cJSON *root = cJSON_Parse(json_string);
 		verbose(TAG, "Parsing JSON");
 		// FIXME: Program crashes if field names do not exist in file
-		strncpy(ssid, cJSON_GetObjectItem(root, "ssid")->valuestring, 32);
-		strncpy(pass, cJSON_GetObjectItem(root, "pass")->valuestring, 64);
+		config.wifi_ssid = strdup(cJSON_GetObjectItem(root, "ssid")->valuestring);
+		config.wifi_password = strdup(cJSON_GetObjectItem(root, "pass")->valuestring);
+		config.mqtt_broker = strdup(cJSON_GetObjectItem(root, "mqtt")->valuestring);
+		config.mqtt_topic = strdup(cJSON_GetObjectItem(root, "topic")->valuestring);
 		cJSON_Delete(root);
 		return ESP_OK;
 
 	} else { // f == nullptr
 		return ESP_FAIL;
 	}
-}
 
-esp_err_t get_mqtt_credentials(const char* file_name, char **mqtt_broker,
-		char **topic) {
-	// Construct a string with the full path of the file
-	const size_t path_len { strlen(fs_root) + strlen(file_name) };
-	char full_file_path[path_len + 1];
-	strcpy(full_file_path, fs_root);
-	strcat(full_file_path, file_name);
 
-	// Open the file
-	verbose(TAG, "Opening \"%s\"", full_file_path);
-	FILE *f { fopen(full_file_path, "r") };
-	if (f != nullptr) {
-		// Read the file into memory then close the file
-		verbose(TAG, "Reading file into memory");
-		fseek(f, 0, SEEK_END);
-		const long fsize { ftell(f) };
-		// Don't read more than 1KB into memory
-		if (fsize > 1024)
-			return ESP_FAIL;
-		rewind(f);
-		char json_string[fsize + 1];
-		fread(json_string, 1, fsize, f);
-		fclose(f);
-
-		// Parse the JSON object
-		cJSON *root = cJSON_Parse(json_string);
-		verbose(TAG, "Parsing JSON");
-		// FIXME: Program crashes if field names do not exist in file
-		*mqtt_broker = strndup(cJSON_GetObjectItem(root, "mqtt")->valuestring, 255);
-		*topic = strndup(cJSON_GetObjectItem(root, "topic")->valuestring, 255);
-		cJSON_Delete(root);
-		return ESP_OK;
-
-	} else { // f == nullptr
-		return ESP_FAIL;
-	}
+	return ESP_OK;
 }
 
 esp_err_t store_json_string(const char *file_name, const char *json_string) {

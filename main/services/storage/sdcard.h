@@ -21,9 +21,9 @@
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
 #include "driver/sdmmc_host.h"
-
 #include "cJSON.h"
 
+#include "bsp.h"
 #include "logger.h"
 
 // Hardware pin defines
@@ -38,9 +38,7 @@ esp_err_t sdcard_unmount();
 esp_err_t sdcard_file_exists(const char* file_name, bool &file_exists);
 void sdcard_delete_file(const char* file_name);
 
-esp_err_t get_wifi_credentials(const char* file_name, char *ssid, char *pass);
-esp_err_t get_mqtt_credentials(const char *file_name, char **mqtt_broker,
-		char **topic);
+esp_err_t sdcard_get_config_vals(const char *file_name, config_t &config);
 
 esp_err_t store_json_string(const char *file_name, const char *json_string);
 
