@@ -36,7 +36,7 @@ static RTC_DATA_ATTR wakeup_reason_t wakeup_reason { UNEXPECTED_REASON };
 static RTC_DATA_ATTR time_t measurement_time { 0 }, next_rtc_sync { 0 };
 static Sensor* sensors[] { new BME280, new PMS5003 };
 
-// TODO: monitor battery!
+// TODO: clean up main code - lots of repeating code can go into functions
 
 extern "C" void app_main() {
 	logger_set_level(LOG_LEVEL);
@@ -125,7 +125,7 @@ extern "C" void app_main() {
 		// Deny service if we are unable to synchronize the time
 		if (!time_is_synchronized) {
 			error(TAG, "Could not synchronize time");
-			esp_restart(); // Accurate time-keeping is essential!
+			esp_restart();
 		}
 
 		// Perform initial setup of sensors
