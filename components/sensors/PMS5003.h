@@ -81,7 +81,7 @@ public:
 		for (int i = 4; i < 30; ++i) { // skip start word and frame length
 			computed_checksum += buffer[i];
 		}
-		const uint16_t received_checksum { (buffer[30] << 8) | buffer[31] };
+		const uint16_t received_checksum { (buffer[30] << 8) + buffer[31] };
 		if (computed_checksum != received_checksum)
 			return false;
 
