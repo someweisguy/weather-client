@@ -64,7 +64,6 @@ extern "C" void app_main() {
 
 	// Log what we are waking up for
 	if (wakeup_reason == UNEXPECTED_REASON) {
-		sensors[0]->ready();
 		error(TAG, "Woke up for an unexpected reason (%s)",
 				esp_reset_to_name(esp_reset_reason()));
 	} else if (wakeup_reason == READY_SENSORS) {
