@@ -92,6 +92,8 @@ extern "C" void app_main() {
 	verbose(TAG, "Starting UART");
 	ESP_ERROR_CHECK(uart_start());
 
+
+
 	// Read the configuration file values from SD card
 	if (wakeup_reason != READY_SENSORS) {
 		debug(TAG, "Reading configuration values from file");
@@ -161,7 +163,7 @@ extern "C" void app_main() {
 
 		// Wake up sensors
 		info(TAG, "Waking up sensors");
-		for (Sensor* sensor : sensors) {
+		for (Sensor *sensor : sensors) {
 			if (!sensor->wakeup())
 				error(TAG, "Unable to wake up %s", sensor->get_name());
 		}
@@ -181,8 +183,12 @@ extern "C" void app_main() {
 		}
 
 		// Build a JSON root object
-		cJSON* json_root { cJSON_CreateObject() };
-		cJSON_AddNumberToObject(json_root, "time", measurement_time);
+		cJSON *json_root { cJSON_CreateObject() }, *json_time;
+		cJSON_AddItemToObject(json_root, "time", json_time=cJSON_CreateObject());
+		char iso8601_str[20];
+		strftime(iso8601_str, 20, "%F %T", localtime(&measurement_time));
+		cJSON_AddStringToObject(json_time, "iso8601", iso8601_str);
+		cJSON_AddNumberToObject(json_time, "unix", measurement_time);
 		const size_t num_sensors { sizeof(sensors) / sizeof(Sensor) };
 		bool bad_sensors[num_sensors] {}; // set to false by default
 
@@ -223,10 +229,12 @@ extern "C" void app_main() {
 				error(TAG, "Could not put %s to sleep", sensor->get_name());
 		}
 
-		const bool data_published { false };
+		bool data_published { false };
 		if (connect_wifi() && connect_mqtt()) {
 			debug(TAG, "Publishing to MQTT broker");
-			if (mqtt_publish(config.mqtt_topic, json_str) != ESP_OK)
+			if (mqtt_publish(config.mqtt_topic, json_str) == ESP_OK)
+				data_published = true;
+			else
 				error(TAG, "Could not publish the JSON string to MQTT");
 		}
 		if (!data_published) {
