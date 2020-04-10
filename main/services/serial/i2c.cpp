@@ -33,33 +33,70 @@ esp_err_t i2c_stop() {
 esp_err_t i2c_read(const uint8_t i2c_addr, const uint8_t i2c_reg, void* data_rd,
 		const size_t size) {
 
-	// TODO: log and update this code
-
 	// guard clause
 	if (size == 0)
 		return ESP_OK;
 
 	const i2c_cmd_handle_t cmd { i2c_cmd_link_create() };
-	i2c_master_start(cmd);
-	// Write device address
-	i2c_master_write_byte(cmd, (i2c_addr << 1), 0x1);
-	// Write register
-	i2c_master_write_byte(cmd, i2c_reg, 0x1);
-	// Send repeated start
-	i2c_master_start(cmd);
-	// now send device address (indicating read) & read data
-	i2c_master_write_byte(cmd, (i2c_addr << 1) | I2C_MASTER_READ, 0x1);
-	if (size > 1) {
-		i2c_master_read(cmd, (uint8_t*) data_rd, size - 1, (i2c_ack_type_t) 0x0);
-	}
-	i2c_master_read_byte(cmd, (uint8_t*) data_rd + size - 1, (i2c_ack_type_t) 0x1);
-	i2c_master_stop(cmd);
-	esp_err_t ret = i2c_master_cmd_begin(I2C_PORT, cmd,
-			1000 / portTICK_RATE_MS);
-	i2c_cmd_link_delete(cmd);
-	return ret;
 
+	// Start the i2c master
+	verbose(TAG, "Starting the i2c master");
+	if (i2c_master_start(cmd) != ESP_OK) {
+		i2c_cmd_link_delete(cmd);
+		return ESP_FAIL;
+	}
+
+	// Write device address
+	verbose(TAG, "Writing the device address");
+	if (i2c_master_write_byte(cmd, (i2c_addr << 1), 0x1) != ESP_OK) {
+		i2c_cmd_link_delete(cmd);
+		return ESP_FAIL;
+	}
+
+	// Write register
+	verbose(TAG, "Writing device register");
+	if (i2c_master_write_byte(cmd, i2c_reg, 0x1) != ESP_OK) {
+		i2c_cmd_link_delete(cmd);
+		return ESP_FAIL;
+	}
+
+	// Send repeated start
+	verbose(TAG, "Sending repeated start");
+	if (i2c_master_start(cmd) != ESP_OK) {
+		i2c_cmd_link_delete(cmd);
+		return ESP_FAIL;
+	}
+
+	// Send device address and read data
+	verbose(TAG, "Sending device address and reading data");
+	if (i2c_master_write_byte(cmd, (i2c_addr << 1) | I2C_MASTER_READ, 0x1) != ESP_OK) {
+		i2c_cmd_link_delete(cmd);
+		return ESP_FAIL;
+	}
+	if (size > 1 && i2c_master_read(cmd, (uint8_t*) data_rd, size - 1,
+			I2C_MASTER_ACK) != ESP_OK) {
+		i2c_cmd_link_delete(cmd);
+		return ESP_FAIL;
+	}
+	if (i2c_master_read_byte(cmd, (uint8_t*) data_rd + size - 1,
+			I2C_MASTER_NACK) != ESP_OK) {
+		i2c_cmd_link_delete(cmd);
+		return ESP_FAIL;
+	}
+
+	verbose(TAG, "Stopping i2c master");
+	if (i2c_master_stop(cmd) != ESP_OK) {
+		i2c_cmd_link_delete(cmd);
+		return ESP_FAIL;
+	}
+
+	verbose(TAG, "Sending data in the queue");
+	esp_err_t send_i2c_ret { i2c_master_cmd_begin(I2C_PORT, cmd, 1000 /
+			portTICK_RATE_MS) };
+	i2c_cmd_link_delete(cmd);
+	return send_i2c_ret;
 }
+
 esp_err_t i2c_write(const uint8_t i2c_addr, const uint8_t i2c_reg,
 		const void* data_wr, const size_t size) {
 
@@ -68,47 +105,40 @@ esp_err_t i2c_write(const uint8_t i2c_addr, const uint8_t i2c_reg,
 		return ESP_OK;
 
 	// Create a command handle
-	i2c_cmd_handle_t cmd { i2c_cmd_link_create() };
+	const i2c_cmd_handle_t cmd { i2c_cmd_link_create() };
 
 	verbose(TAG, "Starting i2c master");
-	const esp_err_t master_start_ret { i2c_master_start(cmd) };
-	if (master_start_ret != ESP_OK) {
+	if (i2c_master_start(cmd) != ESP_OK) {
 		i2c_cmd_link_delete(cmd);
-		return master_start_ret;
+		return ESP_FAIL;
 	}
 
 	// Send device address (indicating write) and register to be written
 	verbose(TAG, "Sending device address");
-	const esp_err_t dev_addr_ret { i2c_master_write_byte(cmd, (i2c_addr << 1) |
-			I2C_MASTER_WRITE, 0x01) };
-	if (dev_addr_ret != ESP_OK) {
+	if (i2c_master_write_byte(cmd, (i2c_addr << 1) | I2C_MASTER_WRITE, 0x01) != ESP_OK) {
 		i2c_cmd_link_delete(cmd);
-		return dev_addr_ret;
+		return ESP_FAIL;
 	}
 
 	// Send register we want to write to
 	verbose(TAG, "Sending the write register");
-	const esp_err_t reg_sel_ret { i2c_master_write_byte(cmd, i2c_reg, 0x1) };
-	if (reg_sel_ret != ESP_OK) {
+	if (i2c_master_write_byte(cmd, i2c_reg, 0x1) != ESP_OK) {
 		i2c_cmd_link_delete(cmd);
-		return reg_sel_ret;
+		return ESP_FAIL;
 	}
 
 	// Put the data to be written in the i2c queue
 	verbose(TAG, "Putting data in i2c queue");
-	const esp_err_t data_wr_ret {i2c_master_write(cmd, (uint8_t*) data_wr,
-			size, 0x1) };
-	if (data_wr_ret != ESP_OK) {
+	if (i2c_master_write(cmd, (uint8_t*) data_wr, size, 0x1) != ESP_OK) {
 		i2c_cmd_link_delete(cmd);
-		return data_wr_ret;
+		return ESP_FAIL;
 	}
 
 	// Stop the i2c master
 	verbose(TAG, "Stopping i2c master");
-	const esp_err_t master_stop_ret { i2c_master_stop(cmd) };
-	if (master_stop_ret != ESP_OK) {
+	if (i2c_master_stop(cmd) != ESP_OK) {
 		i2c_cmd_link_delete(cmd);
-		return master_stop_ret;
+		return ESP_FAIL;
 	}
 
 	// Send the data that is in the queue
