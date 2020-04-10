@@ -48,7 +48,7 @@ public:
 
 	bool setup() override {
 		verbose(TAG, "Sending passive mode command");
-		const uint8_t passive_cmd[7] = { 0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70 };
+		const uint8_t passive_cmd[7] { 0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70 };
 		if (uart_write(passive_cmd, 7) == ESP_OK)
 			return true;
 		else
@@ -57,7 +57,7 @@ public:
 
 	bool wakeup() override {
 		verbose(TAG, "Sending wake up command");
-		const uint8_t wakeup_cmd[7] = { 0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74 };
+		const uint8_t wakeup_cmd[7] { 0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74 };
 		if (uart_write(wakeup_cmd, 7) == ESP_OK)
 			return true;
 		else
@@ -66,7 +66,7 @@ public:
 
 	bool get_data(cJSON *json_root) override {
 		verbose(TAG, "Sending read in passive mode command");
-		const uint8_t read_cmd[7] = { 0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71 };
+		const uint8_t read_cmd[7] { 0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71 };
 		if (uart_write(read_cmd, 7) != ESP_OK)
 			return false;
 
@@ -77,17 +77,28 @@ public:
 
 		// Compute and check checksum
 		verbose(TAG, "Computing and comparing checksum");
-		uint16_t computed_checksum = 0x42 + 0x4d + (2 * 13 + 2);
+		uint16_t computed_checksum { 0x42 + 0x4d + (2 * 13 + 2) };
 		for (int i = 4; i < 30; ++i) { // skip start word and frame length
 			computed_checksum += buffer[i];
 		}
-		const uint16_t received_checksum = (buffer[30] << 8) + buffer[31];
+		const uint16_t received_checksum { (buffer[30] << 8) | buffer[31] };
 		if (computed_checksum != received_checksum)
 			return false;
 
-		// Copy the buffer, but skip the first 4 and last 4 bytes
+		// Copy the buffer - skip the first 4 and last 4 bytes
 		pms_data_t pms_data;
-		memcpy(&pms_data, buffer + 4, 24);
+		pms_data.pm1_std = (buffer[4] << 8) | buffer[5];
+		pms_data.pm2_std = (buffer[6] << 8) | buffer[7];
+		pms_data.pm10_std = (buffer[8] << 8) | buffer[9];
+		pms_data.pm1_atm = (buffer[10] << 8) | buffer[11];
+		pms_data.pm2_atm = (buffer[12] << 8) | buffer[13];
+		pms_data.pm10_atm = (buffer[14] << 8) | buffer[15];
+		pms_data.part_0_3 = (buffer[16] << 8) | buffer[17];
+		pms_data.part_0_5 = (buffer[18] << 8) | buffer[19];
+		pms_data.part_1_0 = (buffer[20] << 8) | buffer[21];
+		pms_data.part_2_5 = (buffer[22] << 8) | buffer[23];
+		pms_data.part_5_0 = (buffer[24] << 8) | buffer[25];
+		pms_data.part_10_0 = (buffer[26] << 8) | buffer[27];
 
 		// Create a PMS5003 JSON object, and add it to root
 		cJSON* pms_json;
@@ -126,7 +137,7 @@ public:
 	}
 
 	bool sleep() override {
-		const uint8_t sleep_cmd[7] = { 0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73 };
+		const uint8_t sleep_cmd[7] { 0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73 };
 		if (uart_write(sleep_cmd, 7) == ESP_OK)
 			return true;
 		else
@@ -134,7 +145,5 @@ public:
 	}
 
 };
-
-
 
 #endif /* COMPONENTS_SENSORS_PMS5003_H_ */
