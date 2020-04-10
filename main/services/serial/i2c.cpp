@@ -39,11 +39,11 @@ esp_err_t i2c_read(const uint8_t i2c_addr, const uint8_t i2c_reg, void* data_rd,
 	if (size == 0)
 		return ESP_OK;
 
-	i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+	const i2c_cmd_handle_t cmd { i2c_cmd_link_create() };
 	i2c_master_start(cmd);
-	// first, send device address (indicating write) & register to be read
+	// Write device address
 	i2c_master_write_byte(cmd, (i2c_addr << 1), 0x1);
-	// send register we want
+	// Write register
 	i2c_master_write_byte(cmd, i2c_reg, 0x1);
 	// Send repeated start
 	i2c_master_start(cmd);
