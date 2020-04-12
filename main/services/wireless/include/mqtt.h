@@ -10,7 +10,7 @@
 
 #include <cstring>
 
-#include "../../logger/logger.h"
+#include "logger.h"
 #include "esp_system.h"
 #include "esp_event.h"
 #include "freertos/event_groups.h"
