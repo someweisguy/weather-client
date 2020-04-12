@@ -8,15 +8,21 @@
 #include "mqtt.h"
 
 static const char* TAG { "mqtt" };
+static const esp_mqtt_event_id_t MQTT_EVENT_ANY_ID { static_cast<esp_mqtt_event_id_t>(-1) };
 static const EventBits_t MQTT_SUCCESS { 0x1 }, MQTT_FAIL { 0x2 },
 	MQTT_PUBLISH { 0x4 };
 static EventGroupHandle_t mqtt_event_group;
-esp_mqtt_client_handle_t client;
+static esp_mqtt_client_handle_t client;
 
-static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t mqtt_event) {
+
+static void event_handler(void *handler_args, esp_event_base_t base,
+		int32_t event_id, void *event_data) {
+
+	esp_mqtt_event_handle_t mqtt_event {
+			static_cast<esp_mqtt_event_handle_t>(event_data) };
 
 	// Handle mqtt events
-	switch (mqtt_event->event_id) {
+	switch (event_id) {
 	case MQTT_EVENT_CONNECTED:
 		debug(TAG, "Handling MQTT_EVENT_CONNECTED event");
 		xEventGroupSetBits(mqtt_event_group, MQTT_SUCCESS);
@@ -29,7 +35,9 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t mqtt_event) {
 
 	case MQTT_EVENT_ERROR:
 		debug(TAG, "Handling MQTT_EVENT_ERROR event");
-		esp_mqtt_client_stop(mqtt_event->client);
+		debug(TAG, "Got MQTT error type (%i) and connection code (%i)",
+				mqtt_event->error_handle->error_type,
+				mqtt_event->error_handle->connect_return_code);
 		xEventGroupSetBits(mqtt_event_group, MQTT_FAIL);
 		break;
 
@@ -54,23 +62,8 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t mqtt_event) {
 		break;
 	}
 
-	// Handle MQTT connection errors
-	// Doesn't seem to be implemented in ESP-IDF v4.0
-	if (mqtt_event->error_handle->connect_return_code != MQTT_CONNECTION_ACCEPTED) {
-		error(TAG, "Got MQTT connection error (%i)", mqtt_event->
-				error_handle->connect_return_code);
-		xEventGroupSetBits(mqtt_event_group, MQTT_FAIL);
-	}
-
-	// Handle MQTT general errors
-	// Doesn't seem to be implemented in ESP-IDF v4.0
-	if (mqtt_event->error_handle->error_type != MQTT_ERROR_TYPE_NONE) {
-		error(TAG, "Got MQTT general error (%i)", mqtt_event->error_handle->error_type);
-		xEventGroupSetBits(mqtt_event_group, MQTT_FAIL);
-	}
-
-	return ESP_OK;
 }
+
 
 esp_err_t mqtt_connect(const char* mqtt_broker) {
 
@@ -79,17 +72,16 @@ esp_err_t mqtt_connect(const char* mqtt_broker) {
 
 	verbose(TAG, "Configuring MQTT service");
 	esp_mqtt_client_config_t mqtt_config {};
-	mqtt_config.event_handle = &mqtt_event_handler;
 	client = esp_mqtt_client_init(&mqtt_config);
+	esp_mqtt_client_register_event(client, MQTT_EVENT_ANY_ID, event_handler,
+			client);
 	ESP_ERROR_CHECK(esp_mqtt_client_set_uri(client, mqtt_broker));
 	verbose(TAG, "Attempting to connect to MQTT broker");
 	ESP_ERROR_CHECK(esp_mqtt_client_start(client));
 
-	// Wait 5000ms for MQTT to connect or fail - there is no MQTT fail event so
-	//  if we don't connect in 5000ms, we are not connecting at all.
+	// Wait for connection success or failure
 	const EventBits_t mqtt_ret { xEventGroupWaitBits(mqtt_event_group,
-			MQTT_SUCCESS | MQTT_FAIL, pdTRUE, pdFALSE,
-			5000 / portTICK_PERIOD_MS) };
+			MQTT_SUCCESS | MQTT_FAIL, pdTRUE, pdFALSE, portMAX_DELAY) };
 
 	if (mqtt_ret == MQTT_SUCCESS) {
 		return ESP_OK;
@@ -100,11 +92,6 @@ esp_err_t mqtt_connect(const char* mqtt_broker) {
 
 esp_err_t mqtt_stop() {
 	vEventGroupDelete(mqtt_event_group);
-	// The code below doesn't seem to be working properly in ESP-IDF v4.0
-	/*
-	if (esp_mqtt_client_stop(client) != ESP_OK)
-		return ESP_FAIL;
-	*/
 	if (esp_mqtt_client_destroy(client) != ESP_OK)
 		return ESP_FAIL;
 	return ESP_OK;
