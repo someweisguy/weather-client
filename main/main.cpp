@@ -264,6 +264,7 @@ extern "C" void app_main() {
 
 	// Check if there is backlogged data to transmit to MQTT
 	if (saved_data_exists && wakeup_reason != READY_SENSORS) {
+		info(TAG, "Sending saved sensor data to MQTT");
 		// Publish saved sensor data to MQTT line by line
 		if (connect_wifi() && connect_mqtt()) {
 			info(TAG, "Publishing backlogged sensor data to MQTT");
