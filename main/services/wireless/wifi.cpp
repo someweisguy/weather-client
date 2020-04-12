@@ -26,6 +26,7 @@ static void event_handler(void* handler_args, esp_event_base_t base,
 
 		case WIFI_EVENT_STA_CONNECTED:
 			debug(TAG, "Handling WIFI_EVENT_STA_CONNECTED event");
+			// Do nothing
 			break;
 
 		case WIFI_EVENT_STA_DISCONNECTED:
@@ -39,13 +40,12 @@ static void event_handler(void* handler_args, esp_event_base_t base,
 			break;
 
 		default:
-			debug(TAG, "Handling unexpected WiFi event (%i)", event_id);
-			// Do nothing
+			warning(TAG, "Handling unexpected WiFi event (%i)", event_id);
 			break;
 		}
 	}
 
-	// Handle IP events
+	// Handle IP event - an IP event means that we connected successfully
 	else if (base == IP_EVENT) {
 		//((ip_event_got_ip_t*) event_data)->ip_info.ip;
 		xEventGroupSetBits(wifi_event_group, WIFI_SUCCESS);
