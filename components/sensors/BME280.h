@@ -219,7 +219,6 @@ public:
 			adc_T >>= 4;
 			t_fine = calculate_t_fine(adc_T);
 			temperature_C = compensate_temperature() / 100.0;
-			verbose(TAG, "Temperature is %.2f C", temperature_C);
 
 			// We have at least one data point now, so start building the JSON object
 			cJSON_AddItemToObject(json_root, get_name(), bme_json =
@@ -251,7 +250,7 @@ public:
 		if (adc_H != 0x8000) {
 			const float relative_humidity = compensate_humidity(adc_H) / 1024.0;
 			bme_json->next = build_data("Relative Humidity", "RH",
-					relative_humidity, "%RH");
+					relative_humidity, "%");
 			bme_json = bme_json->next;
 
 			// FIXME: Shamelessly stolen from Sparkfun's BME280 library

@@ -23,7 +23,7 @@ private:
 		uint16_t pm2_5_std;
 		uint16_t pm10_0_std;
 
-		// Nobody know the difference between "std" and "atm" data for this sensor
+		// Nobody know the difference between standard and atmospheric data for this sensor
 		uint16_t pm1_0_atm;
 		uint16_t pm2_5_atm;
 		uint16_t pm10_0_atm;
@@ -39,7 +39,7 @@ private:
 
 public:
 
-	const char* get_name() override {
+	const char *get_name() override {
 		return "PMS5003";
 	}
 
@@ -112,44 +112,44 @@ public:
 		pms_json->child = build_data("PM 1.0", "PM1", pms_data.pm1_0_std,
 				MICROGRAMS_PER_CUBIC_METER_SYM);
 		pms_json = pms_json->child; // child not next
-		pms_json->next = build_data("PM 2.5", "PM2.5",
-				pms_data.pm2_5_std, MICROGRAMS_PER_CUBIC_METER_SYM);
+		pms_json->next = build_data("PM 2.5", "PM2.5", pms_data.pm2_5_std,
+				MICROGRAMS_PER_CUBIC_METER_SYM);
 		pms_json = pms_json->next;
-		pms_json->next = build_data("PM 10.0", "PM10",
-				pms_data.pm10_0_std, MICROGRAMS_PER_CUBIC_METER_SYM);
+		pms_json->next = build_data("PM 10.0", "PM10", pms_data.pm10_0_std,
+				MICROGRAMS_PER_CUBIC_METER_SYM);
 		pms_json = pms_json->next;
 
 		// Intentionally omit this data - it is not clear what the difference is
 		//  between PM standard and PM atmospheric
 		/*
-		pms_json->next = build_data("PM 1.0 (atm)", "PM1", pms_data.pm1_0_atm,
-				MICROGRAMS_PER_CUBIC_METER_SYM);
-		pms_json = pms_json->next;
-		pms_json->next = build_data("PM 2.5 (atm)", "PM2.5",
-				pms_data.pm2_5_atm, MICROGRAMS_PER_CUBIC_METER_SYM);
-		pms_json = pms_json->next;
-		pms_json->next = build_data("PM 10.0 (atm)", "PM10",
-				pms_data.pm10_0_atm, MICROGRAMS_PER_CUBIC_METER_SYM);
-		pms_json = pms_json->next;
-		*/
+		 pms_json->next = build_data("PM 1.0 (atm)", "PM1", pms_data.pm1_0_atm,
+		 MICROGRAMS_PER_CUBIC_METER_SYM);
+		 pms_json = pms_json->next;
+		 pms_json->next = build_data("PM 2.5 (atm)", "PM2.5",
+		 pms_data.pm2_5_atm, MICROGRAMS_PER_CUBIC_METER_SYM);
+		 pms_json = pms_json->next;
+		 pms_json->next = build_data("PM 10.0 (atm)", "PM10",
+		 pms_data.pm10_0_atm, MICROGRAMS_PER_CUBIC_METER_SYM);
+		 pms_json = pms_json->next;
+		 */
 
 		// Add particle count data to JSON array object
-		pms_json->next = build_data("Particles 0.3" "\u03BCm", "0.3" "\u03BCm",
+		pms_json->next = build_data("Particles 0.3" "\u03BCm", "PTC0.3",
 				pms_data.part_0_3, COUNT_PER_DECILITER_SYM);
 		pms_json = pms_json->next;
-		pms_json->next = build_data("Particles 0.5" "\u03BCm", "0.5" "\u03BCm",
+		pms_json->next = build_data("Particles 0.5" "\u03BCm", "PTC0.5",
 				pms_data.part_0_5, COUNT_PER_DECILITER_SYM);
 		pms_json = pms_json->next;
-		pms_json->next = build_data("Particles 1.0" "\u03BCm", "1" "\u03BCm",
+		pms_json->next = build_data("Particles 1.0" "\u03BCm", "PTC1",
 				pms_data.part_1_0, COUNT_PER_DECILITER_SYM);
 		pms_json = pms_json->next;
-		pms_json->next = build_data("Particles 2.5" "\u03BCm", "2.5" "\u03BCm",
+		pms_json->next = build_data("Particles 2.5" "\u03BCm", "PTC2.5",
 				pms_data.part_2_5, COUNT_PER_DECILITER_SYM);
 		pms_json = pms_json->next;
-		pms_json->next = build_data("Particles 5.0" "\u03BCm", "5" "\u03BCm",
+		pms_json->next = build_data("Particles 5.0" "\u03BCm", "PTC5",
 				pms_data.part_5_0, COUNT_PER_DECILITER_SYM);
 		pms_json = pms_json->next;
-		pms_json->next = build_data("Particles 10.0" "\u03BCm", "10" "\u03BCm",
+		pms_json->next = build_data("Particles 10.0" "\u03BCm", "PTC10",
 				pms_data.part_10_0, COUNT_PER_DECILITER_SYM);
 
 		return true;
