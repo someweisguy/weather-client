@@ -19,7 +19,7 @@
 
 #include "logger.h"
 
-#define LOG_LEVEL        INFO
+#define LOG_LEVEL        DEBUG
 #define SENSOR_READY_SEC 30 /* Longest time (in seconds) that it takes for sensors to wake up */
 #define BOOT_DELAY_SEC    5 /* Time (in seconds) that it takes the ESP32 to wake up */
 
