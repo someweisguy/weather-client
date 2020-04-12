@@ -18,24 +18,39 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t mqtt_event) {
 	// Handle mqtt events
 	switch (mqtt_event->event_id) {
 	case MQTT_EVENT_CONNECTED:
+		debug(TAG, "Handling MQTT_EVENT_CONNECTED event");
 		xEventGroupSetBits(mqtt_event_group, MQTT_SUCCESS);
 		break;
 
 	case MQTT_EVENT_DISCONNECTED:
+		debug(TAG, "Handling MQTT_EVENT_DISCONNECTED event");
+		xEventGroupSetBits(mqtt_event_group, MQTT_FAIL);
 		break;
 
 	case MQTT_EVENT_ERROR:
+		debug(TAG, "Handling MQTT_EVENT_ERROR event");
 		esp_mqtt_client_stop(mqtt_event->client);
 		xEventGroupSetBits(mqtt_event_group, MQTT_FAIL);
 		break;
 
 	case MQTT_EVENT_PUBLISHED:
+		debug(TAG, "Handling MQTT_EVENT_PUBLISHED event");
 		xEventGroupSetBits(mqtt_event_group, MQTT_PUBLISH);
 		break;
 
+	case MQTT_EVENT_DATA:
+		debug(TAG, "Handling MQTT_EVENT_DATA event");
+		break;
+
 	default:
+		debug(TAG, "Handling unexpected MQTT event (%i)", mqtt_event->event_id);
 		// Do nothing
 		break;
+	}
+
+	if (mqtt_event->error_handle->error_type != MQTT_ERROR_TYPE_NONE) {
+		error(TAG, "Got MQTT error type (%i)", mqtt_event->error_handle->error_type);
+		xEventGroupSetBits(mqtt_event_group, MQTT_FAIL);
 	}
 
 	return ESP_OK;
@@ -54,13 +69,16 @@ esp_err_t mqtt_connect(const char* mqtt_broker) {
 	verbose(TAG, "Attempting to connect to MQTT broker");
 	ESP_ERROR_CHECK(esp_mqtt_client_start(client));
 
-	// Wait for MQTT to connect or fail
+	// Wait 5000ms for MQTT to connect or fail - there is no MQTT fail event so
+	//  if we don't connect in 5000ms, we are not connecting at all.
 	const EventBits_t mqtt_ret { xEventGroupWaitBits(mqtt_event_group,
-			MQTT_SUCCESS | MQTT_FAIL, pdTRUE, pdFALSE, portMAX_DELAY) };
+			MQTT_SUCCESS | MQTT_FAIL, pdTRUE, pdFALSE,
+			5000 / portTICK_PERIOD_MS) };
 
 	if (mqtt_ret == MQTT_SUCCESS) {
 		return ESP_OK;
 	} else {
+		mqtt_stop();
 		return ESP_FAIL;
 	}
 }

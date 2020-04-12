@@ -19,17 +19,28 @@ static void event_handler(void* handler_args, esp_event_base_t base,
 	if (base == WIFI_EVENT) {
 		switch (event_id) {
 		case WIFI_EVENT_STA_START:
+			debug(TAG, "Handling WIFI_EVENT_STA_START event");
 			wifi_connect_retry = 0;
 			esp_wifi_connect();
 			break;
 
+		case WIFI_EVENT_STA_CONNECTED:
+			debug(TAG, "Handling WIFI_EVENT_STA_CONNECTED event");
+			break;
+
 		case WIFI_EVENT_STA_DISCONNECTED:
+			debug(TAG, "Handling WIFI_EVENT_STA_DISCONNECTED event");
 			if (++wifi_connect_retry <= WIFI_MAX_RETRIES) {
 				verbose(TAG, "Retrying connection");
 				esp_wifi_connect();
 			} else {
 				xEventGroupSetBits(wifi_event_group, WIFI_FAIL);
 			}
+			break;
+
+		default:
+			debug(TAG, "Handling unexpected WiFi event (%i)", event_id);
+			// Do nothing
 			break;
 		}
 	}
