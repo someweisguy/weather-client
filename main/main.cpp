@@ -47,6 +47,7 @@ bool connect_wifi() {
 			wifi_connected = true;
 		} else {
 			error(TAG, "Could not connect to SSID \"%s\"", config.wifi_ssid);
+			// FIXME: free memory on failure
 			//wifi_stop();
 		}
 	}
@@ -62,6 +63,7 @@ bool connect_mqtt() {
 		} else {
 			error(TAG, "Could not connect to MQTT broker \"%s\"",
 					config.mqtt_broker);
+			// FIXME: free memory on failure
 			//mqtt_stop();
 		}
 	}
@@ -267,8 +269,13 @@ extern "C" void app_main() {
 	// Check if there is backlogged data to transmit to MQTT
 	if (saved_data_exists && wakeup_reason != READY_SENSORS) {
 		info(TAG, "Found saved sensor data to send to MQTT");
+
+		// Connect to MQTT if we haven't already
+		if (wakeup_reason == UNEXPECTED_REASON)
+			connect_mqtt();
+
 		// Publish saved sensor data to MQTT line by line
-		if (connect_wifi() && connect_mqtt()) {
+		if (wifi_connected && mqtt_connected) {
 			info(TAG, "Publishing backlogged sensor data to MQTT");
 			FILE *f { sdcard_open_file_readonly(DATA_FILE_NAME) };
 			do {
@@ -337,6 +344,7 @@ extern "C" void app_main() {
 		warning(TAG, "Could not gracefully stop i2c");
 
 	// Log next wake time
+	// FIXME: use strftime() function here
 	const tm *next_wake_tm { localtime(&next_wake_time) };
 	info(TAG, "Sleeping until %02i/%02i/%i %02i:%02i:%02i",
 			next_wake_tm->tm_mon, next_wake_tm->tm_mday,
