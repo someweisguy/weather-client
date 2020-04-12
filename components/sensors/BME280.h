@@ -15,42 +15,45 @@
 class BME280: public Sensor {
 private:
 
-const char* TAG { "bme280" };
-const uint8_t I2C_ADDRESS { 0x76 }, REG_CHIP_ID { 0xd0 }, REG_RESET { 0xe0 },
-	REG_CONTROLHUMID { 0xf2 }, REG_STATUS { 0xf3 }, REG_CTRL_MEAS { 0xf4 },
-	REG_CONFIG { 0xf5 }, REG_DATA_START { 0xf7 }, REG_TRIM_T1_TO_H1 { 0x88 },
-	REG_TRIM_H2_TO_H5 { 0xe1 };
+	const char *TAG { "bme280" };
+	const uint8_t I2C_ADDRESS { 0x76 }, REG_CHIP_ID { 0xd0 },
+			REG_RESET { 0xe0 }, REG_CONTROLHUMID { 0xf2 }, REG_STATUS { 0xf3 },
+			REG_CTRL_MEAS { 0xf4 }, REG_CONFIG { 0xf5 },
+			REG_DATA_START { 0xf7 }, REG_TRIM_T1_TO_H1 { 0x88 },
+			REG_TRIM_H2_TO_H5 { 0xe1 };
+
+	const char *DEGREES_CELSIUS_SYM { "\u00B0C" };
 
 	int32_t t_fine;
 	struct comp_val_t {
 		uint16_t t1;
-		int16_t  t2;
-		int16_t  t3;
+		int16_t t2;
+		int16_t t3;
 
 		uint16_t p1;
-		int16_t  p2;
-		int16_t  p3;
-		int16_t  p4;
-		int16_t  p5;
-		int16_t  p6;
-		int16_t  p7;
-		int16_t  p8;
-		int16_t  p9;
+		int16_t p2;
+		int16_t p3;
+		int16_t p4;
+		int16_t p5;
+		int16_t p6;
+		int16_t p7;
+		int16_t p8;
+		int16_t p9;
 
-		uint8_t  h1;
-		int16_t  h2;
-		uint8_t  h3;
-		int16_t  h4;
-		int16_t  h5;
-		int8_t   h6;
+		uint8_t h1;
+		int16_t h2;
+		uint8_t h3;
+		int16_t h4;
+		int16_t h5;
+		int8_t h6;
 	} dig;
 
 	int32_t calculate_t_fine(const int32_t adc_T) {
 		const int32_t var1 = ((((adc_T >> 3) - ((int32_t) dig.t1 << 1)))
 				* ((int32_t) dig.t2)) >> 11;
 		const int32_t var2 = (((((adc_T >> 4) - ((int32_t) dig.t1))
-				* ((adc_T >> 4) - ((int32_t) dig.t1))) >> 12) * ((int32_t) dig.t3))
-				>> 14;
+				* ((adc_T >> 4) - ((int32_t) dig.t1))) >> 12)
+				* ((int32_t) dig.t3)) >> 14;
 		const int32_t T = var1 + var2;
 
 		return T;
@@ -90,8 +93,9 @@ const uint8_t I2C_ADDRESS { 0x76 }, REG_CHIP_ID { 0xd0 }, REG_RESET { 0xe0 },
 				- (((int32_t) dig.h5) * v_x1_u32r)) + ((int32_t) 16384)) >> 15)
 				* (((((((v_x1_u32r * ((int32_t) dig.h6)) >> 10)
 						* (((v_x1_u32r * ((int32_t) dig.h3)) >> 11)
-								+ ((int32_t) 32768))) >> 10) + ((int32_t) 2097152))
-						* ((int32_t) dig.h2) + 8192) >> 14));
+								+ ((int32_t) 32768))) >> 10)
+						+ ((int32_t) 2097152)) * ((int32_t) dig.h2) + 8192)
+						>> 14));
 		v_x1_u32r = (v_x1_u32r
 				- (((((v_x1_u32r >> 15) * (v_x1_u32r >> 15)) >> 7)
 						* ((int32_t) dig.h1)) >> 4));
@@ -136,7 +140,6 @@ public:
 		if (i2c_write(I2C_ADDRESS, REG_RESET, &reset_cmd, 1) != ESP_OK)
 			return false;
 
-
 		// Wait for the reset to take effect
 		verbose(TAG, "Waiting for response to soft reset");
 		uint8_t status;
@@ -151,7 +154,6 @@ public:
 		uint8_t id;
 		if (i2c_read(I2C_ADDRESS, REG_CHIP_ID, &id, 1) != ESP_OK && id == 0x60)
 			return false;
-
 
 		// Set the sensor to sleep mode, otherwise settings will be ignored
 		verbose(TAG, "Sending sleep mode command");
@@ -196,7 +198,7 @@ public:
 			return false;
 
 		// Declare a JSON object
-		cJSON* bme_json;
+		cJSON *bme_json;
 
 		// Declare temperature in this scope so we can get dew point later
 		double temperature_C;
@@ -220,12 +222,12 @@ public:
 			verbose(TAG, "Temperature is %.2f C", temperature_C);
 
 			// We have at least one data point now, so start building the JSON object
-			cJSON_AddItemToObject(json_root, "bme280",
-					bme_json = cJSON_CreateObject());
-			cJSON_AddNumberToObject(bme_json, "Temperature Celsius",
-					temperature_C);
+			cJSON_AddItemToObject(json_root, get_name(), bme_json =
+					cJSON_CreateArray());
+			bme_json->child = build_data("Temperature", "T", temperature_C,
+					DEGREES_CELSIUS_SYM);
+			bme_json = bme_json->child;
 		}
-
 
 		// Extract the pressure ADC values from the buffer
 		int32_t adc_P = buf[0];
@@ -237,11 +239,10 @@ public:
 		if (adc_P != 0x800000) {
 			adc_P >>= 4;
 			const float pressure_Pa = compensate_pressure(adc_P) / 256.0;
-			verbose(TAG, "Pressure is %.2f Pa", pressure_Pa);
-
-			cJSON_AddNumberToObject(bme_json, "Pressure Pascals", pressure_Pa);
+			bme_json->next = build_data("Barometric Pressure", "P", pressure_Pa,
+					"Pa");
+			bme_json = bme_json->next;
 		}
-
 
 		// Extract the pressure ADC values from the buffer
 		int32_t adc_H = (buf[6] << 8) | buf[7];
@@ -249,11 +250,9 @@ public:
 		// Calculate relative humidity and dew point
 		if (adc_H != 0x8000) {
 			const float relative_humidity = compensate_humidity(adc_H) / 1024.0;
-			debug(TAG, "Relative humidity is %.2f %%RH", relative_humidity);
-
-			cJSON_AddNumberToObject(bme_json, "Relative Humidity",
-					relative_humidity);
-
+			bme_json->next = build_data("Relative Humidity", "RH",
+					relative_humidity, "%RH");
+			bme_json = bme_json->next;
 
 			// FIXME: Shamelessly stolen from Sparkfun's BME280 library
 			// (1) Saturation Vapor Pressure = ESGG(T)
@@ -268,10 +267,8 @@ public:
 			// (2) DEWPOINT = F(Vapor Pressure)
 			const double T { log(VP / 0.61078) }; // temp var
 			const double dew_point_C { (241.88 * T) / (17.558 - T) };
-			verbose(TAG, "Dew point is %.2f C", dew_point_C);
-
-			cJSON_AddNumberToObject(bme_json, "Dew Point Celsius", dew_point_C);
-
+			bme_json->next = build_data("Dew Point", "DP", dew_point_C,
+					DEGREES_CELSIUS_SYM);
 		}
 
 		return true;

@@ -17,6 +17,20 @@
 #include "cJSON.h"
 
 class Sensor {
+protected:
+	cJSON *build_data(const char *name, const char *abbreviated_name,
+			double val, const char* unit) {
+		cJSON *data_root;
+		data_root = cJSON_CreateObject();
+		cJSON_AddStringToObject(data_root, "name", name);
+		if (strcmp(abbreviated_name, "") != 0)
+			cJSON_AddStringToObject(data_root, "abbr", abbreviated_name);
+		cJSON_AddNumberToObject(data_root, "val", val);
+		if (strcmp(unit, "") != 0)
+			cJSON_AddStringToObject(data_root, "unit", unit);
+		return data_root;
+	}
+
 public:
 	virtual ~Sensor() {
 		// Do nothing;

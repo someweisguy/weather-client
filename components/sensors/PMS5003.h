@@ -13,7 +13,9 @@
 class PMS5003: public Sensor {
 private:
 
-	const char* TAG { "pms5003" };
+	const char *TAG { "pms5003" };
+	const char *MICROGRAMS_PER_CUBIC_METER_SYM { "\u03BCg/m\u00B3" },
+			*MICRON_SYM { "\u03BCm" }, *COUNT_PER_DECILITER_SYM { "cpdL " };
 
 	struct pms_data_t {
 		// Micrograms per cubic meter
@@ -23,7 +25,7 @@ private:
 
 		// Nobody know the difference between "std" and "atm" data for this sensor
 		uint16_t pm1_0_atm;
-		uint16_t pm2_0_atm;
+		uint16_t pm2_5_atm;
 		uint16_t pm10_0_atm;
 
 		// Particles with diameter beyond "X" microns in 0.1L of air
@@ -92,7 +94,7 @@ public:
 		pms_data.pm2_5_std = (buffer[6] << 8) | buffer[7];
 		pms_data.pm10_0_std = (buffer[8] << 8) | buffer[9];
 		pms_data.pm1_0_atm = (buffer[10] << 8) | buffer[11];
-		pms_data.pm2_0_atm = (buffer[12] << 8) | buffer[13];
+		pms_data.pm2_5_atm = (buffer[12] << 8) | buffer[13];
 		pms_data.pm10_0_atm = (buffer[14] << 8) | buffer[15];
 		pms_data.part_0_3 = (buffer[16] << 8) | buffer[17];
 		pms_data.part_0_5 = (buffer[18] << 8) | buffer[19];
@@ -102,37 +104,53 @@ public:
 		pms_data.part_10_0 = (buffer[26] << 8) | buffer[27];
 
 		// Create a PMS5003 JSON object, and add it to root
-		cJSON* pms_json;
-		cJSON_AddItemToObject(json_root, "pms5003",
-				pms_json = cJSON_CreateObject());
+		cJSON *pms_json;
+		cJSON_AddItemToObject(json_root, get_name(), pms_json =
+				cJSON_CreateArray());
 
-		// Add data to PMS5003 JSON object
-		cJSON_AddNumberToObject(pms_json, "PM1.0 m3 (std)", pms_data.pm1_0_std);
-		cJSON_AddNumberToObject(pms_json, "PM2.5 m3 (std)", pms_data.pm2_5_std);
-		cJSON_AddNumberToObject(pms_json, "PM10 m3 (std)", pms_data.pm10_0_std);
-		cJSON_AddNumberToObject(pms_json, "PM1.0 m3 (atm)", pms_data.pm1_0_atm);
-		cJSON_AddNumberToObject(pms_json, "PM2.5 m3 (atm)", pms_data.pm2_0_atm);
-		cJSON_AddNumberToObject(pms_json, "PM10 m3 (atm)", pms_data.pm10_0_atm);
-		cJSON_AddNumberToObject(pms_json, "Particles 0.3 um/0.1L", pms_data.part_0_3);
-		cJSON_AddNumberToObject(pms_json, "Particles 0.5 um/0.1L", pms_data.part_0_5);
-		cJSON_AddNumberToObject(pms_json, "Particles 1.0 um/0.1L", pms_data.part_1_0);
-		cJSON_AddNumberToObject(pms_json, "Particles 2.5 um/0.1L", pms_data.part_2_5);
-		cJSON_AddNumberToObject(pms_json, "Particles 5.0 um/0.1L", pms_data.part_5_0);
-		cJSON_AddNumberToObject(pms_json, "Particles 10.0 um/0.1L", pms_data.part_10_0);
+		// Add PM data to JSON array object
+		pms_json->child = build_data("PM 1.0", "PM1", pms_data.pm1_0_std,
+				MICROGRAMS_PER_CUBIC_METER_SYM);
+		pms_json = pms_json->child; // child not next
+		pms_json->next = build_data("PM 2.5", "PM2.5",
+				pms_data.pm2_5_std, MICROGRAMS_PER_CUBIC_METER_SYM);
+		pms_json = pms_json->next;
+		pms_json->next = build_data("PM 10.0", "PM10",
+				pms_data.pm10_0_std, MICROGRAMS_PER_CUBIC_METER_SYM);
+		pms_json = pms_json->next;
 
-		// Log
-		verbose(TAG, "PM 1.0: %u (std)", pms_data.pm1_0_std);
-		verbose(TAG, "PM 2.5: %u (std)", pms_data.pm2_5_std);
-		verbose(TAG, "PM 10: %u (std)", pms_data.pm10_0_std);
-		verbose(TAG, "PM 1.0: %u (atm)", pms_data.pm1_0_atm);
-		verbose(TAG, "PM 2.5: %u (atm)", pms_data.pm2_0_atm);
-		verbose(TAG, "PM 10: %u (atm)", pms_data.pm10_0_atm);
-		verbose(TAG, "Particles 0.3 microns: %u", pms_data.part_0_3);
-		verbose(TAG, "Particles 0.5 microns: %u", pms_data.part_0_5);
-		verbose(TAG, "Particles 1.0 microns: %u", pms_data.part_1_0);
-		verbose(TAG, "Particles 2.5 microns: %u", pms_data.part_2_5);
-		verbose(TAG, "Particles 5.0 microns: %u", pms_data.part_5_0);
-		verbose(TAG, "Particles 10 microns: %u", pms_data.part_10_0);
+		// Intentionally omit this data - it is not clear what the difference is
+		//  between PM standard and PM atmospheric
+		/*
+		pms_json->next = build_data("PM 1.0 (atm)", "PM1", pms_data.pm1_0_atm,
+				MICROGRAMS_PER_CUBIC_METER_SYM);
+		pms_json = pms_json->next;
+		pms_json->next = build_data("PM 2.5 (atm)", "PM2.5",
+				pms_data.pm2_5_atm, MICROGRAMS_PER_CUBIC_METER_SYM);
+		pms_json = pms_json->next;
+		pms_json->next = build_data("PM 10.0 (atm)", "PM10",
+				pms_data.pm10_0_atm, MICROGRAMS_PER_CUBIC_METER_SYM);
+		pms_json = pms_json->next;
+		*/
+
+		// Add particle count data to JSON array object
+		pms_json->next = build_data("Particles 0.3" "\u03BCm", "0.3" "\u03BCm",
+				pms_data.part_0_3, COUNT_PER_DECILITER_SYM);
+		pms_json = pms_json->next;
+		pms_json->next = build_data("Particles 0.5" "\u03BCm", "0.5" "\u03BCm",
+				pms_data.part_0_5, COUNT_PER_DECILITER_SYM);
+		pms_json = pms_json->next;
+		pms_json->next = build_data("Particles 1.0" "\u03BCm", "1" "\u03BCm",
+				pms_data.part_1_0, COUNT_PER_DECILITER_SYM);
+		pms_json = pms_json->next;
+		pms_json->next = build_data("Particles 2.5" "\u03BCm", "2.5" "\u03BCm",
+				pms_data.part_2_5, COUNT_PER_DECILITER_SYM);
+		pms_json = pms_json->next;
+		pms_json->next = build_data("Particles 5.0" "\u03BCm", "5" "\u03BCm",
+				pms_data.part_5_0, COUNT_PER_DECILITER_SYM);
+		pms_json = pms_json->next;
+		pms_json->next = build_data("Particles 10.0" "\u03BCm", "10" "\u03BCm",
+				pms_data.part_10_0, COUNT_PER_DECILITER_SYM);
 
 		return true;
 	}
