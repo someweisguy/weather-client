@@ -8,17 +8,11 @@
 #include "logger.h"
 static const char* TAG { "logger" };
 
-// Comment this out to stop logging to a console (this will speed up runtimes)
+// Comment this out to stop logging to a console (this will speed up runtime)
 #define LOG_TO_CONSOLE
 
-// Console colors
-#ifdef LOG_TO_CONSOLE
-static const char *RED { "\x1b[31m" }, *YELLOW { "\x1b[33m" },
-		*MAGENTA { "\x1b[35m" }, *CYAN { "\x1b[36m" }, *WHITE { "\x1b[0m" };
-#endif
-
 static log_level_t LEVEL { DEBUG };
-static char* LOG_FILE_NAME { 0 };
+static char *LOG_FILE_NAME { 0 };
 
 
 static void write_log(const log_level_t log_level, const char *tag,
@@ -28,79 +22,69 @@ static void write_log(const log_level_t log_level, const char *tag,
 	if (log_level < LEVEL)
 		return;
 
-	// Declare log format after the log abbreviation
-	const char *format = " (%s) %s: ";
+	// The format for the prefix to the log message
+	const char *log_prefix_format { "[%c] (%s) %s: " };
 
-	// Set the log char
+	// Get the time string
+	char time_str[20];
+	const time_t now { time(nullptr) };
+	strftime(time_str, 20, "%F %T", localtime(&now));
+
+	// Set the log character (and log color if printing to console)
 	char log_char;
+#ifdef LOG_TO_CONSOLE
+	const char *log_color;
+#endif
 	switch (log_level) {
 	case VERBOSE:
 		log_char = 'V';
+#ifdef LOG_TO_CONSOLE
+		log_color = "\x1b[35m"; // magenta
+#endif
 		break;
 
 	case DEBUG:
 		log_char = 'D';
+#ifdef LOG_TO_CONSOLE
+		log_color = "\x1b[36m"; // cyan
+#endif
 		break;
 
 	case INFO:
+#ifdef LOG_TO_CONSOLE
+		log_color = "\x1b[0m"; // white
+#endif
 		log_char = 'I';
 		break;
 
 	case WARNING:
+#ifdef LOG_TO_CONSOLE
+		log_color = "\x1b[33m"; // yellow
+#endif
 		log_char = 'W';
 		break;
 
 	case ERROR:
+#ifdef LOG_TO_CONSOLE
+		log_color = "\x1b[31m"; // red
+#endif
 		log_char = 'E';
 		break;
 
 	default:
+#ifdef LOG_TO_CONSOLE
+		log_color = "\x1b[31m"; // red
+#endif
 		log_char = '?';
 		break;
 	}
 
-	// Get the time
-	time_t now = time(nullptr);
-	tm *ptm = localtime(&now);
-	const char *time_fmt = "%F %T";
-	char time_str[21];
-	strftime(time_str, 20, time_fmt, ptm);
-
-
 #ifdef LOG_TO_CONSOLE
-	// Set the console color
-	const char* log_color;
-	switch (log_level) {
-	case VERBOSE:
-		log_color = MAGENTA;
-		break;
-
-	case DEBUG:
-		log_color = CYAN;
-		break;
-
-	case INFO:
-	default:
-		log_color = WHITE;
-		break;
-
-	case WARNING:
-		log_color = YELLOW;
-		break;
-
-	case ERROR:
-		log_color = RED;
-		break;
-	}
-
 	// Print the log entry to stdout
-	fputs(log_color, stdout);
-	putchar('[');
-	putchar(log_char);
-	putchar(']');
-	printf(format, time_str, tag);
+	puts(log_color);
+	printf(log_prefix_format, log_char,  time_str, tag);
 	vprintf(msg, args);
-	puts(WHITE);
+	fputs("\x1b[0m", stdout); // white
 #endif
 
 	// Check that logger_start() was called
@@ -108,17 +92,16 @@ static void write_log(const log_level_t log_level, const char *tag,
 		return;
 
 	// Log to the SD card
-	FILE *f = fopen(LOG_FILE_NAME, "a+");
+	FILE *f { fopen(LOG_FILE_NAME, "a+") };
 	if (f != nullptr) {
-		fputc(log_char, f);
-		fprintf(f, format, time_str, tag);
+		fprintf(f, log_prefix_format, log_char, time_str, tag);
 		vfprintf(f, msg, args);
 		fputc('\n', f);
 		fclose(f);
 	}
 }
 
-esp_err_t logger_start(const char* log_file_name) {
+esp_err_t logger_start(const char *log_file_name) {
 	// Get info about the log file
 	struct stat st;
 	if (stat(log_file_name, &st) != 0)
