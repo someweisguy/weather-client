@@ -217,7 +217,7 @@ public:
 			adc_T >>= 4;
 			t_fine = calculate_t_fine(adc_T);
 			temperature_C = compensate_temperature() / 100.0;
-			debug(TAG, "Temperature is %.2f C", temperature_C);
+			verbose(TAG, "Temperature is %.2f C", temperature_C);
 
 			// We have at least one data point now, so start building the JSON object
 			cJSON_AddItemToObject(json_root, "bme280",
@@ -237,7 +237,7 @@ public:
 		if (adc_P != 0x800000) {
 			adc_P >>= 4;
 			const float pressure_Pa = compensate_pressure(adc_P) / 256.0;
-			debug(TAG, "Pressure is %.2f Pa", pressure_Pa);
+			verbose(TAG, "Pressure is %.2f Pa", pressure_Pa);
 
 			cJSON_AddNumberToObject(bme_json, "Pressure Pascals", pressure_Pa);
 		}
@@ -268,7 +268,7 @@ public:
 			// (2) DEWPOINT = F(Vapor Pressure)
 			const double T { log(VP / 0.61078) }; // temp var
 			const double dew_point_C { (241.88 * T) / (17.558 - T) };
-			debug(TAG, "Dew point is %.2f C", dew_point_C);
+			verbose(TAG, "Dew point is %.2f C", dew_point_C);
 
 			cJSON_AddNumberToObject(bme_json, "Dew Point Celsius", dew_point_C);
 

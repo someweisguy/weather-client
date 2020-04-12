@@ -121,18 +121,18 @@ public:
 		cJSON_AddNumberToObject(pms_json, "Particles 10.0 um/0.1L", pms_data.part_10_0);
 
 		// Log
-		debug(TAG, "PM 1.0: %u (std)", pms_data.pm1_0_std);
-		debug(TAG, "PM 2.5: %u (std)", pms_data.pm2_5_std);
-		debug(TAG, "PM 10: %u (std)", pms_data.pm10_0_std);
-		debug(TAG, "PM 1.0: %u (atm)", pms_data.pm1_0_atm);
-		debug(TAG, "PM 2.5: %u (atm)", pms_data.pm2_0_atm);
-		debug(TAG, "PM 10: %u (atm)", pms_data.pm10_0_atm);
-		debug(TAG, "Particles 0.3 microns: %u", pms_data.part_0_3);
-		debug(TAG, "Particles 0.5 microns: %u", pms_data.part_0_5);
-		debug(TAG, "Particles 1.0 microns: %u", pms_data.part_1_0);
-		debug(TAG, "Particles 2.5 microns: %u", pms_data.part_2_5);
-		debug(TAG, "Particles 5.0 microns: %u", pms_data.part_5_0);
-		debug(TAG, "Particles 10 microns: %u", pms_data.part_10_0);
+		verbose(TAG, "PM 1.0: %u (std)", pms_data.pm1_0_std);
+		verbose(TAG, "PM 2.5: %u (std)", pms_data.pm2_5_std);
+		verbose(TAG, "PM 10: %u (std)", pms_data.pm10_0_std);
+		verbose(TAG, "PM 1.0: %u (atm)", pms_data.pm1_0_atm);
+		verbose(TAG, "PM 2.5: %u (atm)", pms_data.pm2_0_atm);
+		verbose(TAG, "PM 10: %u (atm)", pms_data.pm10_0_atm);
+		verbose(TAG, "Particles 0.3 microns: %u", pms_data.part_0_3);
+		verbose(TAG, "Particles 0.5 microns: %u", pms_data.part_0_5);
+		verbose(TAG, "Particles 1.0 microns: %u", pms_data.part_1_0);
+		verbose(TAG, "Particles 2.5 microns: %u", pms_data.part_2_5);
+		verbose(TAG, "Particles 5.0 microns: %u", pms_data.part_5_0);
+		verbose(TAG, "Particles 10 microns: %u", pms_data.part_10_0);
 
 		return true;
 	}

@@ -220,6 +220,7 @@ extern "C" void app_main() {
 
 		// Build the JSON string for MQTT and delete the JSON object
 		char *json_str { cJSON_Print(json_root) };
+		debug(TAG, "Got JSON: %s", json_str);
 		cJSON_Delete(json_root);
 
 		// Wait for at least one second before sending the sleep command
