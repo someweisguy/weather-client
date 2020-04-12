@@ -47,6 +47,7 @@ bool connect_wifi() {
 			wifi_connected = true;
 		} else {
 			error(TAG, "Could not connect to SSID \"%s\"", config.wifi_ssid);
+			//wifi_stop();
 		}
 	}
 	return wifi_connected;
@@ -61,6 +62,7 @@ bool connect_mqtt() {
 		} else {
 			error(TAG, "Could not connect to MQTT broker \"%s\"",
 					config.mqtt_broker);
+			//mqtt_stop();
 		}
 	}
 	return mqtt_connected;
@@ -264,7 +266,7 @@ extern "C" void app_main() {
 
 	// Check if there is backlogged data to transmit to MQTT
 	if (saved_data_exists && wakeup_reason != READY_SENSORS) {
-		info(TAG, "Sending saved sensor data to MQTT");
+		info(TAG, "Found saved sensor data to send to MQTT");
 		// Publish saved sensor data to MQTT line by line
 		if (connect_wifi() && connect_mqtt()) {
 			info(TAG, "Publishing backlogged sensor data to MQTT");
