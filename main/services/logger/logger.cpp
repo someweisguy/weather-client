@@ -81,10 +81,10 @@ static void write_log(const log_level_t log_level, const char *tag,
 
 #ifdef LOG_TO_CONSOLE
 	// Print the log entry to stdout
-	puts(log_color);
+	fputs(log_color, stdout);
 	printf(log_prefix_format, log_char,  time_str, tag);
 	vprintf(msg, args);
-	fputs("\x1b[0m", stdout); // white
+	puts("\x1b[0m"); // white
 #endif
 
 	// Check that logger_start() was called
