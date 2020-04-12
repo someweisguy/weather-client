@@ -19,7 +19,7 @@
 
 #include "logger.h"
 
-#define LOG_LEVEL        DEBUG
+#define LOG_LEVEL        INFO
 #define SENSOR_READY_SEC 30 /* Longest time (in seconds) that it takes for sensors to wake up */
 #define BOOT_DELAY_SEC    5 /* Time (in seconds) that it takes the ESP32 to wake up */
 
@@ -345,10 +345,9 @@ extern "C" void app_main() {
 		warning(TAG, "Could not gracefully stop i2c");
 
 	// Log next wake time
-	// FIXME: use strftime() function here
 	const tm *next_wake_tm { localtime(&next_wake_time) };
 	info(TAG, "Sleeping until %02i/%02i/%i %02i:%02i:%02i",
-			next_wake_tm->tm_mon, next_wake_tm->tm_mday,
+			next_wake_tm->tm_mon + 1, next_wake_tm->tm_mday,
 			next_wake_tm->tm_year + 1900, next_wake_tm->tm_hour,
 			next_wake_tm->tm_min, next_wake_tm->tm_sec);
 	const time_t deep_sleep_sec { next_wake_time - get_cpu_time() };
