@@ -19,7 +19,7 @@
 class Sensor {
 protected:
 
-	void build_data(cJSON *json_root, const char *name,
+	void add_JSON_elem(cJSON *json_root, const char *name,
 			const char *abbreviated_name, double val, const char* unit) {
 
 		// Get the last element in the JSON array
