@@ -102,14 +102,15 @@ static void write_log(const log_level_t log_level, const char *tag,
 }
 
 esp_err_t logger_start(const char *log_file_name) {
-	// Get info about the log file
-	struct stat st;
-	if (stat(log_file_name, &st) != 0)
-		return ESP_FAIL;
 
 	// Set the log file name
- 	LOG_FILE_NAME = new char[strlen(log_file_name)];
- 	strcpy(LOG_FILE_NAME, log_file_name);
+	LOG_FILE_NAME = new char[strlen(log_file_name)];
+	strcpy(LOG_FILE_NAME, log_file_name);
+
+	// Get info about the log file if it exists
+	struct stat st;
+	if (stat(log_file_name, &st) != 0)
+		return ESP_OK;
 
 	// Remove log file if it is larger than 10MB
 	if (st.st_size > 1024 * 1024 * 10) {
