@@ -103,7 +103,7 @@ esp_err_t mqtt_publish(const char* topic, const char* data) {
 
 	// Wait for the message to be published
 	const EventBits_t publish_ret { xEventGroupWaitBits(mqtt_event_group,
-			MQTT_PUBLISH, pdTRUE, pdFALSE, portMAX_DELAY) };
+			MQTT_PUBLISH | MQTT_FAIL, pdTRUE, pdFALSE, portMAX_DELAY) };
 
 	if (publish_ret == MQTT_PUBLISH) {
 		return ESP_OK;
