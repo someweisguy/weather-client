@@ -22,7 +22,7 @@ private:
 			REG_DATA_START { 0xf7 }, REG_TRIM_T1_TO_H1 { 0x88 },
 			REG_TRIM_H2_TO_H5 { 0xe1 };
 
-	const char *DEGREES_CELSIUS_SYM { "\u00B0C" };
+	const char *DEGREE_SYM { "\u00B0" };
 
 	int32_t t_fine;
 	struct comp_val_t {
@@ -219,7 +219,7 @@ public:
 
 			// We have at least one data point now, so start building the JSON object
 			add_JSON_elem(json, "Temperature", "T", temperature_C,
-					DEGREES_CELSIUS_SYM);
+					DEGREE_SYM, "C");
 		}
 
 		// Extract the pressure ADC values from the buffer
@@ -232,7 +232,7 @@ public:
 		if (adc_P != 0x800000) {
 			adc_P >>= 4;
 			const uint64_t pressure_Pa { compensate_pressure(adc_P) / 256 };
-			add_JSON_elem(json, "Barometric Pressure", "P", pressure_Pa, "Pa");
+			add_JSON_elem(json, "Barometric Pressure", "P", pressure_Pa, "", "Pa");
 		}
 
 		// Extract the pressure ADC values from the buffer
@@ -243,7 +243,7 @@ public:
 			const double relative_humidity { trunc(
 					compensate_humidity(adc_H) / 1024.0 * 100) / 100.0 };
 			add_JSON_elem(json, "Relative Humidity", "RH", relative_humidity,
-					"%");
+					"%", "RH");
 
 			// FIXME: Shamelessly stolen from Sparkfun's BME280 library
 			// (1) Saturation Vapor Pressure = ESGG(T)
@@ -260,7 +260,7 @@ public:
 			const double dew_point_C { trunc((241.88 * T) / (17.558 - T) * 100)
 					/ 100.0 };
 			add_JSON_elem(json, "Dew Point", "DP", dew_point_C,
-					DEGREES_CELSIUS_SYM);
+					DEGREE_SYM, "C");
 		}
 
 		return true;
