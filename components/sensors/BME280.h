@@ -22,8 +22,6 @@ private:
 			REG_DATA_START { 0xf7 }, REG_TRIM_T1_TO_H1 { 0x88 },
 			REG_TRIM_H2_TO_H5 { 0xe1 };
 
-	const char *DEGREE_SYM { "\u00B0" };
-
 	int32_t t_fine;
 	struct comp_val_t {
 		uint16_t t1;
@@ -219,7 +217,7 @@ public:
 
 			// We have at least one data point now, so start building the JSON object
 			add_JSON_elem(json, "Temperature", "T", temperature_C,
-					DEGREE_SYM, "C");
+					"\u00B0", "C");
 		}
 
 		// Extract the pressure ADC values from the buffer
@@ -244,23 +242,6 @@ public:
 					compensate_humidity(adc_H) / 1024.0 * 100) / 100.0 };
 			add_JSON_elem(json, "Relative Humidity", "RH", relative_humidity,
 					"%", "RH");
-
-			// FIXME: Shamelessly stolen from Sparkfun's BME280 library
-			// (1) Saturation Vapor Pressure = ESGG(T)
-			const double RATIO { 373.15 / (273.15 + temperature_C) };
-			double RHS { -7.90298 * (RATIO - 1) };
-			RHS += 5.02808 * log10(RATIO);
-			RHS += -1.3816e-7 * (pow(10, (11.344 * (1 - 1 / RATIO))) - 1);
-			RHS += 8.1328e-3 * (pow(10, (-3.49149 * (RATIO - 1))) - 1);
-			RHS += log10(1013.246);
-			// factor -3 is to adjust units - Vapor Pressure SVP * humidity
-			const double VP { pow(10, RHS - 3) * relative_humidity };
-			// (2) DEWPOINT = F(Vapor Pressure)
-			const double T { log(VP / 0.61078) }; // temp var
-			const double dew_point_C { trunc((241.88 * T) / (17.558 - T) * 100)
-					/ 100.0 };
-			add_JSON_elem(json, "Dew Point", "DP", dew_point_C,
-					DEGREE_SYM, "C");
 		}
 
 		return true;
