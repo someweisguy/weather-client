@@ -18,17 +18,32 @@
 
 class Sensor {
 protected:
-	cJSON *build_data(const char *name, const char *abbreviated_name,
-			double val, const char* unit) {
-		cJSON *data_root;
-		data_root = cJSON_CreateObject();
-		cJSON_AddStringToObject(data_root, "name", name);
+
+	void build_data(cJSON *json_root, const char *name,
+			const char *abbreviated_name, double val, const char* unit) {
+
+		// Get the last element in the JSON array
+		cJSON *current;
+		if (json_root->child == nullptr) {
+			json_root->child = cJSON_CreateObject();
+			current = json_root->child;
+		} else {
+			current = json_root->child;
+			while (current->next != nullptr) {
+				current = current->next;
+			}
+			current->next = cJSON_CreateObject();
+			current->next->prev = current;
+			current = current->next;
+		}
+
+		// Construct the JSON object
+		cJSON_AddStringToObject(current, "name", name);
 		if (strcmp(abbreviated_name, "") != 0)
-			cJSON_AddStringToObject(data_root, "abbr", abbreviated_name);
-		cJSON_AddNumberToObject(data_root, "val", val);
+			cJSON_AddStringToObject(current, "abbr", abbreviated_name);
+		cJSON_AddNumberToObject(current, "val", val);
 		if (strcmp(unit, "") != 0)
-			cJSON_AddStringToObject(data_root, "unit", unit);
-		return data_root;
+			cJSON_AddStringToObject(current, "unit", unit);
 	}
 
 public:

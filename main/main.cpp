@@ -186,15 +186,18 @@ extern "C" void app_main() {
 				error(TAG, "Unable to ready %s for data", sensor->get_name());
 		}
 
-		// Build a JSON root object
-		cJSON *json_root { cJSON_CreateObject() }, *json_time;
-		cJSON_AddItemToObject(json_root, "time", json_time=cJSON_CreateObject());
-		char iso8601_str[20];
-		strftime(iso8601_str, 20, "%F %T", localtime(&measurement_time));
-		cJSON_AddStringToObject(json_time, "iso8601", iso8601_str);
-		cJSON_AddNumberToObject(json_time, "unix", measurement_time);
+		// Build a JSON root, time, and data object
+		cJSON *json_root { cJSON_CreateObject() }, *json_data;
+
+		// Create JSON time object
+		cJSON_AddNumberToObject(json_root, "time", measurement_time);
+
+		// Prepare JSON data object
+		cJSON_AddItemToObject(json_root, "data", json_data=cJSON_CreateArray());
+
+		// Track which sensors didn't get data
 		const size_t num_sensors { sizeof(sensors) / sizeof(Sensor) };
-		bool bad_sensors[num_sensors] {}; // set to false by default
+		bool bad_sensors[num_sensors] {}; // false by default
 
 		// Wait for the measurement window
 		info(TAG, "Waiting for measurement window...");
@@ -204,19 +207,21 @@ extern "C" void app_main() {
 		// Get weather data, log errors after all data has been taken
 		info(TAG, "Taking weather measurements");
 		for (int i = 0; i < num_sensors; ++i) {
-			if (!sensors[i]->get_data(json_root))
+			if (!sensors[i]->get_data(json_data))
 				bad_sensors[i] = true;
-		}
-		for (int i = 0; i < num_sensors; ++i) {
-			if (bad_sensors[i])
-				error(TAG, "Could not get data from %s", sensors[i]->
-						get_name());
 		}
 
 		// Check to make sure data was measured on time
 		const time_t actual_measurement_time { get_cpu_time() };
 		if (measurement_time < actual_measurement_time)
 			warning(TAG, "Data was not measured before the deadline");
+
+		// Check if any sensors were not able to get data
+		for (int i = 0; i < num_sensors; ++i) {
+			if (bad_sensors[i])
+				error(TAG, "Could not get data from %s",
+						sensors[i]->get_name());
+		}
 
 		// Build the JSON string for MQTT and delete the JSON object
 		char *json_str { cJSON_Print(json_root) };

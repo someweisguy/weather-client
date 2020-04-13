@@ -39,7 +39,7 @@ private:
 
 public:
 
-	const char *get_name() override {
+	const char* get_name() override {
 		return "PMS5003";
 	}
 
@@ -66,7 +66,7 @@ public:
 			return false;
 	}
 
-	bool get_data(cJSON *json_root) override {
+	bool get_data(cJSON *json) override {
 		verbose(TAG, "Sending read in passive mode command");
 		const uint8_t read_cmd[7] { 0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71 };
 		if (uart_write(read_cmd, 7) != ESP_OK)
@@ -103,53 +103,29 @@ public:
 		pms_data.part_5_0 = (buffer[24] << 8) | buffer[25];
 		pms_data.part_10_0 = (buffer[26] << 8) | buffer[27];
 
-		// Create a PMS5003 JSON object, and add it to root
-		cJSON *pms_json;
-		cJSON_AddItemToObject(json_root, get_name(), pms_json =
-				cJSON_CreateArray());
-
 		// Add PM data to JSON array object
-		pms_json->child = build_data("PM 1.0", "PM1", pms_data.pm1_0_std,
+		build_data(json, "PM 1.0", "PM1", pms_data.pm1_0_std,
 				MICROGRAMS_PER_CUBIC_METER_SYM);
-		pms_json = pms_json->child; // child not next
-		pms_json->next = build_data("PM 2.5", "PM2.5", pms_data.pm2_5_std,
+		build_data(json, "PM 2.5", "PM2.5", pms_data.pm2_5_std,
 				MICROGRAMS_PER_CUBIC_METER_SYM);
-		pms_json = pms_json->next;
-		pms_json->next = build_data("PM 10.0", "PM10", pms_data.pm10_0_std,
+		build_data(json, "PM 10.0", "PM10", pms_data.pm10_0_std,
 				MICROGRAMS_PER_CUBIC_METER_SYM);
-		pms_json = pms_json->next;
 
-		// Intentionally omit this data - it is not clear what the difference is
-		//  between PM standard and PM atmospheric
-		/*
-		 pms_json->next = build_data("PM 1.0 (atm)", "PM1", pms_data.pm1_0_atm,
-		 MICROGRAMS_PER_CUBIC_METER_SYM);
-		 pms_json = pms_json->next;
-		 pms_json->next = build_data("PM 2.5 (atm)", "PM2.5",
-		 pms_data.pm2_5_atm, MICROGRAMS_PER_CUBIC_METER_SYM);
-		 pms_json = pms_json->next;
-		 pms_json->next = build_data("PM 10.0 (atm)", "PM10",
-		 pms_data.pm10_0_atm, MICROGRAMS_PER_CUBIC_METER_SYM);
-		 pms_json = pms_json->next;
-		 */
+		// Intentionally omit PM atmospheric data because it is not clear what
+		//  the difference is between PM standard and PM atmospheric
 
 		// Add particle count data to JSON array object
-		pms_json->next = build_data("Particles 0.3" "\u03BCm", "PTC0.3",
-				pms_data.part_0_3, COUNT_PER_DECILITER_SYM);
-		pms_json = pms_json->next;
-		pms_json->next = build_data("Particles 0.5" "\u03BCm", "PTC0.5",
-				pms_data.part_0_5, COUNT_PER_DECILITER_SYM);
-		pms_json = pms_json->next;
-		pms_json->next = build_data("Particles 1.0" "\u03BCm", "PTC1",
-				pms_data.part_1_0, COUNT_PER_DECILITER_SYM);
-		pms_json = pms_json->next;
-		pms_json->next = build_data("Particles 2.5" "\u03BCm", "PTC2.5",
-				pms_data.part_2_5, COUNT_PER_DECILITER_SYM);
-		pms_json = pms_json->next;
-		pms_json->next = build_data("Particles 5.0" "\u03BCm", "PTC5",
-				pms_data.part_5_0, COUNT_PER_DECILITER_SYM);
-		pms_json = pms_json->next;
-		pms_json->next = build_data("Particles 10.0" "\u03BCm", "PTC10",
+		build_data(json, "Particles 0.3" "\u03BCm", "PTC0.3", pms_data.part_0_3,
+				COUNT_PER_DECILITER_SYM);
+		build_data(json, "Particles 0.5" "\u03BCm", "PTC0.5", pms_data.part_0_5,
+				COUNT_PER_DECILITER_SYM);
+		build_data(json, "Particles 1.0" "\u03BCm", "PTC1", pms_data.part_1_0,
+				COUNT_PER_DECILITER_SYM);
+		build_data(json, "Particles 2.5" "\u03BCm", "PTC2.5", pms_data.part_2_5,
+				COUNT_PER_DECILITER_SYM);
+		build_data(json, "Particles 5.0" "\u03BCm", "PTC5", pms_data.part_5_0,
+				COUNT_PER_DECILITER_SYM);
+		build_data(json, "Particles 10.0" "\u03BCm", "PTC10",
 				pms_data.part_10_0, COUNT_PER_DECILITER_SYM);
 
 		return true;
