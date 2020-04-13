@@ -9,7 +9,7 @@
 static const char* TAG { "logger" };
 
 // Comment this out to stop logging to a console (this will speed up runtime)
-#define LOG_TO_CONSOLE
+//#define LOG_TO_CONSOLE
 
 static log_level_t LEVEL { DEBUG };
 static char *LOG_FILE_NAME { 0 };
