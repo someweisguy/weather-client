@@ -216,8 +216,8 @@ public:
 			temperature_C = compensate_temperature() / 100.0;
 
 			// We have at least one data point now, so start building the JSON object
-			add_JSON_elem(json, "Temperature", "T", temperature_C,
-					"\u00B0", "C");
+			const char *DEGREE_SYM { "\u00B0" };
+			add_JSON_elem(json, "Temperature", temperature_C, DEGREE_SYM, "C");
 		}
 
 		// Extract the pressure ADC values from the buffer
@@ -230,7 +230,7 @@ public:
 		if (adc_P != 0x800000) {
 			adc_P >>= 4;
 			const uint64_t pressure_Pa { compensate_pressure(adc_P) / 256 };
-			add_JSON_elem(json, "Barometric Pressure", "P", pressure_Pa, "", "Pa");
+			add_JSON_elem(json, "Barometric Pressure", pressure_Pa, "", "Pa");
 		}
 
 		// Extract the pressure ADC values from the buffer
@@ -240,8 +240,8 @@ public:
 		if (adc_H != 0x8000) {
 			const double relative_humidity { trunc(
 					compensate_humidity(adc_H) / 1024.0 * 100) / 100.0 };
-			add_JSON_elem(json, "Relative Humidity", "RH", relative_humidity,
-					"%", "RH");
+			add_JSON_elem(json, "Relative Humidity", relative_humidity, "%",
+					"RH");
 		}
 
 		return true;

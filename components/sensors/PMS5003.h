@@ -14,8 +14,6 @@ class PMS5003: public Sensor {
 private:
 
 	const char *TAG { "pms5003" };
-	const char *MICROGRAMS_PER_CUBIC_METER_SYM { "\u03BCg/m\u00B3" },
-			*MICRON_SYM { "\u03BCm" }, *COUNT_PER_DECILITER_SYM { "cpdL " };
 
 	struct pms_data_t {
 		// Micrograms per cubic meter
@@ -103,30 +101,33 @@ public:
 		pms_data.part_5_0 = (buffer[24] << 8) | buffer[25];
 		pms_data.part_10_0 = (buffer[26] << 8) | buffer[27];
 
+		const char *MICROGRAMS_PER_CUBIC_METER_SYM { "\u03BCg/m\u00B3" };
+
 		// Add PM data to JSON array object
-		add_JSON_elem(json, "PM 1.0", "PM1", pms_data.pm1_0_std, "",
+		add_JSON_elem(json, "PM 1.0",  pms_data.pm1_0_std, "",
 				MICROGRAMS_PER_CUBIC_METER_SYM);
-		add_JSON_elem(json, "PM 2.5", "PM2.5", pms_data.pm2_5_std, "",
+		add_JSON_elem(json, "PM 2.5",  pms_data.pm2_5_std, "",
 				MICROGRAMS_PER_CUBIC_METER_SYM);
-		add_JSON_elem(json, "PM 10.0", "PM10", pms_data.pm10_0_std, "",
+		add_JSON_elem(json, "PM 10.0", pms_data.pm10_0_std, "",
 				MICROGRAMS_PER_CUBIC_METER_SYM);
 
 		// Intentionally omit PM atmospheric data because it is not clear what
 		//  the difference is between PM standard and PM atmospheric
 
-		// Add particle count data to JSON array object
-		add_JSON_elem(json, "Particles 0.3" "\u03BCm", "PTC0.3",
-				pms_data.part_0_3, "", COUNT_PER_DECILITER_SYM);
-		add_JSON_elem(json, "Particles 0.5" "\u03BCm", "PTC0.5",
-				pms_data.part_0_5, "",  COUNT_PER_DECILITER_SYM);
-		add_JSON_elem(json, "Particles 1.0" "\u03BCm", "PTC1",
-				pms_data.part_1_0, "",  COUNT_PER_DECILITER_SYM);
-		add_JSON_elem(json, "Particles 2.5" "\u03BCm", "PTC2.5",
-				pms_data.part_2_5, "",  COUNT_PER_DECILITER_SYM);
-		add_JSON_elem(json, "Particles 5.0" "\u03BCm", "PTC5",
-				pms_data.part_5_0, "",  COUNT_PER_DECILITER_SYM);
-		add_JSON_elem(json, "Particles 10.0" "\u03BCm", "PTC10",
-				pms_data.part_10_0, "",  COUNT_PER_DECILITER_SYM);
+		// Add particle count data to JSON array object - multiply by 10 to get
+		//  units per Liter
+		add_JSON_elem(json, ">0.3 micron Dia. Particles",
+				pms_data.part_0_3 * 10.0, "", "U/L");
+		add_JSON_elem(json, ">0.5 micron Dia. Particles",
+				pms_data.part_0_5 * 10.0, "", "U/L");
+		add_JSON_elem(json, ">1.0 micron Dia. Particles",
+				pms_data.part_1_0 * 10.0, "", "U/L");
+		add_JSON_elem(json, ">2.5 micron Dia. Particles",
+				pms_data.part_2_5 * 10.0, "", "U/L");
+		add_JSON_elem(json, ">5.0 micron Dia. Particles",
+				pms_data.part_5_0 * 10.0, "", "U/L");
+		add_JSON_elem(json, ">10.0 micron Dia. Particles",
+				pms_data.part_10_0 * 10.0, "", "U/L");
 
 		return true;
 	}
