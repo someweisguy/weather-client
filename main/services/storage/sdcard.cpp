@@ -100,7 +100,20 @@ esp_err_t sdcard_get_config_vals(const char *file_name, config_t &config) {
 		config.wifi_ssid = strdup(cJSON_GetObjectItem(root, "ssid")->valuestring);
 		config.wifi_password = strdup(cJSON_GetObjectItem(root, "pass")->valuestring);
 		config.mqtt_broker = strdup(cJSON_GetObjectItem(root, "mqtt")->valuestring);
-		config.mqtt_topic = strdup(cJSON_GetObjectItem(root, "topic")->valuestring);
+
+		// Set the mqtt data and boot log topics
+		const char *data_suffix { "/data" }, *boot_log_suffix { "/boot_log" };
+		const size_t base_topic_len { strlen(cJSON_GetObjectItem(root,
+				"topic")->valuestring) };
+
+		config.mqtt_data_topic = new char[base_topic_len + strlen(data_suffix) + 1];
+		strcpy(config.mqtt_data_topic, cJSON_GetObjectItem(root, "topic")->valuestring);
+		strcat(config.mqtt_data_topic, data_suffix);
+
+		config.mqtt_boot_log_topic = new char[base_topic_len + strlen(boot_log_suffix) + 1];
+		strcpy(config.mqtt_boot_log_topic, cJSON_GetObjectItem(root, "topic")->valuestring);
+		strcat(config.mqtt_boot_log_topic, boot_log_suffix);
+
 		cJSON_Delete(root);
 		return ESP_OK;
 
