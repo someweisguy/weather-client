@@ -9,7 +9,7 @@
 static const char* TAG { "logger" };
 
 // Comment this out to stop logging to a console (this will speed up runtime)
-//#define LOG_TO_CONSOLE
+#define LOG_TO_CONSOLE
 
 static log_level_t LEVEL { DEBUG };
 static char *LOG_FILE_NAME { 0 };
@@ -26,9 +26,9 @@ static void write_log(const log_level_t log_level, const char *tag,
 	const char *log_prefix_format { "[%c] (%s) %s: " };
 
 	// Get the time string
-	char time_str[20];
+	char time_str[21];
 	const time_t now { time(nullptr) };
-	strftime(time_str, 20, "%F %T", localtime(&now));
+	strftime(time_str, 21, "%FT%TZ", localtime(&now));
 
 	// Set the log character (and log color if printing to console)
 	char log_char;
@@ -109,15 +109,17 @@ esp_err_t logger_start(const char *log_file_name) {
 
 	// Get info about the log file if it exists
 	struct stat st;
-	if (stat(log_file_name, &st) != 0)
+	if (stat(log_file_name, &st) != 0) {
+		info(TAG, "Started a new log file");
 		return ESP_OK;
+	}
 
 	// Remove log file if it is larger than 10MB
 	if (st.st_size > 1024 * 1024 * 10) {
 		if (remove(log_file_name) != 0) {
 			return ESP_FAIL;
 		}
-		debug(TAG, "Cleaned log file");
+		info(TAG, "Cleaned old log file and started a new log file");
 	}
 
 	// Set the static log file variable
