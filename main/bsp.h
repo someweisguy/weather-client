@@ -28,7 +28,8 @@ struct config_t {
 	char *wifi_ssid;
 	char *wifi_password;
 	char *mqtt_broker;
-	char *mqtt_topic;
+	char *mqtt_data_topic;
+	char *mqtt_boot_log_topic;
 };
 
 const char* esp_reset_to_name(esp_reset_reason_t code);
