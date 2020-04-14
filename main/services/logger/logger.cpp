@@ -26,9 +26,9 @@ static void write_log(const log_level_t log_level, const char *tag,
 	const char *log_prefix_format { "[%c] (%s) %s: " };
 
 	// Get the time string
-	char time_str[21];
+	char time_str[20];
 	const time_t now { time(nullptr) };
-	strftime(time_str, 21, "%FT%TZ", localtime(&now));
+	strftime(time_str, 20, "%F %T", localtime(&now));
 
 	// Set the log character (and log color if printing to console)
 	char log_char;
