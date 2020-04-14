@@ -20,6 +20,8 @@
 esp_err_t mqtt_connect(const char* mqtt_broker);
 esp_err_t mqtt_stop();
 
+bool mqtt_connected();
+
 esp_err_t mqtt_publish(const char* topic, const char *data);
 
 #endif /* MAIN_SERVICES_MQTT_H_ */

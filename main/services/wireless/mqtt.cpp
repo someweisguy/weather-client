@@ -13,6 +13,7 @@ static const EventBits_t MQTT_SUCCESS { 0x1 }, MQTT_FAIL { 0x2 },
 	MQTT_PUBLISH { 0x4 };
 static EventGroupHandle_t mqtt_event_group;
 static esp_mqtt_client_handle_t client;
+static volatile bool connected { false };
 
 
 static void event_handler(void *handler_args, esp_event_base_t base,
@@ -25,11 +26,13 @@ static void event_handler(void *handler_args, esp_event_base_t base,
 	switch (event_id) {
 	case MQTT_EVENT_CONNECTED:
 		debug(TAG, "Handling MQTT_EVENT_CONNECTED event");
+		connected = true;
 		xEventGroupSetBits(mqtt_event_group, MQTT_SUCCESS);
 		break;
 
 	case MQTT_EVENT_DISCONNECTED:
 		debug(TAG, "Handling MQTT_EVENT_DISCONNECTED event");
+		connected = false;
 		xEventGroupSetBits(mqtt_event_group, MQTT_FAIL);
 		break;
 
@@ -95,6 +98,10 @@ esp_err_t mqtt_stop() {
 	if (esp_mqtt_client_destroy(client) != ESP_OK)
 		return ESP_FAIL;
 	return ESP_OK;
+}
+
+bool mqtt_connected() {
+	return connected;
 }
 
 esp_err_t mqtt_publish(const char* topic, const char* data) {

@@ -12,6 +12,7 @@ static const uint8_t WIFI_MAX_RETRIES { 5 };
 
 static EventGroupHandle_t wifi_event_group;
 static uint8_t wifi_connect_retry;
+static volatile bool connected { false };
 
 static void event_handler(void* handler_args, esp_event_base_t base,
 		int event_id, void* event_data) {
@@ -31,6 +32,7 @@ static void event_handler(void* handler_args, esp_event_base_t base,
 
 		case WIFI_EVENT_STA_DISCONNECTED:
 			debug(TAG, "Handling WIFI_EVENT_STA_DISCONNECTED event");
+			connected = false;
 			if (++wifi_connect_retry <= WIFI_MAX_RETRIES) {
 				verbose(TAG, "Retrying connection");
 				esp_wifi_connect();
@@ -48,6 +50,7 @@ static void event_handler(void* handler_args, esp_event_base_t base,
 	// Handle IP event - an IP event means that we connected successfully
 	else if (base == IP_EVENT) {
 		//((ip_event_got_ip_t*) event_data)->ip_info.ip;
+		connected = true;
 		xEventGroupSetBits(wifi_event_group, WIFI_SUCCESS);
 		wifi_connect_retry = 0;
 	}
@@ -94,4 +97,8 @@ esp_err_t wifi_stop() {
 	esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler);
 	vEventGroupDelete(wifi_event_group);
 	return esp_wifi_stop();
+}
+
+bool wifi_connected() {
+	return connected;
 }

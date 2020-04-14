@@ -19,7 +19,7 @@
 
 #include "logger.h"
 
-#define LOG_LEVEL        INFO
+#define LOG_LEVEL        DEBUG
 #define SENSOR_READY_SEC 30 /* Longest time (in seconds) that it takes for sensors to wake up */
 #define BOOT_DELAY_SEC    5 /* Time (in seconds) that it takes the ESP32 to wake up */
 
@@ -36,30 +36,28 @@ static RTC_DATA_ATTR wakeup_reason_t wakeup_reason { UNEXPECTED_REASON };
 static RTC_DATA_ATTR time_t measurement_time { 0 }, next_rtc_sync { 0 };
 static Sensor* sensors[] { new BME280, new PMS5003 };
 
-bool wifi_connected { false }, mqtt_connected { false }, saved_data_exists;
+bool sent_boot_log { false }, saved_data_exists;
 config_t config; // values stored in config file
 
 bool connect_wifi() {
-	if (!wifi_connected) {
+	if (!wifi_connected()) {
 		info(TAG, "Connecting to WiFi...");
 		if (wifi_connect(config.wifi_ssid, config.wifi_password) == ESP_OK) {
 			info(TAG, "Connected to SSID \"%s\"", config.wifi_ssid);
-			wifi_connected = true;
 		} else {
 			error(TAG, "Could not connect to SSID \"%s\"", config.wifi_ssid);
 			// FIXME: free memory on failure
 			//wifi_stop();
 		}
 	}
-	return wifi_connected;
+	return wifi_connected();
 }
 
 bool connect_mqtt() {
-	if (wifi_connected && !mqtt_connected) {
+	if (wifi_connected() && !mqtt_connected()) {
 		info(TAG, "Connecting to MQTT...");
 		if (mqtt_connect(config.mqtt_broker) == ESP_OK) {
 			info(TAG, "Connected to MQTT broker \"%s\"", config.mqtt_broker);
-			mqtt_connected = true;
 		} else {
 			error(TAG, "Could not connect to MQTT broker \"%s\"",
 					config.mqtt_broker);
@@ -67,7 +65,7 @@ bool connect_mqtt() {
 			//mqtt_stop();
 		}
 	}
-	return mqtt_connected;
+	return mqtt_connected();
 }
 
 extern "C" void app_main() {
@@ -241,7 +239,7 @@ extern "C" void app_main() {
 
 		bool data_published { false };
 		if (connect_wifi() && connect_mqtt()) {
-			debug(TAG, "Publishing to MQTT broker");
+			info(TAG, "Publishing to MQTT broker");
 			if (mqtt_publish(config.mqtt_topic, json_str) == ESP_OK)
 				data_published = true;
 			else
@@ -255,7 +253,7 @@ extern "C" void app_main() {
 		}
 
 		// Check if it is time to resync the DS3231
-		if (get_cpu_time() > next_rtc_sync && wifi_connected) {
+		if (get_cpu_time() > next_rtc_sync && wifi_connected()) {
 			info(TAG, "Synchronizing onboard real-time clock...");
 			debug(TAG, "Connecting to NTP server");
 			if (sync_ntp_time(NTP_SERVER) == ESP_OK) {
@@ -264,7 +262,7 @@ extern "C" void app_main() {
 			} else {
 				warning(TAG, "Could not connect to the NTP server");
 			}
-		} else if (!wifi_connected) {
+		} else if (!wifi_connected()) {
 			warning(TAG, "Overdue for onboard real-time clock synchronization");
 		}
 
@@ -281,7 +279,7 @@ extern "C" void app_main() {
 			connect_mqtt();
 
 		// Publish saved sensor data to MQTT line by line
-		if (wifi_connected && mqtt_connected) {
+		if (wifi_connected() && mqtt_connected()) {
 			info(TAG, "Publishing backlogged sensor data to MQTT");
 			FILE *f { sdcard_open_file_readonly(DATA_FILE_NAME) };
 			do {
@@ -326,10 +324,10 @@ extern "C" void app_main() {
 
 
 	// Stop wireless services
-	if (wifi_connected) {
+	if (wifi_connected()) {
 		debug(TAG, "Stopping wireless services");
 		// Stop MQTT
-		if (mqtt_connected) {
+		if (mqtt_connected()) {
 			verbose(TAG, "Stopping MQTT");
 			if (mqtt_stop() != ESP_OK)
 				warning(TAG, "Could not gracefully stop MQTT");
