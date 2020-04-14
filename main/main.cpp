@@ -19,14 +19,15 @@
 
 #include "logger.h"
 
-#define LOG_LEVEL        DEBUG
-#define SENSOR_READY_SEC 30 /* Longest time (in seconds) that it takes for sensors to wake up */
-#define BOOT_DELAY_SEC    5 /* Time (in seconds) that it takes the ESP32 to wake up */
+#define LOG_LEVEL           DEBUG
+#define SENSOR_READY_SEC    30 /* Longest time (in seconds) that it takes for sensors to wake up */
+#define BOOT_DELAY_SEC      5  /* Time (in seconds) that it takes the ESP32 to wake up */
+#define BOOT_LOG_SIZE_BYTES 2048
 
-#define SD_MOUNT_POINT   "/sdcard"
-#define LOG_FILE_NAME    "/events.log"
-#define CONFIG_FILE_NAME "/config.json"
-#define DATA_FILE_NAME   "/data.txt"
+#define SD_MOUNT_POINT      "/sdcard"
+#define LOG_FILE_NAME       "/events.log"
+#define CONFIG_FILE_NAME    "/config.json"
+#define DATA_FILE_NAME      "/data.txt"
 
 #define TIME_BETWEEN_RTC_SYNC_SEC 604800 // 7 days
 #define NTP_SERVER "pool.ntp.org"
@@ -36,8 +37,40 @@ static RTC_DATA_ATTR wakeup_reason_t wakeup_reason { UNEXPECTED_REASON };
 static RTC_DATA_ATTR time_t measurement_time { 0 }, next_rtc_sync { 0 };
 static Sensor* sensors[] { new BME280, new PMS5003 };
 
-bool sent_boot_log { false }, saved_data_exists;
+bool saved_data_exists; // is there JSON data on the SD card
 config_t config; // values stored in config file
+
+esp_err_t send_boot_log() {
+	info(TAG, "Sending boot log");
+
+	FILE *f { sdcard_open_file_readonly(LOG_FILE_NAME) };
+	if (f != nullptr) {
+		fseek(f, 0, SEEK_END);
+		const int64_t file_size { ftell(f) };
+		const int64_t boot_log_size { file_size < BOOT_LOG_SIZE_BYTES ?
+				file_size : BOOT_LOG_SIZE_BYTES };
+		fseek(f, file_size - boot_log_size, SEEK_SET);
+		while (fgetc(f) != '\n'); // advance to the nearest full line
+		do {
+			// Read a line from the file into memory
+			const int32_t line_len { get_line_length(f) };
+			char boot_log_str[line_len + 1];
+			fgets(boot_log_str, line_len + 1, f);
+
+			// Deny service if publishing doesn't work
+			if (mqtt_publish(config.mqtt_boot_log_topic, boot_log_str) != ESP_OK) {
+				fclose(f);
+				error(TAG, "An error occurred while sending the boot log");
+				return ESP_FAIL;
+			}
+		} while (fgetc(f) == '\n');
+		fclose(f);
+	} else {
+		mqtt_publish("TOPIC", "There is no boot log to publish!");
+	}
+
+	return ESP_OK;
+}
 
 bool connect_wifi() {
 	if (!wifi_connected()) {
@@ -143,6 +176,10 @@ extern "C" void app_main() {
 			esp_restart();
 		}
 
+		// Send the boot log
+		if (!wifi_connected() || !connect_mqtt() || send_boot_log() != ESP_OK)
+			error(TAG, "Could not send boot log");
+
 		// Perform initial setup of sensors
 		info(TAG, "Resetting sensors to a known configuration");
 		for (Sensor* sensor : sensors) {
@@ -157,6 +194,7 @@ extern "C" void app_main() {
 			if (!sensor->sleep())
 				error(TAG, "Could not put %s to sleep", sensor->get_name());
 		}
+
 
 	} else if (wakeup_reason == READY_SENSORS) {
 
@@ -223,6 +261,7 @@ extern "C" void app_main() {
 
 		// Build the JSON string for MQTT and delete the JSON object
 		char *json_str { cJSON_Print(json_root) };
+		strip(json_str); // remove newlines
 		debug(TAG, "Got JSON: %s", json_str);
 		cJSON_Delete(json_root);
 
@@ -240,7 +279,7 @@ extern "C" void app_main() {
 		bool data_published { false };
 		if (connect_wifi() && connect_mqtt()) {
 			info(TAG, "Publishing to MQTT broker");
-			if (mqtt_publish(config.mqtt_topic, json_str) == ESP_OK)
+			if (mqtt_publish(config.mqtt_data_topic, json_str) == ESP_OK)
 				data_published = true;
 			else
 				error(TAG, "Could not publish the JSON string to MQTT");
@@ -248,7 +287,6 @@ extern "C" void app_main() {
 		if (!data_published) {
 			// Save JSON to file
 			info(TAG, "Storing sensor data to file");
-			strip(json_str); // remove newlines
 			ESP_ERROR_CHECK(store_json_string(DATA_FILE_NAME, json_str));
 		}
 
@@ -284,10 +322,10 @@ extern "C" void app_main() {
 			FILE *f { sdcard_open_file_readonly(DATA_FILE_NAME) };
 			do {
 				// Read a line from the file into memory
-				int32_t line_len { get_line_length(f) };
+				const int32_t line_len { get_line_length(f) };
 				char json_str[line_len + 1];
 				fgets(json_str, line_len + 1, f);
-				if (mqtt_publish(config.mqtt_topic, json_str) != ESP_OK) {
+				if (mqtt_publish(config.mqtt_data_topic, json_str) != ESP_OK) {
 					error(TAG, "Could not publish JSON string to "
 							"MQTT");
 					// FIXME: ensure data gets saved and not sent twice?
