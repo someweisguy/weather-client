@@ -74,7 +74,7 @@ public:
 		// Compute and check checksum
 		verbose(TAG, "Computing and comparing checksum");
 		uint16_t computed_checksum { 0 };
-		for (int i = 0; i < 30; ++i) // skip start word and frame length
+		for (int i = 0; i < 30; ++i)
 			computed_checksum += buffer[i];
 		const uint16_t received_checksum { static_cast<uint16_t>((buffer[30]
 				<< 8) + buffer[31]) };
