@@ -23,12 +23,12 @@ static void write_log(const log_level_t log_level, const char *tag,
 		return;
 
 	// The format for the prefix to the log message
-	const char *log_prefix_format { "[%c] (%s) %s: " };
+	const char *log_prefix_format { "%c %s %s: " };
 
 	// Get the time string
-	char time_str[20];
+	char time_str[26];
 	const time_t now { time(nullptr) };
-	strftime(time_str, 20, "%F %T", localtime(&now));
+	strftime(time_str, 26, "%FT%T+00:00", localtime(&now));
 
 	// Set the log character (and log color if printing to console)
 	char log_char;
@@ -94,9 +94,9 @@ static void write_log(const log_level_t log_level, const char *tag,
 	// Log to the SD card
 	FILE *f { fopen(LOG_FILE_NAME, "a+") };
 	if (f != nullptr) {
+		fputc('\n', f);
 		fprintf(f, log_prefix_format, log_char, time_str, tag);
 		vfprintf(f, msg, args);
-		fputc('\n', f);
 		fclose(f);
 	}
 }
