@@ -236,7 +236,7 @@ extern "C" void app_main() {
 
 		// Track which sensors didn't get data
 		const size_t num_sensors { sizeof(sensors) / sizeof(Sensor) };
-		esp_err_t bad_sensors[num_sensors];
+		esp_err_t sensor_rets[num_sensors];
 
 		// Wait for the measurement window
 		info(TAG, "Waiting for measurement window...");
@@ -245,8 +245,13 @@ extern "C" void app_main() {
 
 		// Get weather data, log errors after all data has been taken
 		info(TAG, "Taking weather measurements");
-		for (int i = 0; i < num_sensors; ++i)
-			bad_sensors[i] = sensors[i]->get_data(json_data);
+		for (int i = 0; i < num_sensors; ++i) {
+			const esp_err_t data_ret { sensors[i]->get_data(json_data) };
+			if (data_ret != ESP_OK) // try to get data again
+				sensor_rets[i] = sensors[i]->get_data(json_data);
+			else
+				sensor_rets[i] = ESP_OK;
+		}
 
 		// Check to make sure data was measured on time
 		const time_t actual_measurement_time { get_cpu_time() };
@@ -255,10 +260,10 @@ extern "C" void app_main() {
 
 		// Check if any sensors were not able to get data
 		for (int i = 0; i < num_sensors; ++i) {
-			if (bad_sensors[i] != ESP_OK)
+			if (sensor_rets[i] != ESP_OK)
 				error(TAG, "Could not get data from %s: %s",
 						sensors[i]->get_name(),
-						esp_err_to_name(bad_sensors[i]));
+						esp_err_to_name(sensor_rets[i]));
 		}
 
 		// Build the JSON string for MQTT and delete the JSON object
