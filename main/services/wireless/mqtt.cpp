@@ -45,17 +45,17 @@ static void event_handler(void *handler_args, esp_event_base_t base,
 		break;
 
 	case MQTT_EVENT_PUBLISHED:
-		debug(TAG, "Handling MQTT_EVENT_PUBLISHED event");
+		verbose(TAG, "Handling MQTT_EVENT_PUBLISHED event");
 		xEventGroupSetBits(mqtt_event_group, MQTT_PUBLISH);
 		break;
 
 	case MQTT_EVENT_DATA:
-		debug(TAG, "Handling MQTT_EVENT_DATA event");
+		verbose(TAG, "Handling MQTT_EVENT_DATA event");
 		// Do nothing
 		break;
 
 	case MQTT_EVENT_BEFORE_CONNECT:
-		debug(TAG, "Handling MQTT_EVENT_BEFORE_CONNECT event");
+		verbose(TAG, "Handling MQTT_EVENT_BEFORE_CONNECT event");
 		// Do nothing
 		break;
 
