@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 
+#include "esp_system.h"
 #include "i2c.h"
 #include "uart.h"
 
@@ -55,34 +56,34 @@ public:
 		return "Undefined generic sensor";
 	}
 
-	virtual bool ready() {
+	virtual esp_err_t ready() {
 		// Get the sensor ready a few seconds before it takes a measurement
 		// Do nothing by default
-		return true;
+		return ESP_OK;
 	}
 
-	virtual bool setup() {
+	virtual esp_err_t setup() {
 		// Performs initial setup of the sensor, including resetting it
 		// Do nothing by default
-		return true;
+		return ESP_OK;
 	}
 
-	virtual bool wakeup() {
+	virtual esp_err_t wakeup() {
 		// Wake up the sensor some time before the measurement is taken
 		// Do nothing by default
-		return true;
+		return ESP_OK;
 	}
 
-	virtual bool get_data(cJSON *json_root) {
+	virtual esp_err_t get_data(cJSON *json_root) {
 		// Takes a JSON object and adds sensor data to it
 		// Must be overridden
-		return false;
+		return ESP_FAIL;
 	}
 
-	virtual bool sleep() {
+	virtual esp_err_t sleep() {
 		// Go into a low-power sleep mode between measurements
 		// Do nothing by default
-		return true;
+		return ESP_OK;
 	}
 };
 

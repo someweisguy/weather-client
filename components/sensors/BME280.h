@@ -110,14 +110,16 @@ public:
 		return "BME280";
 	}
 
-	bool ready() override {
+	esp_err_t ready() override {
 		// Get compensation "dig" values
 		uint8_t dig_buf[32];
 		verbose(TAG, "Getting data trim values");
-		if (i2c_read(I2C_ADDRESS, REG_TRIM_T1_TO_H1, dig_buf, 25) != ESP_OK)
-			return false;
-		if (i2c_read(I2C_ADDRESS, REG_TRIM_H2_TO_H5, dig_buf + 25, 7) != ESP_OK)
-			return false;
+		const esp_err_t dig_1_ret { i2c_read(I2C_ADDRESS, REG_TRIM_T1_TO_H1, dig_buf, 25) };
+		if (dig_1_ret != ESP_OK)
+			return dig_1_ret;
+		const esp_err_t dig_2_ret { i2c_read(I2C_ADDRESS, REG_TRIM_H2_TO_H5, dig_buf + 25, 7) };
+		if (dig_2_ret != ESP_OK)
+			return dig_2_ret;
 
 		// Bulk copy T1 to H1
 		memcpy(&dig, dig_buf, 25);
@@ -128,72 +130,73 @@ public:
 		dig.h5 = (dig_buf[30] << 4) | (dig_buf[29] >> 4);
 		dig.h6 = dig_buf[31];
 
-		return true;
+		return ESP_OK;
 	}
 
-	bool setup() override {
+	esp_err_t setup() override {
 		// Soft reset the BME280
 		verbose(TAG, "Sending soft reset command");
 		const uint8_t reset_cmd { 0xb6 };
-		if (i2c_write(I2C_ADDRESS, REG_RESET, &reset_cmd, 1) != ESP_OK)
-			return false;
+		const esp_err_t reset_ret { i2c_write(I2C_ADDRESS, REG_RESET, &reset_cmd, 1) };
+		if (reset_ret != ESP_OK)
+			return reset_ret;
 
 		// Wait for the reset to take effect
 		verbose(TAG, "Waiting for response to soft reset");
 		uint8_t status;
 		do {
 			vTaskDelay(10 / portTICK_PERIOD_MS);
-			if (i2c_read(I2C_ADDRESS, REG_STATUS, &status, 1) != ESP_OK)
-				return false;
+			const esp_err_t wait_ret { i2c_read(I2C_ADDRESS, REG_STATUS, &status, 1) };
+			if (wait_ret != ESP_OK)
+				return wait_ret;
 		} while ((status & 0x01) == 0x01);
 
 		// Ensure that chip ID is correct
 		verbose(TAG, "Getting chip ID");
 		uint8_t id;
 		if (i2c_read(I2C_ADDRESS, REG_CHIP_ID, &id, 1) != ESP_OK && id == 0x60)
-			return false;
+			return ESP_ERR_NOT_FOUND;
 
 		// Set the sensor to sleep mode, otherwise settings will be ignored
 		verbose(TAG, "Sending sleep mode command");
 		const uint8_t sleep_cmd { 0x00 };
-		if (i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &sleep_cmd, 1) != ESP_OK)
-			return false;
+		const esp_err_t sleep_ret { i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &sleep_cmd, 1) };
+		if (sleep_ret != ESP_OK)
+			return sleep_ret;
 
 		verbose(TAG, "Setting filtering x16 and standby 20ms");
 		// Set filtering x16 and set the standby in normal mode to 20ms
 		const uint8_t filter_standby { 0xf0 };
-		if (i2c_write(I2C_ADDRESS, REG_CONFIG, &filter_standby, 1) != ESP_OK)
-			return false;
+		const esp_err_t filtering_ret { i2c_write(I2C_ADDRESS, REG_CONFIG, &filter_standby, 1) };
+		if (filtering_ret != ESP_OK)
+			return filtering_ret;
 
 		verbose(TAG, "Setting humidity sampling x16");
 		// Write the sample rate to the Humidity control register
 		const uint8_t hum_sample { 0x05 };
-		if (i2c_write(I2C_ADDRESS, REG_CONTROLHUMID, &hum_sample, 1) != ESP_OK)
-			return false;
+		const esp_err_t sample_ret { i2c_write(I2C_ADDRESS, REG_CONTROLHUMID, &hum_sample, 1) };
+		if (sample_ret != ESP_OK)
+			return sample_ret;
 
 		// Set temperature and pressure sampling to x16 and sleep mode
 		verbose(TAG, "Setting temperature and pressure sampling x16 and sleep "
 				"mode");
 		const uint8_t tpm_setting { 0xb0 };
-		if (i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1) != ESP_OK)
-			return false;
-
-		return true;
+		return i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1);
 	}
 
-	bool wakeup() override {
+	esp_err_t wakeup() override {
 		// Set temperature and pressure sampling to x16 and normal mode
 		const uint8_t tpm_setting { 0xb7 };
-		if (i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1) != ESP_OK)
-			return false;
-		return true;
+		return i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1);
 	}
 
-	bool get_data(cJSON *json) override {
+	esp_err_t get_data(cJSON *json) override {
 		// Store all the ADC values from the BME280 into a buffer
 		uint8_t buf[8];
-		if (i2c_read(I2C_ADDRESS, REG_DATA_START, buf, 8) != ESP_OK)
-			return false;
+		const esp_err_t read_ret { i2c_read(I2C_ADDRESS, REG_DATA_START, buf, 8) };
+		if (read_ret != ESP_OK)
+			return read_ret;
 
 		// Declare temperature in this scope so we can get dew point later
 		double temperature_C;
@@ -208,7 +211,7 @@ public:
 		// Check if temperature is turned off
 		if (adc_T == 0x800000)
 			// If temperature is turned off, we can't get any data
-			return false;
+			return ESP_ERR_INVALID_STATE;
 		else {
 			// Calculate temperature in degrees Celsius
 			adc_T >>= 4;
@@ -244,15 +247,13 @@ public:
 					"RH");
 		}
 
-		return true;
+		return ESP_OK;
 	}
 
-	bool sleep() override {
+	esp_err_t sleep() override {
 		// Set temperature and pressure sampling to x16 and sleep mode
 		const uint8_t tpm_setting { 0xb4 };
-		if (i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1) != ESP_OK)
-			return false;
-		return true;
+		return i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1);
 	}
 
 };

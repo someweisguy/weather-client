@@ -41,50 +41,45 @@ public:
 		return "PMS5003";
 	}
 
-	bool ready() override {
+	esp_err_t ready() override {
 		// Do nothing
-		return true;
+		return ESP_OK;
 	}
 
-	bool setup() override {
+	esp_err_t setup() override {
 		verbose(TAG, "Sending passive mode command");
 		const uint8_t passive_cmd[7] { 0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70 };
-		if (uart_write(passive_cmd, 7) == ESP_OK)
-			return true;
-		else
-			return false;
+		return uart_write(passive_cmd, 7);
 	}
 
-	bool wakeup() override {
+	esp_err_t wakeup() override {
 		verbose(TAG, "Sending wake up command");
 		const uint8_t wakeup_cmd[7] { 0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74 };
-		if (uart_write(wakeup_cmd, 7) == ESP_OK)
-			return true;
-		else
-			return false;
+		return uart_write(wakeup_cmd, 7);
 	}
 
-	bool get_data(cJSON *json) override {
+	esp_err_t get_data(cJSON *json) override {
 		verbose(TAG, "Sending read in passive mode command");
 		const uint8_t read_cmd[7] { 0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71 };
-		if (uart_write(read_cmd, 7) != ESP_OK)
-			return false;
+		const esp_err_t passive_ret { uart_write(read_cmd, 7) };
+		if (passive_ret != ESP_OK)
+			return passive_ret;
 
 		verbose(TAG, "Reading data");
 		uint8_t buffer[32];
-		if (uart_read(buffer, 32) != ESP_OK)
-			return false;
+		const esp_err_t read_ret { uart_read(buffer, 32) };
+		if (read_ret != ESP_OK)
+			return read_ret;
 
 		// Compute and check checksum
 		verbose(TAG, "Computing and comparing checksum");
-		uint16_t computed_checksum { 0x42 + 0x4d + (2 * 13 + 2) };
-		for (int i = 4; i < 30; ++i) { // skip start word and frame length
+		uint16_t computed_checksum { 0 };
+		for (int i = 0; i < 30; ++i) // skip start word and frame length
 			computed_checksum += buffer[i];
-		}
 		const uint16_t received_checksum { static_cast<uint16_t>((buffer[30]
 				<< 8) + buffer[31]) };
 		if (computed_checksum != received_checksum)
-			return false;
+			return ESP_ERR_INVALID_CRC;
 
 		// Copy the buffer - skip the first 4 and last 4 bytes
 		pms_data_t pms_data;
@@ -129,15 +124,12 @@ public:
 		add_JSON_elem(json, ">10.0 micron Dia. Particles",
 				pms_data.part_10_0 * 10.0, "", "U/L");
 
-		return true;
+		return ESP_OK;
 	}
 
-	bool sleep() override {
+	esp_err_t sleep() override {
 		const uint8_t sleep_cmd[7] { 0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73 };
-		if (uart_write(sleep_cmd, 7) == ESP_OK)
-			return true;
-		else
-			return false;
+		return uart_write(sleep_cmd, 7);
 	}
 
 };
