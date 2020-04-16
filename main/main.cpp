@@ -41,8 +41,7 @@ bool saved_data_exists; // is there JSON data on the SD card
 config_t config; // values stored in config file
 
 esp_err_t send_boot_log() {
-	info(TAG, "Sending boot log");
-
+	ESP_ERROR_CHECK(mqtt_publish(config.mqtt_boot_log_topic, "START"));
 	FILE *f { sdcard_open_file_readonly(LOG_FILE_NAME) };
 	if (f != nullptr) {
 		fseek(f, 0, SEEK_END);
@@ -51,24 +50,20 @@ esp_err_t send_boot_log() {
 				file_size : BOOT_LOG_SIZE_BYTES };
 		fseek(f, file_size - boot_log_size, SEEK_SET);
 		while (fgetc(f) != '\n'); // advance to the nearest full line
-		do {
+		while (getc(f) != EOF) {
 			// Read a line from the file into memory
 			const int32_t line_len { get_line_length(f) };
 			char boot_log_str[line_len + 1];
 			fgets(boot_log_str, line_len + 1, f);
 
-			// Deny service if publishing doesn't work
 			if (mqtt_publish(config.mqtt_boot_log_topic, boot_log_str) != ESP_OK) {
 				fclose(f);
 				error(TAG, "An error occurred while sending the boot log");
 				return ESP_FAIL;
 			}
-		} while (fgetc(f) == '\n');
+		}
 		fclose(f);
-	} else {
-		mqtt_publish("TOPIC", "There is no boot log to publish!");
 	}
-
 	return ESP_OK;
 }
 
@@ -233,7 +228,7 @@ extern "C" void app_main() {
 
 		// Track which sensors didn't get data
 		const size_t num_sensors { sizeof(sensors) / sizeof(Sensor) };
-		bool bad_sensors[num_sensors] {}; // false by default
+		esp_err_t bad_sensors[num_sensors];
 
 		// Wait for the measurement window
 		info(TAG, "Waiting for measurement window...");
@@ -242,10 +237,8 @@ extern "C" void app_main() {
 
 		// Get weather data, log errors after all data has been taken
 		info(TAG, "Taking weather measurements");
-		for (int i = 0; i < num_sensors; ++i) {
-			if (!sensors[i]->get_data(json_data))
-				bad_sensors[i] = true;
-		}
+		for (int i = 0; i < num_sensors; ++i)
+			bad_sensors[i] = sensors[i]->get_data(json_data);
 
 		// Check to make sure data was measured on time
 		const time_t actual_measurement_time { get_cpu_time() };
@@ -254,9 +247,10 @@ extern "C" void app_main() {
 
 		// Check if any sensors were not able to get data
 		for (int i = 0; i < num_sensors; ++i) {
-			if (bad_sensors[i])
-				error(TAG, "Could not get data from %s",
-						sensors[i]->get_name());
+			if (bad_sensors[i] != ESP_OK)
+				error(TAG, "Could not get data from %s: %s",
+						sensors[i]->get_name(),
+						esp_err_to_name(bad_sensors[i]));
 		}
 
 		// Build the JSON string for MQTT and delete the JSON object
@@ -396,5 +390,6 @@ extern "C" void app_main() {
 	debug(TAG, "Unmounting SD card and going to deep sleep for %u minute(s) "
 			"and %u second(s)", m, s);
 	ESP_ERROR_CHECK(sdcard_unmount());
-	esp_deep_sleep(deep_sleep_sec * 1000000); // uS
+	esp_sleep_enable_timer_wakeup(deep_sleep_sec * 1000000); // uS
+	esp_deep_sleep_start();
 }
