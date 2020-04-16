@@ -22,7 +22,7 @@
 #define LOG_LEVEL           DEBUG
 #define SENSOR_READY_SEC    30 /* Longest time (in seconds) that it takes for sensors to wake up */
 #define BOOT_DELAY_SEC      5  /* Time (in seconds) that it takes the ESP32 to wake up */
-#define BOOT_LOG_SIZE_BYTES 2048
+#define BOOT_LOG_SIZE_BYTES 4096
 
 #define SD_MOUNT_POINT      "/sdcard"
 #define LOG_FILE_NAME       "/events.log"
@@ -178,16 +178,20 @@ extern "C" void app_main() {
 		// Perform initial setup of sensors
 		info(TAG, "Resetting sensors to a known configuration");
 		for (Sensor* sensor : sensors) {
-			if (!sensor->setup())
-				error(TAG, "Unable to setup %s", sensor->get_name());
+			const esp_err_t setup_ret { sensor->setup() };
+			if (setup_ret != ESP_OK)
+				error(TAG, "Unable to setup %s: %s", sensor->get_name(),
+						esp_err_to_name(setup_ret));
 		}
 
 		// Wait 1 second for setup to complete, then put sensors to sleep
 		vTaskDelay(1000 / portTICK_PERIOD_MS);
 		info(TAG, "Putting sensors to sleep");
 		for (Sensor *sensor : sensors) {
-			if (!sensor->sleep())
-				error(TAG, "Could not put %s to sleep", sensor->get_name());
+			const esp_err_t sleep_ret { sensor->sleep() };
+			if (sleep_ret != ESP_OK)
+				error(TAG, "Could not put %s to sleep: %s", sensor->get_name(),
+						esp_err_to_name(sleep_ret));
 		}
 
 
@@ -199,8 +203,10 @@ extern "C" void app_main() {
 		// Wake up sensors
 		info(TAG, "Waking up sensors");
 		for (Sensor *sensor : sensors) {
-			if (!sensor->wakeup())
-				error(TAG, "Unable to wake up %s", sensor->get_name());
+			const esp_err_t wakeup_ret { sensor->wakeup() };
+			if (wakeup_ret != ESP_OK)
+				error(TAG, "Unable to wake up %s: %s", sensor->get_name(),
+						esp_err_to_name(wakeup_ret));
 		}
 		if (measurement_time - SENSOR_READY_SEC < get_cpu_time())
 			warning(TAG, "Sensors were not woken up before the deadline");
@@ -213,8 +219,10 @@ extern "C" void app_main() {
 		// Ready sensors to take measurements
 		debug(TAG, "Readying sensors to take data");
 		for (Sensor *sensor : sensors) {
-			if (!sensor->ready())
-				error(TAG, "Unable to ready %s for data", sensor->get_name());
+			const esp_err_t ready_ret { sensor->ready() };
+			if (ready_ret != ESP_OK)
+				error(TAG, "Unable to ready %s for data: %s", sensor->get_name(),
+							esp_err_to_name(ready_ret));
 		}
 
 		// Build a JSON root, time, and data object
@@ -266,8 +274,10 @@ extern "C" void app_main() {
 		// Put the sensors to sleep
 		info(TAG, "Putting sensors to sleep");
 		for (Sensor *sensor : sensors) {
-			if (!sensor->sleep())
-				error(TAG, "Could not put %s to sleep", sensor->get_name());
+			const esp_err_t sleep_ret { sensor->sleep() };
+			if (sleep_ret != ESP_OK)
+				error(TAG, "Could not put %s to sleep: %s", sensor->get_name(),
+						esp_err_to_name(sleep_ret));
 		}
 
 		bool data_published { false };
