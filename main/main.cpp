@@ -246,9 +246,8 @@ extern "C" void app_main() {
 		// Get weather data, log errors after all data has been taken
 		info(TAG, "Taking weather measurements");
 		for (int i = 0; i < num_sensors; ++i) {
-			const esp_err_t data_ret { sensors[i]->get_data(json_data) };
-			if (data_ret != ESP_OK) // try to get data again
-				sensor_rets[i] = sensors[i]->get_data(json_data);
+			if (sensors[i]->get_data(json_data) != ESP_OK)
+				sensor_rets[i] = sensors[i]->get_data(json_data); // try again
 			else
 				sensor_rets[i] = ESP_OK;
 		}
