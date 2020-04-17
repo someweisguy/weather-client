@@ -59,7 +59,7 @@ public:
 	}
 
 	esp_err_t get_data(cJSON *json) override {
-		uint16_t computed_checksum, received_checksum;
+		uint16_t computed_checksum { 0 }, received_checksum;
 		uint8_t retries { 0 }, buffer[32];
 		do {
 			verbose(TAG, "Reading data");
