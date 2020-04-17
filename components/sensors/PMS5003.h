@@ -47,8 +47,8 @@ public:
 	}
 
 	esp_err_t setup() override {
-		verbose(TAG, "Sending passive mode command");
-		const uint8_t passive_cmd[7] { 0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70 };
+		verbose(TAG, "Sending active mode command");
+		const uint8_t passive_cmd[7] { 0x42, 0x4d, 0xe1, 0x00, 0x01, 0x01, 0x71 };
 		return uart_write(passive_cmd, 7);
 	}
 
@@ -59,12 +59,6 @@ public:
 	}
 
 	esp_err_t get_data(cJSON *json) override {
-		verbose(TAG, "Sending read in passive mode command");
-		const uint8_t read_cmd[7] { 0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71 };
-		const esp_err_t passive_ret { uart_write(read_cmd, 7) };
-		if (passive_ret != ESP_OK)
-			return passive_ret;
-
 		verbose(TAG, "Reading data");
 		uint8_t buffer[32];
 		const esp_err_t read_ret { uart_read(buffer, 32) };
