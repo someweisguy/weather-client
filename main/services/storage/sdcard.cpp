@@ -24,17 +24,22 @@ esp_err_t sdcard_mount(const char *mount_point) {
 
 	esp_vfs_fat_sdmmc_mount_config_t mount_config {};
 	mount_config.format_if_mount_failed = false;
-	mount_config.allocation_unit_size = 512; // always this for SD cards
+	mount_config.allocation_unit_size = 16 * 1024;
 	mount_config.max_files = 5;
 
 	// TODO: esp_vfs_fat_sdmmc_mount() is a convenience function; replace it
 	sdmmc_card_t* card;
 	verbose(TAG, "Mounting SD card to \"%s\"", mount_point);
-	const esp_err_t mount_ret { esp_vfs_fat_sdmmc_mount(mount_point, &host,
+	esp_err_t mount_ret { esp_vfs_fat_sdmmc_mount(mount_point, &host,
 			&slot_config, &mount_config, &card) };
+	while (mount_ret != ESP_OK && host.max_freq_khz > 0) {
+		--host.max_freq_khz;
+		mount_ret = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config,
+				&mount_config, &card);
+	}
 
 	// Fail quick
-	if (mount_ret != ESP_OK)
+	if (host.max_freq_khz == 0)
 		return mount_ret;
 
 	const size_t mount_point_len { strlen(mount_point) };
