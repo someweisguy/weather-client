@@ -20,7 +20,7 @@ const char* esp_reset_to_name(esp_reset_reason_t code) {
 	switch (code) {
 	case ESP_RST_POWERON: return "power-on event";
 	case ESP_RST_EXT: return "external pin reset";
-	case ESP_RST_SW: return "software API reset";
+	case ESP_RST_SW: return "software API reset or abort";
 	case ESP_RST_PANIC: return "exception/panic reset";
 	case ESP_RST_INT_WDT: return "interrupt watchdog reset";
 	case ESP_RST_TASK_WDT: return "task watchdog reset";
