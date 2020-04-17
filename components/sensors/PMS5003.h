@@ -59,19 +59,21 @@ public:
 	}
 
 	esp_err_t get_data(cJSON *json) override {
-		verbose(TAG, "Reading data");
-		uint8_t buffer[32];
-		const esp_err_t read_ret { uart_read(buffer, 32) };
-		if (read_ret != ESP_OK)
-			return read_ret;
+		uint16_t computed_checksum, received_checksum;
+		uint8_t retries { 0 }, buffer[32];
+		do {
+			verbose(TAG, "Reading data");
+			const esp_err_t read_ret { uart_read(buffer, 32) };
+			if (read_ret != ESP_OK)
+				return read_ret;
 
-		// Compute and check checksum
-		verbose(TAG, "Computing and comparing checksum");
-		uint16_t computed_checksum { 0 };
-		for (int i = 0; i < 30; ++i)
-			computed_checksum += buffer[i];
-		const uint16_t received_checksum { static_cast<uint16_t>((buffer[30]
-				<< 8) + buffer[31]) };
+			// Compute and check checksum
+			verbose(TAG, "Computing and comparing checksum");
+			for (int i = 0; i < 30; ++i)
+				computed_checksum += buffer[i];
+			received_checksum = static_cast<uint16_t>((buffer[30] << 8) +
+					buffer[31]);
+		} while (computed_checksum != received_checksum && ++retries < 3);
 		if (computed_checksum != received_checksum)
 			return ESP_ERR_INVALID_CRC;
 
