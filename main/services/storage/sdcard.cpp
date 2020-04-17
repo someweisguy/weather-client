@@ -32,14 +32,14 @@ esp_err_t sdcard_mount(const char *mount_point) {
 	verbose(TAG, "Mounting SD card to \"%s\"", mount_point);
 	esp_err_t mount_ret { esp_vfs_fat_sdmmc_mount(mount_point, &host,
 			&slot_config, &mount_config, &card) };
-	while (mount_ret != ESP_OK && host.max_freq_khz > 0) {
+	while (mount_ret != ESP_OK && host.max_freq_khz > 1) {
 		--host.max_freq_khz;
 		mount_ret = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config,
 				&mount_config, &card);
 	}
 
 	// Fail quick
-	if (host.max_freq_khz == 0)
+	if (mount_ret != ESP_OK)
 		return mount_ret;
 
 	const size_t mount_point_len { strlen(mount_point) };
