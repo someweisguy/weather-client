@@ -36,6 +36,7 @@ esp_err_t uart_start() {
 }
 
 esp_err_t uart_stop() {
+	uart_flush(UART_PORT);
 	return uart_driver_delete(UART_PORT);
 }
 
