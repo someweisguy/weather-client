@@ -40,7 +40,7 @@ protected:
 
 		// Construct the JSON object
 		cJSON_AddStringToObject(current, "name", name);
-		cJSON_AddNumberToObject(current, "val", val);
+		cJSON_AddNumberToObject(current, "value", val);
 		if (strcmp(unit, "") != 0)
 			cJSON_AddStringToObject(current, "unit", unit);
 		cJSON_AddStringToObject(current, "scale", scale);
