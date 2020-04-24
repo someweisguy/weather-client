@@ -73,7 +73,7 @@ public:
 				computed_checksum += buffer[i];
 			received_checksum = static_cast<uint16_t>((buffer[30] << 8) +
 					buffer[31]);
-		} while (computed_checksum != received_checksum && ++retries < 3);
+		} while (computed_checksum != received_checksum && ++retries <= 5);
 		if (computed_checksum != received_checksum)
 			return ESP_ERR_INVALID_CRC;
 
