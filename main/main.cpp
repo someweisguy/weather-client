@@ -19,7 +19,7 @@
 
 #include "logger.h"
 
-#define LOG_LEVEL           DEBUG
+#define LOG_LEVEL           INFO
 #define SENSOR_READY_SEC    30 /* Longest time (in seconds) that it takes for sensors to wake up */
 #define BOOT_DELAY_SEC      5  /* Time (in seconds) that it takes the ESP32 to wake up */
 #define BOOT_LOG_SIZE_BYTES 4096
@@ -267,9 +267,8 @@ extern "C" void app_main() {
 		debug(TAG, "Got JSON: %s", json_str);
 		cJSON_Delete(json_root);
 
-		// Wait for at least one second before sending the sleep command
-		while (get_cpu_time() < actual_measurement_time + 1)
-			vTaskDelay(10 / portTICK_PERIOD_MS);
+		// Wait for one second before sending the sleep command
+		vTaskDelay(1000 / portTICK_PERIOD_MS);
 
 		// Put the sensors to sleep
 		info(TAG, "Putting sensors to sleep");
