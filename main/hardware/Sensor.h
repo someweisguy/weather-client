@@ -20,8 +20,8 @@
 class Sensor {
 protected:
 
-	void add_JSON_elem(cJSON *json_root, const char *name, const double val,
-			const char *unit, const char *scale) {
+	void add_JSON_elem(cJSON *json_root, const char *name, const double value,
+			const char *scale) {
 
 		// Get the last element in the JSON array
 		cJSON *current;
@@ -40,9 +40,7 @@ protected:
 
 		// Construct the JSON object
 		cJSON_AddStringToObject(current, "name", name);
-		cJSON_AddNumberToObject(current, "value", val);
-		if (strcmp(unit, "") != 0)
-			cJSON_AddStringToObject(current, "unit", unit);
+		cJSON_AddNumberToObject(current, "value", value);
 		cJSON_AddStringToObject(current, "scale", scale);
 	}
 

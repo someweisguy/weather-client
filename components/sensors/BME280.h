@@ -16,6 +16,8 @@ class BME280: public Sensor {
 private:
 
 	const char *TAG { "bme280" };
+	const char *celsius { "celsius" }, *pascals { "pascals" },
+		*relative_humidity_scale { "relative humidity" };
 	const uint8_t I2C_ADDRESS { 0x76 }, REG_CHIP_ID { 0xd0 },
 			REG_RESET { 0xe0 }, REG_CONTROLHUMID { 0xf2 }, REG_STATUS { 0xf3 },
 			REG_CTRL_MEAS { 0xf4 }, REG_CONFIG { 0xf5 },
@@ -219,8 +221,7 @@ public:
 			temperature_C = compensate_temperature() / 100.0;
 
 			// We have at least one data point now, so start building the JSON object
-			const char *DEGREE_SYM { "\u00B0" };
-			add_JSON_elem(json, "Temperature", temperature_C, DEGREE_SYM, "C");
+			add_JSON_elem(json, "Temperature", temperature_C, celsius);
 		}
 
 		// Extract the pressure ADC values from the buffer
@@ -233,7 +234,7 @@ public:
 		if (adc_P != 0x800000) {
 			adc_P >>= 4;
 			const uint64_t pressure_Pa { compensate_pressure(adc_P) / 256 };
-			add_JSON_elem(json, "Barometric Pressure", pressure_Pa, "", "Pa");
+			add_JSON_elem(json, "Barometric Pressure", pressure_Pa, pascals);
 		}
 
 		// Extract the pressure ADC values from the buffer
@@ -241,10 +242,9 @@ public:
 
 		// Calculate relative humidity and dew point
 		if (adc_H != 0x8000) {
-			const double relative_humidity { trunc(
-					compensate_humidity(adc_H) / 1024.0 * 100) / 100.0 };
-			add_JSON_elem(json, "Relative Humidity", relative_humidity, "%",
-					"RH");
+			const double relative_humidity { compensate_humidity(adc_H) / 1024.0 };
+			add_JSON_elem(json, "Relative Humidity", relative_humidity,
+					relative_humidity_scale);
 		}
 
 		return ESP_OK;
