@@ -62,6 +62,7 @@ static void event_handler(void *handler_args, esp_event_base_t base,
 	default:
 		warning(TAG, "Handling unexpected MQTT event (%i)",
 				mqtt_event->event_id);
+		xEventGroupSetBits(mqtt_event_group, MQTT_FAIL);
 		break;
 	}
 
