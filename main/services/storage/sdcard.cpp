@@ -131,6 +131,8 @@ esp_err_t sdcard_get_config_vals(const char *file_name, config_t &config) {
 }
 
 esp_err_t store_json_string(const char *file_name, const char *json_string) {
+	// FIXME: this method fails causing a system reboot
+
 	// Construct a string with the full path of the file
 	const size_t path_len { strlen(fs_root) + strlen(file_name) };
 	char full_file_path[path_len + 1];
