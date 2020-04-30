@@ -43,6 +43,7 @@ static void event_handler(void* handler_args, esp_event_base_t base,
 
 		default:
 			warning(TAG, "Handling unexpected WiFi event (%i)", event_id);
+			xEventGroupSetBits(wifi_event_group, WIFI_FAIL);
 			break;
 		}
 	}
