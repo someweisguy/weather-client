@@ -232,7 +232,7 @@ extern "C" void app_main() {
 		cJSON_AddNumberToObject(json_root, "time", measurement_time);
 
 		// Prepare JSON data object
-		cJSON_AddItemToObject(json_root, "data", json_data=cJSON_CreateArray());
+		cJSON_AddItemToObject(json_root, "data", json_data=cJSON_CreateObject());
 
 		// Track which sensors didn't get data
 		const size_t num_sensors { sizeof(sensors) / sizeof(Sensor) };

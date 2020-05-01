@@ -22,26 +22,11 @@ protected:
 
 	void add_JSON_elem(cJSON *json_root, const char *name, const double value,
 			const char *scale) {
-
-		// Get the last element in the JSON array
-		cJSON *current;
-		if (json_root->child == nullptr) {
-			json_root->child = cJSON_CreateObject();
-			current = json_root->child;
-		} else {
-			current = json_root->child;
-			while (current->next != nullptr) {
-				current = current->next;
-			}
-			current->next = cJSON_CreateObject();
-			current->next->prev = current;
-			current = current->next;
-		}
-
-		// Construct the JSON object
-		cJSON_AddStringToObject(current, "name", name);
-		cJSON_AddNumberToObject(current, "value", value);
-		cJSON_AddStringToObject(current, "scale", scale);
+		cJSON *base_json_object;
+		cJSON_AddItemToObject(json_root, name,
+				base_json_object = cJSON_CreateObject());
+		cJSON_AddNumberToObject(base_json_object, "value", value);
+		cJSON_AddStringToObject(base_json_object, "scale", scale);
 	}
 
 public:
