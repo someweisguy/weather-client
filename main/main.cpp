@@ -335,16 +335,18 @@ extern "C" void app_main() {
 
 		// Check if it is time to resync the DS3231
 		if (get_cpu_time() > next_rtc_sync && wifi_connected()) {
-			info(TAG, "Synchronizing onboard real-time clock...");
-			debug(TAG, "Connecting to NTP server");
-			if (sync_ntp_time(NTP_SERVER) == ESP_OK) {
-				ESP_ERROR_CHECK(ds3231_set_time(get_cpu_time()));
-				next_rtc_sync = get_cpu_time() + TIME_BETWEEN_RTC_SYNC_SEC;
+			if (wifi_connected()) {
+				info(TAG, "Synchronizing onboard real-time clock...");
+				debug(TAG, "Connecting to NTP server");
+				if (sync_ntp_time(NTP_SERVER) == ESP_OK) {
+					ESP_ERROR_CHECK(ds3231_set_time(get_cpu_time()));
+					next_rtc_sync = get_cpu_time() + TIME_BETWEEN_RTC_SYNC_SEC;
+				} else {
+					warning(TAG, "Could not connect to the NTP server");
+				}
 			} else {
-				warning(TAG, "Could not connect to the NTP server");
+				warning(TAG, "Overdue for onboard real-time clock synchronization");
 			}
-		} else if (!wifi_connected()) {
-			warning(TAG, "Overdue for onboard real-time clock synchronization");
 		}
 
 	}
