@@ -35,7 +35,10 @@
 static const char* TAG { "main" };
 static RTC_DATA_ATTR wakeup_reason_t wakeup_reason { UNEXPECTED_REASON };
 static RTC_DATA_ATTR time_t measurement_time { 0 }, next_rtc_sync { 0 };
-static Sensor* sensors[] { new BME280, new PMS5003 };
+static Sensor* sensors[] { }; //new BME280, new PMS5003 };
+
+static const EventBits_t SENSOR_SLEEP { 0x1 };
+static EventGroupHandle_t main_event_group;
 
 bool saved_data_exists; // is there JSON data on the SD card
 config_t config; // values stored in config file
@@ -70,10 +73,10 @@ esp_err_t send_boot_log() {
 bool connect_wifi() {
 	if (!wifi_connected()) {
 		info(TAG, "Connecting to WiFi...");
-		if (wifi_connect(config.wifi_ssid, config.wifi_password) == ESP_OK) {
+		if (wifi_connect_block(config.wifi_ssid, config.wifi_password) == ESP_OK) {
 			info(TAG, "Connected to SSID \"%s\"", config.wifi_ssid);
 		} else {
-			error(TAG, "Could not connect to SSID \"%s\"", config.wifi_ssid);
+			warning(TAG, "Could not connect to SSID \"%s\"", config.wifi_ssid);
 			// FIXME: free memory on failure
 			//wifi_stop();
 		}
@@ -87,7 +90,7 @@ bool connect_mqtt() {
 		if (mqtt_connect(config.mqtt_broker) == ESP_OK) {
 			info(TAG, "Connected to MQTT broker \"%s\"", config.mqtt_broker);
 		} else {
-			error(TAG, "Could not connect to MQTT broker \"%s\"",
+			warning(TAG, "Could not connect to MQTT broker \"%s\"",
 					config.mqtt_broker);
 			// FIXME: free memory on failure
 			//mqtt_stop();
@@ -96,7 +99,34 @@ bool connect_mqtt() {
 	return mqtt_connected();
 }
 
+void sleep_sensor_task(void *pvParameters) {
+	// Wait one second
+	vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+	// Put the sensors to sleep
+	info(TAG, "Putting sensors to sleep");
+	for (Sensor *sensor : sensors) {
+		const esp_err_t sleep_ret { sensor->sleep() };
+		if (sleep_ret != ESP_OK)
+			error(TAG, "Could not put %s to sleep: %s", sensor->get_name(),
+					esp_err_to_name(sleep_ret));
+	}
+
+	// Report that the task is complete
+	xEventGroupSetBits(main_event_group, SENSOR_SLEEP);;
+}
+
 extern "C" void app_main() {
+
+	esp_log_level_set("MQTT_CLIENT", ESP_LOG_NONE);
+	esp_log_level_set("OUTBOX", ESP_LOG_NONE);
+	esp_log_level_set("event", ESP_LOG_NONE);
+	esp_log_level_set("wpa", ESP_LOG_NONE);
+	esp_log_level_set("wifi", ESP_LOG_NONE);
+	esp_log_level_set("efuse", ESP_LOG_NONE);
+	esp_log_level_set("nvs", ESP_LOG_NONE);
+	esp_log_level_set("tcpip_adapter", ESP_LOG_NONE);
+	esp_log_level_set("*", ESP_LOG_NONE);
 
 	logger_set_level(LOG_LEVEL);
 
@@ -122,8 +152,6 @@ extern "C" void app_main() {
 	verbose(TAG, "Starting UART");
 	ESP_ERROR_CHECK(uart_start());
 
-
-
 	// Read the configuration file values from SD card
 	if (wakeup_reason != READY_SENSORS) {
 		debug(TAG, "Reading configuration values from file");
@@ -135,8 +163,12 @@ extern "C" void app_main() {
 
 	if (wakeup_reason == UNEXPECTED_REASON) {
 		// Log wakeup reason
-		error(TAG, "Woke up for an unexpected reason (%s)",
-				esp_reset_to_name(esp_reset_reason()));
+		if (wakeup_reason == ESP_RST_POWERON) {
+			info(TAG, "Woke up due to power on event");
+		} else {
+			error(TAG, "Woke up for an unexpected reason (%s)",
+					esp_reset_to_name(esp_reset_reason()));
+		}
 
 		// Attempt to synchronize time with DS3231
 		bool time_is_synchronized, lost_power;
@@ -216,6 +248,13 @@ extern "C" void app_main() {
 		// Log wakeup
 		info(TAG, "Woke up to take weather data measurements");
 
+		// Create the main event group
+		main_event_group = xEventGroupCreate();
+
+		// Connect to WiFi without blocking
+		info(TAG, "Connecting to WiFi without blocking");
+		wifi_connect(config.wifi_ssid, config.wifi_password);
+
 		// Ready sensors to take measurements
 		debug(TAG, "Readying sensors to take data");
 		for (Sensor *sensor : sensors) {
@@ -253,6 +292,11 @@ extern "C" void app_main() {
 		if (measurement_time < actual_measurement_time)
 			warning(TAG, "Data was not measured before the deadline");
 
+		// Start a task to sleep the sensors
+		TaskHandle_t sensor_sleep_task;
+		xTaskCreate(sleep_sensor_task, "sensor_sleep", 2048, nullptr,
+				tskIDLE_PRIORITY, &sensor_sleep_task);
+
 		// Check if any sensors were not able to get data
 		for (int i = 0; i < num_sensors; ++i) {
 			if (sensor_rets[i] != ESP_OK)
@@ -267,20 +311,11 @@ extern "C" void app_main() {
 		debug(TAG, "Got JSON: %s", json_str);
 		cJSON_Delete(json_root);
 
-		// Wait for one second before sending the sleep command
-		vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-		// Put the sensors to sleep
-		info(TAG, "Putting sensors to sleep");
-		for (Sensor *sensor : sensors) {
-			const esp_err_t sleep_ret { sensor->sleep() };
-			if (sleep_ret != ESP_OK)
-				error(TAG, "Could not put %s to sleep: %s", sensor->get_name(),
-						esp_err_to_name(sleep_ret));
-		}
+		// Wait until we connect or fail to connect to WiFi
+		wifi_block_until_connected();
 
 		bool data_published { false };
-		if (connect_wifi() && connect_mqtt()) {
+		if (wifi_connected() && connect_mqtt()) {
 			info(TAG, "Publishing to MQTT broker");
 			if (mqtt_publish(config.mqtt_data_topic, json_str) == ESP_OK)
 				data_published = true;
@@ -292,6 +327,11 @@ extern "C" void app_main() {
 			info(TAG, "Storing sensor data to file");
 			ESP_ERROR_CHECK(store_json_string(DATA_FILE_NAME, json_str));
 		}
+
+		// Wait until the sensors have been put to sleep
+		xEventGroupWaitBits(main_event_group, SENSOR_SLEEP, pdFALSE, pdFALSE,
+						portMAX_DELAY);
+		vTaskDelete(sensor_sleep_task);
 
 		// Check if it is time to resync the DS3231
 		if (get_cpu_time() > next_rtc_sync && wifi_connected()) {
@@ -361,8 +401,6 @@ extern "C" void app_main() {
 		}
 		next_wake_time = measurement_time - SENSOR_READY_SEC - BOOT_DELAY_SEC;
 	}
-
-
 
 	// Stop wireless services
 	if (wifi_connected()) {
