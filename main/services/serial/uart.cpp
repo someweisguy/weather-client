@@ -49,9 +49,12 @@ esp_err_t uart_write(const uint8_t *data_wr, const size_t size) {
 
 esp_err_t uart_read(uint8_t *data_rd, const size_t size) {
 	// Wait 1 second to read data on the UART bus
-	if (uart_read_bytes(UART_PORT, data_rd, size, 1000 / portTICK_PERIOD_MS)
-			!= size)
+	const int read { uart_read_bytes(UART_PORT, data_rd, size,
+			1000 / portTICK_PERIOD_MS) };
+	if (read == -1)
 		return ESP_FAIL;
+	else if (read != size)
+		return ESP_ERR_INVALID_SIZE;
 	else
 		return ESP_OK;
 }
