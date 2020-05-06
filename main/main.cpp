@@ -35,7 +35,7 @@
 static const char* TAG { "main" };
 static RTC_DATA_ATTR wakeup_reason_t wakeup_reason { UNEXPECTED_REASON };
 static RTC_DATA_ATTR time_t measurement_time { 0 }, next_rtc_sync { 0 };
-static Sensor* sensors[] { }; //new BME280, new PMS5003 };
+static Sensor *sensors[] { new BME280, new PMS5003 };
 
 static const EventBits_t SENSOR_SLEEP { 0x1 };
 static EventGroupHandle_t main_event_group;
@@ -163,7 +163,7 @@ extern "C" void app_main() {
 
 	if (wakeup_reason == UNEXPECTED_REASON) {
 		// Log wakeup reason
-		if (wakeup_reason == ESP_RST_POWERON) {
+		if (esp_reset_reason() == ESP_RST_POWERON) {
 			info(TAG, "Woke up due to power on event");
 		} else {
 			error(TAG, "Woke up for an unexpected reason (%s)",
