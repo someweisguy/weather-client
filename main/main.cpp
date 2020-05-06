@@ -145,7 +145,7 @@ extern "C" void app_main() {
 	ESP_ERROR_CHECK(sdcard_mount(SD_MOUNT_POINT));
 	ESP_ERROR_CHECK(logger_start(SD_MOUNT_POINT LOG_FILE_NAME));
 	debug(TAG, "Begin GNDCTRL log");
-	verbose(TAG, "Checking configuration file is formatted correctly");
+	//verbose(TAG, "Checking configuration file is formatted correctly");
 	// TODO: ensure config file setup is correct
 	verbose(TAG, "Starting i2c");
 	ESP_ERROR_CHECK(i2c_start());
