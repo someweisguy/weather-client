@@ -71,4 +71,3 @@ public:
 };
 
 #endif /* MAIN_HARDWARE_SENSOR_H_ */
-

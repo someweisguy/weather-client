@@ -57,7 +57,10 @@ static void event_handler(void* handler_args, esp_event_base_t base,
 	}
 }
 
-esp_err_t wifi_connect(const char* ssid, const char* pass) {
+esp_err_t wifi_connect_block(const char* ssid, const char* pass) {
+
+	if (wifi_event_group != nullptr)
+			return ESP_ERR_INVALID_STATE;
 
 	// Create the WiFi event group
 	wifi_event_group = xEventGroupCreate();
@@ -82,6 +85,49 @@ esp_err_t wifi_connect(const char* ssid, const char* pass) {
 	ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta_config));
 	ESP_ERROR_CHECK(esp_wifi_start());
 
+	// Wait until WiFi connects or fails
+	const EventBits_t wifi_ret { xEventGroupWaitBits(wifi_event_group,
+			WIFI_SUCCESS | WIFI_FAIL, pdFALSE, pdFALSE, portMAX_DELAY) };
+
+	if (wifi_ret == WIFI_SUCCESS) {
+		return ESP_OK;
+	} else {
+		return ESP_FAIL;
+	}
+}
+
+esp_err_t wifi_connect(const char *ssid, const char *pass) {
+
+	if (wifi_event_group != nullptr)
+		return ESP_ERR_INVALID_STATE;
+
+	// Create the WiFi event group
+	wifi_event_group = xEventGroupCreate();
+
+	verbose(TAG, "Configuring WiFi service");
+	wifi_init_config_t wifi_config = WIFI_INIT_CONFIG_DEFAULT();
+	ESP_ERROR_CHECK(esp_wifi_init(&wifi_config));
+	ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+	wifi_config_t sta_config {};
+	memcpy(sta_config.sta.ssid, ssid, 32);
+	memcpy(sta_config.sta.password, pass, 64);
+	sta_config.sta.bssid_set = false;
+
+	// Register the WiFi event handler
+	ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+			&event_handler, nullptr));
+	ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
+			&event_handler, nullptr));
+
+	verbose(TAG, "Attempting to connect to WiFi");
+	ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta_config));
+	ESP_ERROR_CHECK(esp_wifi_start());
+
+	return ESP_OK;
+}
+
+esp_err_t wifi_block_until_connected() {
 	// Wait until WiFi connects or fails
 	const EventBits_t wifi_ret { xEventGroupWaitBits(wifi_event_group,
 			WIFI_SUCCESS | WIFI_FAIL, pdFALSE, pdFALSE, portMAX_DELAY) };

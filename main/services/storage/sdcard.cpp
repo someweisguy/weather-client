@@ -13,6 +13,9 @@ esp_err_t sdcard_mount(const char *mount_point) {
 	verbose(TAG, "Configuring SD card");
 	sdmmc_host_t host = SDSPI_HOST_DEFAULT();
 
+	// Don't use off-brand microSD cards - https://github.com/espressif/esp-idf/issues/965
+	//--host.max_freq_khz;
+
 	sdspi_slot_config_t slot_config = SDSPI_SLOT_CONFIG_DEFAULT();
 	slot_config.gpio_miso = PIN_NUM_MISO;
 	slot_config.gpio_mosi = PIN_NUM_MOSI;
@@ -89,7 +92,7 @@ esp_err_t sdcard_get_config_vals(const char *file_name, config_t &config) {
 		const long fsize { ftell(f) };
 		// Don't read more than 1KB into memory
 		if (fsize > 1024)
-			return ESP_FAIL;
+			return ESP_ERR_INVALID_SIZE;
 		rewind(f);
 		char json_string[fsize + 1];
 		fread(json_string, 1, fsize, f);

@@ -17,7 +17,9 @@
 #include "esp_wifi.h"
 
 
-esp_err_t wifi_connect(const char* ssid, const char* pass);
+esp_err_t wifi_connect_block(const char* ssid, const char* pass);
+esp_err_t wifi_connect(const char *ssid, const char *pass);
+esp_err_t wifi_block_until_connected();
 esp_err_t wifi_stop();
 
 bool wifi_connected();
