@@ -334,7 +334,7 @@ extern "C" void app_main() {
 		vTaskDelete(sensor_sleep_task);
 
 		// Check if it is time to resync the DS3231
-		if (get_cpu_time() > next_rtc_sync && wifi_connected()) {
+		if (get_cpu_time() > next_rtc_sync) {
 			if (wifi_connected()) {
 				info(TAG, "Synchronizing onboard real-time clock...");
 				debug(TAG, "Connecting to NTP server");
