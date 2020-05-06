@@ -42,15 +42,18 @@ esp_err_t uart_stop() {
 
 esp_err_t uart_write(const uint8_t *data_wr, const size_t size) {
 	// Send the data on the UART bus
-	if (uart_write_bytes(UART_PORT, (char*) data_wr, size) != size)
+	const int write { uart_write_bytes(UART_PORT, (char*) data_wr, size) };
+	if (write == -1)
 		return ESP_FAIL;
-	return uart_wait_tx_done(UART_PORT, 1000 / portTICK_PERIOD_MS);
+	else if (write != size)
+		return ESP_ERR_INVALID_SIZE;
+	return uart_wait_tx_done(UART_PORT, 5000 / portTICK_PERIOD_MS);
 }
 
 esp_err_t uart_read(uint8_t *data_rd, const size_t size) {
 	// Wait 1 second to read data on the UART bus
 	const int read { uart_read_bytes(UART_PORT, data_rd, size,
-			1000 / portTICK_PERIOD_MS) };
+			5000 / portTICK_PERIOD_MS) };
 	if (read == -1)
 		return ESP_FAIL;
 	else if (read != size)
