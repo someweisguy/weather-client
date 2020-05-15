@@ -8,18 +8,22 @@
 #ifndef MAIN_HARDWARE_DS3231_DS3231_H_
 #define MAIN_HARDWARE_DS3231_DS3231_H_
 
-#include <time.h>
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 
+#include <ctime>
 #include "esp_system.h"
+#include "esp_log.h"
+#include "freertos/portmacro.h"
 #include "i2c.h"
 
-#include "logger.h"
+#define I2C_ADDR 		0x68
+#define STATUS_REG 		0x0f
+#define DATA_REG_START 	0x00
+
+
+time_t ds3231_get_time();
+bool ds3231_set_time();
 
 esp_err_t ds3231_lost_power(bool &lost_power);
-
-esp_err_t ds3231_get_time(time_t &unix_time);
-esp_err_t ds3231_set_time(const time_t unix_time);
-
-esp_err_t ds3231_get_temperature_celsius(float &temperature_C);
 
 #endif /* MAIN_HARDWARE_DS3231_DS3231_H_ */

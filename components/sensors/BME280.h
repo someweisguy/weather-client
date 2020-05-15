@@ -115,7 +115,7 @@ public:
 	esp_err_t ready() override {
 		// Get compensation "dig" values
 		uint8_t dig_buf[32];
-		verbose(TAG, "Getting data trim values");
+		ESP_LOGV(TAG, "Getting data trim values");
 		const esp_err_t dig_1_ret { i2c_read(I2C_ADDRESS, REG_TRIM_T1_TO_H1, dig_buf, 25) };
 		if (dig_1_ret != ESP_OK)
 			return dig_1_ret;
@@ -137,14 +137,14 @@ public:
 
 	esp_err_t setup() override {
 		// Soft reset the BME280
-		verbose(TAG, "Sending soft reset command");
+		ESP_LOGV(TAG, "Sending soft reset command");
 		const uint8_t reset_cmd { 0xb6 };
 		const esp_err_t reset_ret { i2c_write(I2C_ADDRESS, REG_RESET, &reset_cmd, 1) };
 		if (reset_ret != ESP_OK)
 			return reset_ret;
 
 		// Wait for the reset to take effect
-		verbose(TAG, "Waiting for response to soft reset");
+		ESP_LOGV(TAG, "Waiting for response to soft reset");
 		uint8_t status;
 		do {
 			vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -154,26 +154,26 @@ public:
 		} while ((status & 0x01) == 0x01);
 
 		// Ensure that chip ID is correct
-		verbose(TAG, "Getting chip ID");
+		ESP_LOGV(TAG, "Getting chip ID");
 		uint8_t id;
 		if (i2c_read(I2C_ADDRESS, REG_CHIP_ID, &id, 1) != ESP_OK && id == 0x60)
 			return ESP_ERR_NOT_FOUND;
 
 		// Set the sensor to sleep mode, otherwise settings will be ignored
-		verbose(TAG, "Sending sleep mode command");
+		ESP_LOGV(TAG, "Sending sleep mode command");
 		const uint8_t sleep_cmd { 0x00 };
 		const esp_err_t sleep_ret { i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &sleep_cmd, 1) };
 		if (sleep_ret != ESP_OK)
 			return sleep_ret;
 
-		verbose(TAG, "Setting filtering x16 and standby 20ms");
+		ESP_LOGV(TAG, "Setting filtering x16 and standby 20ms");
 		// Set filtering x16 and set the standby in normal mode to 20ms
 		const uint8_t filter_standby { 0xf0 };
 		const esp_err_t filtering_ret { i2c_write(I2C_ADDRESS, REG_CONFIG, &filter_standby, 1) };
 		if (filtering_ret != ESP_OK)
 			return filtering_ret;
 
-		verbose(TAG, "Setting humidity sampling x16");
+		ESP_LOGV(TAG, "Setting humidity sampling x16");
 		// Write the sample rate to the Humidity control register
 		const uint8_t hum_sample { 0x05 };
 		const esp_err_t sample_ret { i2c_write(I2C_ADDRESS, REG_CONTROLHUMID, &hum_sample, 1) };
@@ -181,7 +181,7 @@ public:
 			return sample_ret;
 
 		// Set temperature and pressure sampling to x16 and sleep mode
-		verbose(TAG, "Setting temperature and pressure sampling x16 and sleep "
+		ESP_LOGV(TAG, "Setting temperature and pressure sampling x16 and sleep "
 				"mode");
 		const uint8_t tpm_setting { 0xb0 };
 		return i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1);

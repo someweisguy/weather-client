@@ -8,18 +8,17 @@
 #ifndef MAIN_HARDWARE_SENSOR_H_
 #define MAIN_HARDWARE_SENSOR_H_
 
-#include <stdint.h>
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 
+#include <cstdint>
 #include "esp_system.h"
+#include "esp_log.h"
 #include "i2c.h"
 #include "uart.h"
-
-#include "logger.h"
 #include "cJSON.h"
 
 class Sensor {
 protected:
-
 	void add_JSON_elem(cJSON *json_root, const char *name, const double value,
 			const char *scale) {
 		cJSON *base_json_object;
@@ -60,7 +59,8 @@ public:
 	virtual esp_err_t get_data(cJSON *json_root) {
 		// Takes a JSON object and adds sensor data to it
 		// Must be overridden
-		return ESP_FAIL;
+		ESP_LOGW("sensor", "Undefined generic sensor has no data");
+		return ESP_OK;
 	}
 
 	virtual esp_err_t sleep() {

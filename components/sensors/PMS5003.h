@@ -49,28 +49,29 @@ public:
 	}
 
 	esp_err_t setup() override {
-		verbose(TAG, "Sending active mode command");
-		const uint8_t passive_cmd[7] { 0x42, 0x4d, 0xe1, 0x00, 0x01, 0x01, 0x71 };
+		ESP_LOGV(TAG, "Sending active mode command");
+		const char passive_cmd[7] { 0x42, 0x4d, 0xe1, 0x00, 0x01, 0x01, 0x71 };
 		return uart_write(passive_cmd, 7);
 	}
 
 	esp_err_t wakeup() override {
-		verbose(TAG, "Sending wake up command");
-		const uint8_t wakeup_cmd[7] { 0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74 };
+		ESP_LOGV(TAG, "Sending wake up command");
+		const char wakeup_cmd[7] { 0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74 };
 		return uart_write(wakeup_cmd, 7);
 	}
 
 	esp_err_t get_data(cJSON *json) override {
 		uint16_t computed_checksum { 0 }, received_checksum;
-		uint8_t retries { 0 }, buffer[32];
+		uint8_t retries { 0 };
+		char buffer[32];
 		do {
-			verbose(TAG, "Reading data");
-			const esp_err_t read_ret { uart_read(buffer, 32) };
-			if (read_ret != ESP_OK)
-				return read_ret;
+			ESP_LOGV(TAG, "Reading data");
+			const int read { uart_read(buffer, 32) };
+			if (read != 32)
+				return read;
 
 			// Compute and check checksum
-			verbose(TAG, "Computing and comparing checksum");
+			ESP_LOGV(TAG, "Computing and comparing checksum");
 			for (int i = 0; i < 30; ++i)
 				computed_checksum += buffer[i];
 			received_checksum = static_cast<uint16_t>((buffer[30] << 8) +
@@ -121,8 +122,9 @@ public:
 	}
 
 	esp_err_t sleep() override {
-		const uint8_t sleep_cmd[7] { 0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73 };
-		return uart_write(sleep_cmd, 7);
+		const char sleep_cmd[7] { 0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73 };
+		if (uart_write(sleep_cmd, 7) == 7) return ESP_OK;
+		else return ESP_FAIL;
 	}
 
 };

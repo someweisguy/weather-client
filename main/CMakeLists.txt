@@ -3,22 +3,21 @@ set(COMPONENT_REQUIRES )
 set(COMPONENT_PRIV_REQUIRES )
 
 set(COMPONENT_SRCS "main.cpp"
-				   "bsp.cpp" 
-				   "services/serial/i2c.cpp"
-				   "services/serial/uart.cpp"
-				   "services/storage/sdcard.cpp"
-				   "services/logger/logger.cpp"
-				   "services/wireless/wifi.cpp"
-				   "services/wireless/mqtt.cpp"
+				   "helpers.cpp" 
+				   "serial/i2c.cpp"
+				   "serial/uart.cpp"
+				   "wireless/wlan.cpp"
+				   "wireless/http.cpp"
+				   "wireless/mqtt.cpp"
+				   "hardware/sdcard/sdcard.cpp"
 				   "hardware/ds3231/ds3231.cpp"
 				   )
 
 set(COMPONENT_ADD_INCLUDEDIRS "."
-							  "services/serial/include"
-							  "services/storage"
-							  "services/logger"
-							  "services/wireless/include"
+							  "serial/include"
+							  "wireless/include"
 							  "hardware"
+							  "hardware/sdcard"
 							  "hardware/ds3231"
 							  )
 
