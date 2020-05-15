@@ -16,7 +16,7 @@
 #include "esp_heap_caps.h"
 
 
-esp_err_t http_start();
-esp_err_t http_stop();
+bool http_start();
+bool http_stop();
 
 #endif /* MAIN_WIRELESS_INCLUDE_HTTP_H_ */

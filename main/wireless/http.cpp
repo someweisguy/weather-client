@@ -84,7 +84,7 @@ static esp_err_t http_get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-esp_err_t http_start() {
+bool http_start() {
 	if (http_server != nullptr)
 		return ESP_OK;
 
@@ -101,17 +101,18 @@ esp_err_t http_start() {
     	get.handler = http_get_handler;
     	get.user_ctx = nullptr;
         httpd_register_uri_handler(http_server, &get);
+        return true;
     }
 
-    return start_ret;
+    return false;
 }
 
-esp_err_t http_stop() {
+bool http_stop() {
 	if (http_server == nullptr)
-		return ESP_OK;
+		return true;
 
 	httpd_stop(http_server);
 	http_server = nullptr;
-	return ESP_OK;
+	return true;
 }
 

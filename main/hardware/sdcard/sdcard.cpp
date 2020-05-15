@@ -8,7 +8,7 @@
 #include "sdcard.h"
 static const char *TAG { "sdcard" };
 
-esp_err_t sdcard_mount() {
+bool sdcard_mount() {
 	// Initialize the SPI host
 	ESP_LOGV(TAG, "Initializing SPI host");
 	sdmmc_host_t host = SDSPI_HOST_DEFAULT();
@@ -48,18 +48,21 @@ esp_err_t sdcard_mount() {
 	} while (mount_ret != ESP_OK && --host.max_freq_khz > 0 && retries-- > 0);
 
 	// Log error or warnings and return result
-	if (mount_ret != ESP_OK)
+	if (mount_ret != ESP_OK) {
 		ESP_LOGE(TAG, "Unable to mount the SD card (%x)", mount_ret);
-	else if (host.max_freq_khz < 20000)
+		return false;
+	} else if (host.max_freq_khz < 20000)
 		ESP_LOGW(TAG, "The SD card host maximum frequency was set to %ukHz",
 				host.max_freq_khz);
-	return mount_ret;
+	return true;
 }
 
-esp_err_t sdcard_unmount() {
+bool sdcard_unmount() {
 	ESP_LOGD(TAG, "Unmounting card");
 	esp_err_t unmount_ret { esp_vfs_fat_sdmmc_unmount() };
-	if (unmount_ret != ESP_OK)
+	if (unmount_ret != ESP_OK) {
 		ESP_LOGE(TAG, "Unable to unmount the SD card (%x)", unmount_ret);
-	return unmount_ret;
+		return false;
+	}
+	return true;
 }

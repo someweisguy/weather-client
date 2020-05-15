@@ -25,7 +25,7 @@
 #define PIN_NUM_CS   21 // User Defined
 
 
-esp_err_t sdcard_mount();
-esp_err_t sdcard_unmount();
+bool sdcard_mount();
+bool sdcard_unmount();
 
 #endif /* MAIN_HARDWARE_SDCARD_SDCARD_H_ */
