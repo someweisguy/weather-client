@@ -11,6 +11,7 @@ set(COMPONENT_SRCS "main.cpp"
 				   "wireless/mqtt.cpp"
 				   "hardware/sdcard/sdcard.cpp"
 				   "hardware/ds3231/ds3231.cpp"
+				   "services/power.cpp"
 				   )
 
 set(COMPONENT_ADD_INCLUDEDIRS "."
@@ -19,6 +20,7 @@ set(COMPONENT_ADD_INCLUDEDIRS "."
 							  "hardware"
 							  "hardware/sdcard"
 							  "hardware/ds3231"
+							  "services"
 							  )
 
 register_component()
