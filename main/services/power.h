@@ -10,15 +10,18 @@
 
 #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 
+
+
 #include "esp_system.h"
 #include "esp_log.h"
 #include "esp_event.h"
+#include "hal/gpio_types.h"
 #include "driver/gpio.h"
 
-#define LED_PIN 		13
-#define INTERRUPT_PIN   34
+#define FEATHER_LED_PIN 		13
+#define BATT_INTERRUPT_PIN   34
 
 
-void configure_low_power_interrupt();
+void configure_battery_interrupt();
 
 #endif /* MAIN_SERVICES_POWER_H_ */
