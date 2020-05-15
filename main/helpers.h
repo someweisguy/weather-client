@@ -49,8 +49,18 @@ const char* esp_reset_to_name(esp_reset_reason_t code);
  */
 int vlogf(const char *format, va_list arg);
 
-
+/**
+ * Sets the system time to the corresponding Unix epoch.
+ *
+ * @param epoch	 the Unix epoch in seconds since 1 January 1970
+ */
 void set_system_time(const time_t epoch);
+
+/**
+ * Gets the system time as the Unix epoch.
+ *
+ * @return the time in seconds since 1 January 1970
+ */
 time_t get_system_time();
 
 void strip(char *s);
@@ -63,7 +73,7 @@ int32_t get_line_length(FILE *f);
  * with a space. For example, the source string 'Hello world!' returns
  * '48 65 6C 6C 6F 20 77 6F 72 6C 64'.
  *
- * @note you should allocate strlen(source) * 3 bytes for the destination string
+ * @note you should allocate strlen(source) * 5 bytes for the destination string
  * (this includes the null terminator since there is no space after the last
  * hex value)
  *
@@ -80,7 +90,7 @@ char *strhex(char *destination, const char *source);
  * 8 bit segments with a space. For example, the source string 'Hello world!'
  * returns '48 65 6C 6C 6F 20 77 6F 72 6C 64'.
  *
- * @note you should allocate strlen(source) * 3 bytes for the destination string
+ * @note you should allocate strlen(source) * 5 bytes for the destination string
  * (this includes the null terminator since there is no space after the last
  * hex value)
  *
