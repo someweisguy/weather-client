@@ -24,6 +24,6 @@
 time_t ds3231_get_time();
 bool ds3231_set_time();
 
-esp_err_t ds3231_lost_power(bool &lost_power);
+bool ds3231_lost_power(bool &lost_power);
 
 #endif /* MAIN_HARDWARE_DS3231_DS3231_H_ */

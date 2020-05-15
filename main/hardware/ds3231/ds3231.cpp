@@ -6,7 +6,7 @@
  */
 
 #include "ds3231.h"
-static const char* TAG { "ds3231" };
+static const char *TAG { "ds3231" };
 
 time_t ds3231_get_time() {
 	// Read from the time registers
@@ -28,8 +28,10 @@ time_t ds3231_get_time() {
 	// Get hour 0-23 (check if in 12-hour or 24-hour mode)
 	t.tm_hour = data[2] & 0xf; 							 	  // get hour 0-9
 	t.tm_hour += data[2] & 0x10 ? 10 : 0;					  // add 10 hour bit
-	if (data[2] & 0x40) t.tm_hour += data[2] & 0x20 ? 12 : 0; // add am/pm
-	else t.tm_hour += data[2] & 0x20 ? 20 : 0;  			  // add 20 hour bit
+	if (data[2] & 0x40)
+		t.tm_hour += data[2] & 0x20 ? 12 : 0; // add am/pm
+	else
+		t.tm_hour += data[2] & 0x20 ? 20 : 0;  			  // add 20 hour bit
 
 	// Get day of month 1-31
 	t.tm_mday = (data[4] >> 4) * 10 + (data[4] & 0xf);
@@ -39,7 +41,7 @@ time_t ds3231_get_time() {
 
 	// Get year since 1900
 	t.tm_year = ((data[6] & 0xf0) * 10 >> 4) + (data[6] & 0xf); // from year 0-99
-	t.tm_year += data[5] & 0x80 ? 100 : 0; 		   		  		// add century bit
+	t.tm_year += data[5] & 0x80 ? 100 : 0; 		   		  	// add century bit
 
 	// Set daylight saving time flag
 	t.tm_isdst = -1; // information not available
@@ -64,9 +66,10 @@ bool ds3231_set_time() {
 	tm *t { localtime(&tv.tv_sec) };
 	int wait_millis = (1e+6 - tv.tv_usec) / 1000;
 	const TickType_t send_time_tick { wait_millis / portTICK_PERIOD_MS };
-	ESP_LOGD(TAG, "Sending %d-%02d-%02d %02d:%02d:%02dZ to DS3231 in %d "
-			"millisecond(s)", t->tm_year + 1900, t->tm_mon + 1, t->tm_mday,
-			t->tm_hour, t->tm_min, t->tm_sec, wait_millis);
+	ESP_LOGD(TAG,
+			"Sending %d-%02d-%02d %02d:%02d:%02dZ to DS3231 in %d " "millisecond(s)",
+			t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min,
+			t->tm_sec, wait_millis);
 
 	// Encode the Unix epoch into the data buffer
 	// See pg.11 https://datasheets.maximintegrated.com/en/ds/DS3231.pdf
@@ -119,15 +122,15 @@ bool ds3231_set_time() {
 	}
 }
 
-esp_err_t ds3231_lost_power(bool &lost_power) {
+bool ds3231_lost_power(bool &lost_power) {
+	// Read the status register to see if the oscillator stop flag was reset
 	unsigned char status;
 	ESP_LOGD(TAG, "Checking if the DS3231 lost power");
 	esp_err_t read_ret { i2c_read(I2C_ADDR, STATUS_REG, &status, 1) };
 	if (read_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to communicate with the DS3231 (%x)", read_ret);
-		return read_ret;
-	} else {
-		lost_power = status >> 7;
-		return ESP_OK;
+		ESP_LOGE(TAG, "Unable to communicate with the DS3231 (%i)", read_ret);
+		return true;
 	}
+
+	return lost_power = status >> 7;
 }
