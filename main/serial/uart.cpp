@@ -64,7 +64,7 @@ int uart_write(const char *data_wr, const size_t size, const time_t wait_millis)
 		return 0;
 
 	// Send the data on the UART bus
-	char hex_wr[size * 3];
+	char hex_wr[size * 5];
 	ESP_LOGD(TAG, "Writing data to UART: [ %s ]", strhex(hex_wr, data_wr));
 	const int written { uart_write_bytes(UART_PORT, (char*) data_wr, size) };
 
@@ -112,7 +112,7 @@ int uart_read(char *data_rd, const size_t size, const time_t wait_millis) {
 		ESP_LOGE(TAG, "Unable to read data from UART (expected %u bytes "
 				"but got %u)", size, read);
 	} else {
-		char hex_rd[read * 3];
+		char hex_rd[read * 5];
 		ESP_LOGV(TAG, "Received data from UART: [ %s ]", strhex(hex_rd, data_rd));
 	}
 
