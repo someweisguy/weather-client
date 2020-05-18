@@ -23,8 +23,8 @@
 #include "BME280.h"
 //#include "PMS5003.h"
 
-#define SENSOR_READY_SEC    30 /* Longest time (in seconds) that it takes for sensors to wake up */
-#define BOOT_DELAY_SEC      5  /* Time (in seconds) that it takes the ESP32 to wake up */
+#define SENSOR_READY    30 /* Longest time (in seconds) that it takes for sensors to wake up */
+#define BOOT_DELAY       5 /* Time (in seconds) that it takes the ESP32 to wake up */
 #define BOOT_LOG_SIZE_BYTES 4096
 
 #define LOG_FILE_NAME       "/sdcard/events.log"
@@ -89,9 +89,6 @@ extern "C" void app_main() {
 
 	// TODO: documentation about setting i2c to log level info or above for
 	//  most accurate time sync in ds3231
-	// TODO: Get rid of all %x in error logging functions
-	//  Code that may occasionally throw fail should have strings to explain
-	//  reasons for failure. Code that shouldn't fail may display errors as %i
 	// TODO: clean up helper functions
 	// TODO: Reimplement the old sd card function in the txt file on desktop
 	//  TODO: read config file from sd card
@@ -113,7 +110,6 @@ extern "C" void app_main() {
 
 	// Connect to WiFi and MQTT
 	wlan_connect("ESPTestNetwork", "ThisIsMyTestNetwork!");
-	mqtt_connect("mqtt://192.168.0.2");
 
 	// Synchronize system time with time server
 	do {
@@ -125,7 +121,6 @@ extern "C" void app_main() {
 		if (!time_is_synchronized) {
 			// Re-check WiFi and MQTT credentials
 			wlan_connect("ESPTestNetwork", "ThisIsMyTestNetwork!");
-			mqtt_connect("mqtt://192.168.0.2");
 		}
 	} while (!time_is_synchronized);
 
@@ -136,8 +131,28 @@ extern "C" void app_main() {
 	for (Sensor *sensor : sensors)
 		sensor->sleep();
 
-	// Figure out the next wakeup time
+	// Calculate the next sensor ready time
+	TickType_t last_wake_tick { xTaskGetTickCount() };
+	const time_t epoch { get_system_time() };
+	time_t window_delta { 300 - (epoch % 300) };
+	if (window_delta < (SENSOR_READY + BOOT_DELAY)) {
+		ESP_LOGI(TAG, "Skipping next measurement window (not enough time)");
+		window_delta += 300;
+	}
+	window_delta -= SENSOR_READY + BOOT_DELAY;
 
+	// Log results
+	const time_t window_epoch { epoch + window_delta };
+	const tm *window_tm { localtime(&window_epoch) };
+	ESP_LOGI(TAG, "Sleeping until %02d:%02d:%02dZ", window_tm->tm_hour,
+				window_tm->tm_min, window_tm->tm_sec);
+
+	mqtt_connect("mqtt://192.168.0.2");
+
+	// Wait
+	vTaskDelayUntil(&last_wake_tick, window_delta * 1000 / portTICK_PERIOD_MS);
+
+	// Enter main event loop
 	while (true) {
 			ESP_LOGD(TAG, "Doing main loop");
 
