@@ -12,9 +12,8 @@ time_t ds3231_get_time() {
 	// Read from the time registers
 	ESP_LOGV(TAG, "Reading data from the time registers");
 	char data[7];
-	esp_err_t read_ret { i2c_read(I2C_ADDR, DATA_REG_START, data, 7) };
-	if (read_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to read from the time registers (%x)", read_ret);
+	if (!i2c_read(I2C_ADDR, DATA_REG_START, data, 7)) {
+		ESP_LOGE(TAG, "Unable to read from the time registers");
 		return -1;
 	}
 
@@ -47,7 +46,7 @@ time_t ds3231_get_time() {
 	t.tm_isdst = -1; // information not available
 
 	// Log results in ISO 8601 like format
-	ESP_LOGD(TAG, "Got datetime from the DS3231: %d-%02d-%02d %02d:%02d:%02dZ",
+	ESP_LOGI(TAG, "Got datetime from the DS3231: %d-%02d-%02d %02d:%02d:%02dZ",
 			t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, t.tm_hour, t.tm_min,
 			t.tm_sec);
 
@@ -66,8 +65,7 @@ bool ds3231_set_time() {
 	tm *t { localtime(&tv.tv_sec) };
 	int wait_millis = (1e+6 - tv.tv_usec) / 1000;
 	const TickType_t send_time_tick { wait_millis / portTICK_PERIOD_MS };
-	ESP_LOGD(TAG,
-			"Sending %d-%02d-%02d %02d:%02d:%02dZ to DS3231 in %d " "millisecond(s)",
+	ESP_LOGI(TAG, "Sending %d-%02d-%02d %02d:%02d:%02dZ to DS3231 in %d millisecond(s)",
 			t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min,
 			t->tm_sec, wait_millis);
 
@@ -104,33 +102,37 @@ bool ds3231_set_time() {
 
 	// Write to the time registers
 	ESP_LOGV(TAG, "Writing data to the time registers");
-	esp_err_t write_ret { i2c_write(I2C_ADDR, DATA_REG_START, data, 7) };
-	if (write_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to write to the time registers (%x)", write_ret);
+	if (!i2c_write(I2C_ADDR, DATA_REG_START, data, 7)) {
+		ESP_LOGE(TAG, "Unable to write to the time registers");
 		return false;
 	}
 
 	// Reset the oscillator stop flag, AKA the lost power flag
 	ESP_LOGV(TAG, "Resetting the oscillator stop flag");
-	const char osf { 0x80 };
-	esp_err_t osf_ret { i2c_write(I2C_ADDR, STATUS_REG, &osf, 1) };
-	if (osf_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to reset the oscillator stop flag (%x)", osf_ret);
+	const char osf { 0x8 };
+	if (!i2c_write(I2C_ADDR, STATUS_REG, &osf, 1)) {
+		ESP_LOGE(TAG, "Unable to reset the oscillator stop flag");
 		return false;
-	} else {
-		return true;
 	}
+
+	return true;
 }
 
-bool ds3231_lost_power(bool &lost_power) {
+bool ds3231_lost_power() {
 	// Read the status register to see if the oscillator stop flag was reset
 	unsigned char status;
 	ESP_LOGD(TAG, "Checking if the DS3231 lost power");
-	esp_err_t read_ret { i2c_read(I2C_ADDR, STATUS_REG, &status, 1) };
-	if (read_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to communicate with the DS3231 (%i)", read_ret);
-		return true;
+	if (!i2c_read(I2C_ADDR, STATUS_REG, &status, 1)) {
+		ESP_LOGE(TAG, "Unable to communicate with the DS3231");
+		return true; // assume power was lost
 	}
 
-	return lost_power = status >> 7;
+	// Log results
+	if (!(status & 0x80)) {
+		ESP_LOGI(TAG, "DS3231 did not lose power");
+		return false;
+	} else {
+		ESP_LOGI(TAG, "DS3231 lost power");
+		return true;
+	}
 }
