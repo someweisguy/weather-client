@@ -77,7 +77,7 @@ void set_system_time(const time_t epoch);
  */
 time_t get_system_time(struct timeval *tv = nullptr);
 
-void strip(char *s);
+char* strip(char *s);
 
 int32_t get_line_length(FILE *f);
 
