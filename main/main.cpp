@@ -128,12 +128,10 @@ extern "C" void app_main() {
 		ESP_LOGV(TAG, "Deleting the JSON object");
 		cJSON_Delete(json_root);
 
-		// TODO: Do stuff with the JSON string
-		printf("%s\n", json_str);
+		// Handle the JSON string
 		bool json_published { false };
 		if (mqtt_connected())
 			json_published = mqtt_publish("/test/weather/data", json_str);
-
 		if (!json_published) {
 			// Write the data to file
 			ESP_LOGI(TAG, "Writing data to file");
