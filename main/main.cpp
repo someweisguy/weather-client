@@ -1,3 +1,4 @@
+
 #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 
 #include <cstdio>
@@ -20,9 +21,7 @@
 
 #include "Sensor.h"
 #include "BME280.h"
-#include "PMS5003.h"
-
-#include "power.h"
+//#include "PMS5003.h"
 
 #define SENSOR_READY_SEC    30 /* Longest time (in seconds) that it takes for sensors to wake up */
 #define BOOT_DELAY_SEC      5  /* Time (in seconds) that it takes the ESP32 to wake up */
@@ -37,36 +36,56 @@
 
 
 static const char *TAG { "main" };
-static RTC_DATA_ATTR wakeup_reason_t wakeup_reason { UNEXPECTED_REASON };
-
+//static RTC_DATA_ATTR wakeup_reason_t wakeup_reason { UNEXPECTED_REASON };
+static Sensor* sensors[] { new BME280() };
 
 extern "C" void app_main() {
 
 	esp_log_level_set("*", ESP_LOG_NONE);
+	esp_log_level_set("sdcard", ESP_LOG_DEBUG);
+	esp_log_level_set("wlan", ESP_LOG_DEBUG);
+	esp_log_level_set("mqtt", ESP_LOG_DEBUG);
+
+	esp_log_level_set("i2c", ESP_LOG_WARN);
+	esp_log_level_set("uart", ESP_LOG_WARN);
+
+	esp_log_level_set("ds3231", ESP_LOG_INFO);
+
 	esp_log_level_set("main", ESP_LOG_VERBOSE);
-	esp_log_level_set("sdcard", ESP_LOG_VERBOSE);
-	esp_log_level_set("wlan", ESP_LOG_VERBOSE);
-	esp_log_level_set("mqtt", ESP_LOG_VERBOSE);
-	esp_log_level_set("uart", ESP_LOG_DEBUG);
-	esp_log_level_set("ds3231", ESP_LOG_VERBOSE);
-	esp_log_level_set("i2c", ESP_LOG_INFO);
-	esp_log_level_set("power", ESP_LOG_VERBOSE);
+	//esp_log_level_set("power", ESP_LOG_VERBOSE);
 	//esp_log_level_set("http", ESP_LOG_VERBOSE);
 
 	esp_log_set_vprintf(vlogf);
 
-	configure_battery_interrupt();
-
 	// Mount the SD card
-	if (!sdcard_mount())
-		ESP_LOGE(TAG, "Could not mount the SD card");
+	if (!sdcard_mount()) {
+		ESP_LOGE(TAG, "Unable to mount the SD card");
+		abort();
+	}
 
-	// TODO: error check these functions
-	nvs_flash_init();
-	esp_netif_init();
-	esp_event_loop_create_default();
+	esp_err_t setup_ret;
+	if ((setup_ret = nvs_flash_init()) != ESP_OK) {
+		ESP_LOGE(TAG, "Unable to initialize NVS flash (%i)", setup_ret);
+		abort();
+	}
+	if ((setup_ret = esp_netif_init()) != ESP_OK) {
+		ESP_LOGE(TAG, "Unable to initialize network interface (%i)", setup_ret);
+		abort();
+	}
+	if ((setup_ret = esp_event_loop_create_default()) != ESP_OK) {
+		ESP_LOGE(TAG, "Unable to create default event loop (%i)", setup_ret);
+		abort();
+	}
 
+	if (!uart_start()) {
+		ESP_LOGE(TAG, "Unable to start the UART port");
+		abort();
+	}
 
+	if (!i2c_start()) {
+		ESP_LOGE(TAG, "Unable to start the I2C port");
+		abort();
+	}
 
 	// TODO: documentation about setting i2c to log level info or above for
 	//  most accurate time sync in ds3231
@@ -83,34 +102,57 @@ extern "C" void app_main() {
 	//  reading it from SD card
 	// TODO: documentation for all functions
 
-	bool system_time_is_synced = false;
+	// Do initial sensor setup
+	bool time_is_synchronized { false };
 
-	uart_start();
-	i2c_start();
+	// Set the system time if possible
+	if (!ds3231_lost_power()) {
+		set_system_time(ds3231_get_time());
+		time_is_synchronized = true;
+	}
 
+	// Connect to WiFi and MQTT
+	wlan_connect("ESPTestNetwork", "ThisIsMyTestNetwork!");
+	mqtt_connect("mqtt://192.168.0.2");
 
-	while (1) {
+	// Synchronize system time with time server
+	do {
+		wlan_block_until_connected();
+		if (wlan_connected() && sntp_synchronize_system_time())
+			time_is_synchronized = ds3231_set_time();
 
-		const char *greeting { "Hello world!" };
-		uart_write(greeting, strlen(greeting));
-
-		wlan_connect_and_block("ESPTestNetwork", "ThisIsMyTestNetwork!");
-		mqtt_connect_and_block("mqtt://192.168.0.2");
-
-		//vTaskDelay(8000 / portTICK_PERIOD_MS);
-
-		if (wlan_connected() && !system_time_is_synced) {
-			if (sntp_synchronize_system_time()) {
-				system_time_is_synced = ds3231_set_time();
-			}
+		// Deny service if we are unable to synchronize the system time
+		if (!time_is_synchronized) {
+			// Re-check WiFi and MQTT credentials
+			wlan_connect("ESPTestNetwork", "ThisIsMyTestNetwork!");
+			mqtt_connect("mqtt://192.168.0.2");
 		}
-		//mqtt_publish("/test/esp", "Hello world!");
+	} while (!time_is_synchronized);
 
-		time_t epoch { ds3231_get_time() };
+	// Do initial sensor setup then sleep the sensors
+	for (Sensor *sensor : sensors)
+		sensor->setup();
+	vTaskDelay(1000 / portTICK_PERIOD_MS);
+	for (Sensor *sensor : sensors)
+		sensor->sleep();
 
-		vTaskDelay(5000 / portTICK_PERIOD_MS);
+	// Figure out the next wakeup time
+
+	while (true) {
+			ESP_LOGD(TAG, "Doing main loop");
+
+			const char *greeting { "Hello world!" };
+			uart_write(greeting, strlen(greeting));
+
+
+			ds3231_get_time();
+
+			vTaskDelay(15000 / portTICK_PERIOD_MS);
+
 
 
 	}
 
+
 }
+
