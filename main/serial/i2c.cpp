@@ -45,8 +45,8 @@ bool i2c_stop() {
 	return true;
 }
 
-bool i2c_read(const char address, const char reg, void* rd_buf,
-		const size_t size, const time_t wait_millis) {
+bool i2c_read(const char address, const char reg, void* rd,
+		const size_t size, const time_t wait_ms) {
 	if (size == 0)
 		return true;
 
@@ -94,12 +94,12 @@ bool i2c_read(const char address, const char reg, void* rd_buf,
 
 		// Read the data and the terminator
 		ESP_LOGV(TAG, "Writing read command");
-		if (i2c_master_read(cmd, reinterpret_cast<uint8_t*>(rd_buf), size,
+		if (i2c_master_read(cmd, reinterpret_cast<uint8_t*>(rd), size,
 				I2C_MASTER_ACK) != ESP_OK) {
 			ESP_LOGE(TAG, "Unable to write read command");
 			break;
 		}
-		if (i2c_master_read_byte(cmd, reinterpret_cast<uint8_t*>(rd_buf) + size,
+		if (i2c_master_read_byte(cmd, reinterpret_cast<uint8_t*>(rd) + size,
 				I2C_MASTER_NACK) != ESP_OK) {
 			ESP_LOGE(TAG, "Unable to write read terminator command");
 			break;
@@ -113,8 +113,8 @@ bool i2c_read(const char address, const char reg, void* rd_buf,
 		}
 
 		// Get the amount of ticks to wait
-		const TickType_t ticks { wait_millis == 0 ? portMAX_DELAY :
-				wait_millis / portTICK_PERIOD_MS };
+		const TickType_t ticks { wait_ms == 0 ? portMAX_DELAY :
+				wait_ms / portTICK_PERIOD_MS };
 
 		// Send the data to the slave device
 		ESP_LOGV(TAG, "Sending the data in the queue");
@@ -130,7 +130,7 @@ bool i2c_read(const char address, const char reg, void* rd_buf,
 		else {
 			// Log results
 			char hex_str[size * 5];
-			strnhex(hex_str, reinterpret_cast<char*>(rd_buf), size);
+			strnhex(hex_str, reinterpret_cast<char*>(rd), size);
 			ESP_LOGD(TAG, "Got data from I2C 0x%02X, address 0x%02X: %s",
 					address, reg, hex_str);
 			ret = true;
@@ -142,14 +142,14 @@ bool i2c_read(const char address, const char reg, void* rd_buf,
 	return ret;
 }
 
-bool i2c_write(const char address, const char reg, const void* wr_buf,
-		const size_t size, const time_t wait_millis) {
+bool i2c_write(const char address, const char reg, const void* wr,
+		const size_t size, const time_t wait_ms) {
 	if (size == 0)
 		return true;
 
 	// Log write buffer as hex string
 	char hex_str[size * 5];
-	strnhex(hex_str, reinterpret_cast<const char*>(wr_buf), size);
+	strnhex(hex_str, reinterpret_cast<const char*>(wr), size);
 	ESP_LOGD(TAG, "Writing data to I2C 0x%02X, address 0x%02X: %s",
 			address, reg, hex_str);
 
@@ -181,7 +181,7 @@ bool i2c_write(const char address, const char reg, const void* wr_buf,
 
 		// Put the data to be written in the i2c queue
 		ESP_LOGV(TAG, "Writing data");
-		if (i2c_master_write(cmd, (uint8_t*) wr_buf, size, 0x1) != ESP_OK) {
+		if (i2c_master_write(cmd, (uint8_t*) wr, size, 0x1) != ESP_OK) {
 			ESP_LOGE(TAG, "Unable to write data");
 			break;
 		}
@@ -194,8 +194,8 @@ bool i2c_write(const char address, const char reg, const void* wr_buf,
 		}
 
 		// Get the amount of ticks to wait
-		const TickType_t ticks { wait_millis == 0 ? portMAX_DELAY :
-				wait_millis / portTICK_PERIOD_MS };
+		const TickType_t ticks { wait_ms == 0 ? portMAX_DELAY :
+				wait_ms / portTICK_PERIOD_MS };
 
 		// Send the data that is in the queue
 		ESP_LOGV(TAG, "Sending data in the queue");
