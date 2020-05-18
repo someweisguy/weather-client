@@ -185,7 +185,7 @@ bool mqtt_stop() {
 	else ESP_LOGD(TAG, "Freeing memory");
 	esp_err_t destroy_ret { esp_mqtt_client_destroy(client) };
 	if (destroy_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to stop MQTT (%x)", destroy_ret);
+		ESP_LOGE(TAG, "Unable to stop MQTT (%i)", destroy_ret);
 		return false;
 	} return true;
 }

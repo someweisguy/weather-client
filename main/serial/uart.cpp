@@ -51,13 +51,13 @@ bool uart_stop() {
 	ESP_LOGV(TAG, "Flushing the UART port");
 	esp_err_t flush_ret { uart_flush(UART_PORT) };
 	if (flush_ret != ESP_OK)
-		ESP_LOGW(TAG, "Unable to flush UART port (%x)", flush_ret);
+		ESP_LOGW(TAG, "Unable to flush UART port (%i)", flush_ret);
 
 	// Delete the driver
 	ESP_LOGD(TAG, "Deleting the UART driver");
 	esp_err_t delete_ret { uart_driver_delete(UART_PORT) };
 	if (delete_ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to delete the UART driver (%x)", delete_ret);
+		ESP_LOGE(TAG, "Unable to delete the UART driver (%i)", delete_ret);
 	return delete_ret;
 }
 
@@ -88,7 +88,7 @@ int uart_write(const char *data_wr, const size_t size, const time_t wait_millis)
 	if (tx_ret == ESP_ERR_TIMEOUT)
 		ESP_LOGW(TAG, "Function timed out waiting for UART to transmit");
 	else if (tx_ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to flush UART buffer (%x)", tx_ret);
+		ESP_LOGE(TAG, "Unable to flush UART buffer (%i)", tx_ret);
 
 	// Return number of bytes written
 	return written;
