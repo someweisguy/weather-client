@@ -6,6 +6,7 @@
  */
 
 #include "helpers.h"
+static const char *TAG { "helpers" };
 
 const char* esp_reset_to_name(esp_reset_reason_t code) {
 	switch (code) {
@@ -122,6 +123,23 @@ int fsize(FILE *fd) {
 	else return st.st_size;
 }
 
-time_t get_next_window_delta_ms(timeval &tv) {
-	return (300 - tv.tv_sec % 300) * 1000 - (tv.tv_usec / 1000);
+time_t get_wait_ms(const int modifier_ms) {
+	// Calculate next wake time
+	timeval tv;
+	const time_t epoch = get_system_time(&tv);
+	// FIXME: window_delta_ms should not be negative
+	time_t window_delta_ms = (300 - tv.tv_sec % 300) * 1000 - (tv.tv_usec
+			/ 1000) + modifier_ms;
+	if (window_delta_ms < 0) {
+		ESP_LOGD(TAG, "Skipping next measurement window");
+		window_delta_ms += 300000; // 5 minutes
+	}
+	ESP_LOGD(TAG, "Next window is in %ld ms", window_delta_ms);
+
+	// Log results and wait
+	const time_t window_epoch = epoch + window_delta_ms / 1000;
+	tm *window_tm = localtime(&window_epoch);
+	ESP_LOGI(TAG, "Waiting until %02d:%02d:%02dZ", window_tm->tm_hour,
+				window_tm->tm_min, window_tm->tm_sec);
+	return window_delta_ms;
 }

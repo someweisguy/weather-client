@@ -8,12 +8,15 @@
 #ifndef MAIN_HELPERS_H_
 #define MAIN_HELPERS_H_
 
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <sys/time.h>
 
 #include "esp_system.h"
+#include "esp_log.h"
 #include "esp_event.h"
 #include "freertos/event_groups.h"
 #include "driver/adc.h"
@@ -125,6 +128,6 @@ int fsize(FILE *fd);
 /**
  *
  */
-time_t get_next_window_delta_ms(timeval &tv);
+time_t get_wait_ms(const int modifier_ms);
 
 #endif /* MAIN_HELPERS_H_ */
