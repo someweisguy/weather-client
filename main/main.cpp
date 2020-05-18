@@ -43,7 +43,9 @@ extern "C" void app_main() {
 	// TODO: figure out how to store data to NVS and store it after successfully
 	//  reading it from SD card
 	// TODO: documentation for all functions
-	// TODO: set or remove WiFi retry amounts so that it retries forever
+	// TODO: figure out how to manage event handlers for publishing MQTT data
+	//  from file - there could be an issue if sending data and writing new data
+	//  at the same time
 
 	// Set the system time if possible
 	bool time_is_synchronized { false };
@@ -75,6 +77,9 @@ extern "C" void app_main() {
 		sensor->setup();
 
 	// TODO: Start a task that periodically resyncs the clock
+
+	// TODO: Attach event handler on MQTT connect that sends all of the
+	//  backlogged data
 
 	// Calculate the next sensor ready time
 	TickType_t last_tick { xTaskGetTickCount() };
@@ -125,6 +130,23 @@ extern "C" void app_main() {
 
 		// TODO: Do stuff with the JSON string
 		printf("%s\n", json_str);
+		bool json_published { false };
+		if (mqtt_connected())
+			json_published = mqtt_publish("/test/weather/data", json_str);
+
+		if (!json_published) {
+			// Write the data to file
+			ESP_LOGI(TAG, "Writing data to file");
+			FILE *fd { fopen(DATA_FILE_PATH, "a+") };
+			if (fd != nullptr) {
+				// Strip the JSON string and print it to file
+				if (fputs(strip(json_str), fd) < 0 || fputc('\n', fd) != '\n')
+					ESP_LOGE(TAG, "Unable to write data to file (cannot write to file)");
+				fclose(fd);
+			} else {
+				ESP_LOGE(TAG, "Unable to write data to file (cannot open file)");
+			}
+		}
 
 		// Free the memory in json_str
 		delete[] json_str;
