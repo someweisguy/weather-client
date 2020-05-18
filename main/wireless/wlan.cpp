@@ -291,10 +291,9 @@ bool sntp_synchronize_system_time(const time_t wait_millis) {
 	const TickType_t ticks {
 			wait_millis == 0 ? portMAX_DELAY : wait_millis / portTICK_PERIOD_MS };
 
-	// FIXME: hangs forever on loss of internet
 	// Wait to connect to NTP server
 	const EventBits_t sntp_ret { xEventGroupWaitBits(wifi_event_group,
-	SNTP_BIT | STOP_BIT, pdFALSE, pdFALSE, ticks) };
+			SNTP_BIT | STOP_BIT, pdFALSE, pdFALSE, ticks) };
 	sntp_stop();
 
 	if (sntp_ret & STOP_BIT) {
