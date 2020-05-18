@@ -85,13 +85,9 @@ extern "C" void app_main() {
 	TickType_t last_tick { xTaskGetTickCount() };
 	int offset_ms { -SENSOR_READY_MS - 1000 };
 	time_t wait_ms { get_wait_ms(offset_ms) };
-
-	// Sleep sensors if there is time
-	if (wait_ms > 1100) {
+	if (wait_ms > 1100) // sleep sensors if there is time
 		xTaskCreate(sensor_sleep_task, "sensor_sleep", 2048, nullptr,
 				tskIDLE_PRIORITY, nullptr);
-	}
-
 	vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
 
 	while (true) {
@@ -107,6 +103,7 @@ extern "C" void app_main() {
 		cJSON_AddItemToObject(json_root, "data", json_data=cJSON_CreateObject());
 
 		// Calculate next wake time
+		ESP_LOGV(TAG, "Calculating next wake time");
 		last_tick = xTaskGetTickCount();
 		offset_ms = 0;
 		wait_ms = get_wait_ms(offset_ms);
@@ -145,11 +142,10 @@ extern "C" void app_main() {
 				ESP_LOGE(TAG, "Unable to write data to file (cannot open file)");
 			}
 		}
-
-		// Free the memory in json_str
 		delete[] json_str;
 
 		// Calculate next wake time
+		ESP_LOGV(TAG, "Calculating next wake time");
 		last_tick = xTaskGetTickCount();
 		offset_ms = -SENSOR_READY_MS - 1000;
 		wait_ms = get_wait_ms(offset_ms);
