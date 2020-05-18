@@ -9,8 +9,6 @@
 static const char *TAG { "wlan" };
 static EventGroupHandle_t wifi_event_group { nullptr };
 
-static volatile uint8_t connect_retry_num;
-
 static void event_handler(void *handler_args, esp_event_base_t base,
 		int event_id, void *event_data) {
 
@@ -31,40 +29,17 @@ static void event_handler(void *handler_args, esp_event_base_t base,
 		}
 
 		case WIFI_EVENT_STA_DISCONNECTED: {
-
 			ESP_LOGV(TAG, "Handling WIFI_EVENT_STA_DISCONNECTED event");
-
 			if (wlan_connected())
 				ESP_LOGI(TAG, "Disconnected from WiFi");
 			xEventGroupSetBits(wifi_event_group, DISCONNECT_BIT);
 			xEventGroupClearBits(wifi_event_group, CONNECT_BIT);
 
 			// Attempt to auto-reconnect
-			if (++connect_retry_num < WIFI_MAX_RETRIES) {
-				const esp_err_t connect_ret { esp_wifi_connect() };
-				if (connect_ret != ESP_OK)
-					ESP_LOGE(TAG,
-							"An error occurred while trying to connect (%i)",
-							connect_ret);
-			} else {
-				const wifi_event_sta_disconnected_t *disconnect {
-						reinterpret_cast<wifi_event_sta_disconnected_t*>(event_data) };
-				const char *reason;
-				if (disconnect->reason == 205 || disconnect->reason == 15) {
-					reason = "bad credentials";
-				} else if (disconnect->reason == 201) {
-					reason = "no such SSID";
-				} else {
-					char reason_str[4];
-					sprintf(reason_str, "%i", disconnect->reason);
-					reason = reason_str;
-				}
-				ESP_LOGE(TAG, "Unable to connect to WiFi (%s)", reason);
-				const esp_err_t stop_ret { esp_wifi_stop() };
-				if (stop_ret != ESP_OK)
-					ESP_LOGE(TAG, "An error occurred while trying to stop the WiFi station (%i)",
-							stop_ret);
-			}
+			const esp_err_t connect_ret { esp_wifi_connect() };
+			if (connect_ret != ESP_OK)
+				ESP_LOGE(TAG, "An error occurred while trying to connect (%i)",
+						connect_ret);
 		}
 			break;
 
@@ -87,7 +62,6 @@ static void event_handler(void *handler_args, esp_event_base_t base,
 		ESP_LOGD(TAG, "Got IP '%d.%d.%d.%d'", IP2STR(&event->ip_info.ip));
 		xEventGroupSetBits(wifi_event_group, CONNECT_BIT);
 		xEventGroupClearBits(wifi_event_group, DISCONNECT_BIT);
-		connect_retry_num = 0; // enable auto-reconnect
 	}
 }
 
@@ -102,8 +76,6 @@ void wlan_connect(const char *ssid, const char *pass) {
 		ESP_LOGD(TAG, "Already connected to WiFi");
 		return;
 	}
-
-	connect_retry_num = 0; // enable auto-reconnect
 
 	if (!wlan_initialized()) {
 		// Create default WiFi station
@@ -219,7 +191,15 @@ bool wlan_connect_and_block(const char *ssid, const char *pass,
 }
 
 bool wlan_stop() {
-	connect_retry_num = WIFI_MAX_RETRIES; // disable auto-reconnect
+	// Unregister the event handler
+	ESP_LOGV(TAG, "Unregistering event handler");
+	esp_err_t unregister_ret { esp_event_handler_unregister(ESP_EVENT_ANY_BASE,
+			ESP_EVENT_ANY_ID, event_handler) };
+	if (unregister_ret != ESP_OK) {
+		ESP_LOGE(TAG, "Unable to unregister event handler (%i)",
+				unregister_ret);
+		return false;
+	}
 
 	// Disconnect WiFi if it is connected
 	if (wlan_connected()) {
@@ -233,16 +213,6 @@ bool wlan_stop() {
 			xEventGroupWaitBits(wifi_event_group, STOP_BIT, pdFALSE, pdFALSE,
 			portMAX_DELAY);
 		}
-	}
-
-	// Unregister the event handler
-	ESP_LOGV(TAG, "Unregistering event handler");
-	esp_err_t unregister_ret { esp_event_handler_unregister(ESP_EVENT_ANY_BASE,
-	ESP_EVENT_ANY_ID, event_handler) };
-	if (unregister_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to unregister event handler (%i)",
-				unregister_ret);
-		return false;
 	}
 
 	// Delete the event group
