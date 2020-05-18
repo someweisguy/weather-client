@@ -62,8 +62,7 @@ static void event_handler(void *handler_args, esp_event_base_t base,
 				ESP_LOGE(TAG, "Unable to connect to WiFi (%s)", reason);
 				const esp_err_t stop_ret { esp_wifi_stop() };
 				if (stop_ret != ESP_OK)
-					ESP_LOGE(TAG,
-							"An error occurred while trying to stop the WiFi station (%i)",
+					ESP_LOGE(TAG, "An error occurred while trying to stop the WiFi station (%i)",
 							stop_ret);
 			}
 		}
@@ -186,6 +185,7 @@ void wlan_connect(const char *ssid, const char *pass) {
 			wlan_stop();
 		}
 	}
+	xEventGroupClearBits(wifi_event_group, CONNECT_BIT | DISCONNECT_BIT);
 }
 
 bool wlan_block_until_connected(const time_t wait_millis) {

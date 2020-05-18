@@ -8,7 +8,7 @@
 #include "i2c.h"
 static const char *TAG { "i2c" };
 
-esp_err_t i2c_start() {
+bool i2c_start() {
 	// Configure the i2c port
 	ESP_LOGV(TAG, "Configuring the I2C port");
 	i2c_config_t i2c_config;
@@ -20,34 +20,39 @@ esp_err_t i2c_start() {
 	i2c_config.scl_pullup_en = true;
 	esp_err_t config_ret { i2c_param_config(I2C_PORT, &i2c_config) };
 	if (config_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to configure the I2C port (%x)", config_ret);
-		return config_ret;
+		ESP_LOGE(TAG, "Unable to configure the I2C port (%i)", config_ret);
+		return false;
 	}
 
 	// Install the driver
+	ESP_LOGD(TAG, "Installing the I2C port driver");
 	esp_err_t install_ret { i2c_driver_install(I2C_PORT, i2c_config.mode, 0,
 			0, 0) };
-	if (install_ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to install the I2C port (%x)", install_ret);
-	return install_ret;
+	if (install_ret != ESP_OK) {
+		ESP_LOGE(TAG, "Unable to install the I2C port (%i)", install_ret);
+		return false;
+	}
+	return true;
 }
 
-esp_err_t i2c_stop() {
-	ESP_LOGV(TAG, "Deleting the I2C driver");
+bool i2c_stop() {
+	ESP_LOGD(TAG, "Stopping the I2C port driver");
 	esp_err_t delete_ret { i2c_driver_delete(I2C_PORT) };
-	if (delete_ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to delete the I2C driver (%x)", delete_ret);
-	return delete_ret;
+	if (delete_ret != ESP_OK) {
+		ESP_LOGE(TAG, "Unable to delete the I2C driver (%i)", delete_ret);
+		return false;
+	}
+	return true;
 }
 
-esp_err_t i2c_read(const char address, const char reg, void* rd_buf,
+bool i2c_read(const char address, const char reg, void* rd_buf,
 		const size_t size, const time_t wait_millis) {
 	if (size == 0)
-		return ESP_OK;
+		return true;
 
 	// Create a command handle
 	const i2c_cmd_handle_t cmd { i2c_cmd_link_create() };
-	esp_err_t ret { ESP_ERR_INVALID_ARG };
+	bool ret { false };
 
 	do {
 		// Start the i2c master
@@ -113,14 +118,14 @@ esp_err_t i2c_read(const char address, const char reg, void* rd_buf,
 
 		// Send the data to the slave device
 		ESP_LOGV(TAG, "Sending the data in the queue");
-		ret = i2c_master_cmd_begin(I2C_PORT, cmd, ticks);
-		if (ret == ESP_ERR_INVALID_ARG)
+		esp_err_t send_ret { i2c_master_cmd_begin(I2C_PORT, cmd, ticks) };
+		if (send_ret == ESP_ERR_INVALID_ARG)
 			ESP_LOGE(TAG, "Unable to write to the I2C port (parameter error)");
-		else if (ret == ESP_FAIL)
+		else if (send_ret == ESP_FAIL)
 			ESP_LOGE(TAG, "Unable to write to the I2C port (no response)");
-		else if (ret == ESP_ERR_INVALID_STATE)
+		else if (send_ret == ESP_ERR_INVALID_STATE)
 			ESP_LOGE(TAG, "Unable to write to the I2C port (not installed)");
-		else if (ret == ESP_ERR_TIMEOUT)
+		else if (send_ret == ESP_ERR_TIMEOUT)
 			ESP_LOGE(TAG, "Unable to write to the I2C port (timed out)");
 		else {
 			// Log results
@@ -128,6 +133,7 @@ esp_err_t i2c_read(const char address, const char reg, void* rd_buf,
 			strnhex(hex_str, reinterpret_cast<char*>(rd_buf), size);
 			ESP_LOGD(TAG, "Got data from I2C 0x%02X, address 0x%02X: %s",
 					address, reg, hex_str);
+			ret = true;
 		}
 	} while (false);
 
@@ -136,10 +142,10 @@ esp_err_t i2c_read(const char address, const char reg, void* rd_buf,
 	return ret;
 }
 
-esp_err_t i2c_write(const char address, const char reg, const void* wr_buf,
+bool i2c_write(const char address, const char reg, const void* wr_buf,
 		const size_t size, const time_t wait_millis) {
 	if (size == 0)
-		return ESP_OK;
+		return true;
 
 	// Log write buffer as hex string
 	char hex_str[size * 5];
@@ -149,7 +155,7 @@ esp_err_t i2c_write(const char address, const char reg, const void* wr_buf,
 
 	// Create a command handle
 	const i2c_cmd_handle_t cmd { i2c_cmd_link_create() };
-	esp_err_t ret { ESP_ERR_INVALID_ARG };
+	bool ret { false };
 
 	do {
 		ESP_LOGV(TAG, "Writing start condition");
@@ -193,15 +199,17 @@ esp_err_t i2c_write(const char address, const char reg, const void* wr_buf,
 
 		// Send the data that is in the queue
 		ESP_LOGV(TAG, "Sending data in the queue");
-		ret = i2c_master_cmd_begin(I2C_PORT, cmd, ticks);
-		if (ret == ESP_ERR_INVALID_ARG)
+		esp_err_t send_ret { i2c_master_cmd_begin(I2C_PORT, cmd, ticks) };
+		if (send_ret == ESP_ERR_INVALID_ARG)
 			ESP_LOGE(TAG, "Unable to write to the I2C port (parameter error)");
-		else if (ret == ESP_FAIL)
+		else if (send_ret == ESP_FAIL)
 			ESP_LOGE(TAG, "Unable to write to the I2C port (no response)");
-		else if (ret == ESP_ERR_INVALID_STATE)
+		else if (send_ret == ESP_ERR_INVALID_STATE)
 			ESP_LOGE(TAG, "Unable to write to the I2C port (not installed)");
-		else if (ret == ESP_ERR_TIMEOUT)
+		else if (send_ret == ESP_ERR_TIMEOUT)
 			ESP_LOGE(TAG, "Unable to write to the I2C port (timed out)");
+		else
+			ret = true;
 	} while (false);
 
 	// Delete the i2c command and return results

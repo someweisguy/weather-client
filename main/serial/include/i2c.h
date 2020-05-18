@@ -21,12 +21,12 @@
 #define PIN_NUM_SCL 22 // Adafruit Feather 32 Default
 
 
-esp_err_t i2c_start();
-esp_err_t i2c_stop();
+bool i2c_start();
+bool i2c_stop();
 
-esp_err_t i2c_read(const char i2c_addr, const char i2c_reg, void* data_rd,
+bool i2c_read(const char i2c_addr, const char i2c_reg, void* data_rd,
 		const size_t size, const time_t wait_millis = 0);
-esp_err_t i2c_write(const char i2c_addr, const char i2c_reg, const void* data_wr,
+bool i2c_write(const char i2c_addr, const char i2c_reg, const void* data_wr,
 		const size_t size, const time_t wait_millis = 0);
 
 

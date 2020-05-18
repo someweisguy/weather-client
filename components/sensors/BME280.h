@@ -17,7 +17,7 @@ private:
 
 	const char *TAG { "bme280" };
 	const char *celsius { "celsius" }, *pascals { "pascals" },
-		*relative_humidity_scale { "relative humidity" };
+			*relative_humidity_scale { "relative humidity" };
 	const uint8_t I2C_ADDRESS { 0x76 }, REG_CHIP_ID { 0xd0 },
 			REG_RESET { 0xe0 }, REG_CONTROLHUMID { 0xf2 }, REG_STATUS { 0xf3 },
 			REG_CTRL_MEAS { 0xf4 }, REG_CONFIG { 0xf5 },
@@ -107,19 +107,20 @@ private:
 	}
 
 public:
-
 	const char* get_name() override {
 		return "BME280";
 	}
 
-	esp_err_t ready() override {
+	bool ready() override {
 		// Get compensation "dig" values
 		uint8_t dig_buf[32];
 		ESP_LOGV(TAG, "Getting data trim values");
-		const esp_err_t dig_1_ret { i2c_read(I2C_ADDRESS, REG_TRIM_T1_TO_H1, dig_buf, 25) };
+		const esp_err_t dig_1_ret { i2c_read(I2C_ADDRESS, REG_TRIM_T1_TO_H1,
+				dig_buf, 25) };
 		if (dig_1_ret != ESP_OK)
 			return dig_1_ret;
-		const esp_err_t dig_2_ret { i2c_read(I2C_ADDRESS, REG_TRIM_H2_TO_H5, dig_buf + 25, 7) };
+		const esp_err_t dig_2_ret { i2c_read(I2C_ADDRESS, REG_TRIM_H2_TO_H5,
+				dig_buf + 25, 7) };
 		if (dig_2_ret != ESP_OK)
 			return dig_2_ret;
 
@@ -132,96 +133,112 @@ public:
 		dig.h5 = (dig_buf[30] << 4) | (dig_buf[29] >> 4);
 		dig.h6 = dig_buf[31];
 
-		return ESP_OK;
+		return true;
 	}
 
-	esp_err_t setup() override {
+	bool setup() override {
 		// Soft reset the BME280
-		ESP_LOGV(TAG, "Sending soft reset command");
-		const uint8_t reset_cmd { 0xb6 };
-		const esp_err_t reset_ret { i2c_write(I2C_ADDRESS, REG_RESET, &reset_cmd, 1) };
-		if (reset_ret != ESP_OK)
-			return reset_ret;
+		ESP_LOGD(TAG, "Sending soft reset command");
+		const char reset_cmd { 0xb6 };
+		if (!i2c_write(I2C_ADDRESS, REG_RESET, &reset_cmd, 1)) {
+			ESP_LOGE(TAG, "Unable to send soft reset command");
+			return false;
+		}
 
 		// Wait for the reset to take effect
-		ESP_LOGV(TAG, "Waiting for response to soft reset");
-		uint8_t status;
+		ESP_LOGD(TAG, "Waiting for response to soft reset");
+		char status;
 		do {
 			vTaskDelay(10 / portTICK_PERIOD_MS);
-			const esp_err_t wait_ret { i2c_read(I2C_ADDRESS, REG_STATUS, &status, 1) };
-			if (wait_ret != ESP_OK)
-				return wait_ret;
+			if (!i2c_read(I2C_ADDRESS, REG_STATUS, &status, 1)) {
+				ESP_LOGE(TAG, "Unable to read ready bit");
+				return false;
+			}
 		} while ((status & 0x01) == 0x01);
 
 		// Ensure that chip ID is correct
-		ESP_LOGV(TAG, "Getting chip ID");
-		uint8_t id;
-		if (i2c_read(I2C_ADDRESS, REG_CHIP_ID, &id, 1) != ESP_OK && id == 0x60)
-			return ESP_ERR_NOT_FOUND;
+		ESP_LOGD(TAG, "Getting chip ID");
+		char id;
+		if (!i2c_read(I2C_ADDRESS, REG_CHIP_ID, &id, 1)) {
+			ESP_LOGE(TAG, "Unable to read chip ID");
+			return false;
+		} else if (id != 0x60) {
+			ESP_LOGE(TAG, "Got wrong chip ID (expected 0x60, got 0x%02X)", id);
+			return false;
+		}
 
 		// Set the sensor to sleep mode, otherwise settings will be ignored
-		ESP_LOGV(TAG, "Sending sleep mode command");
-		const uint8_t sleep_cmd { 0x00 };
-		const esp_err_t sleep_ret { i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &sleep_cmd, 1) };
-		if (sleep_ret != ESP_OK)
-			return sleep_ret;
+		ESP_LOGD(TAG, "Sending sleep command");
+		const char sleep_cmd { 0x00 };
+		if (!i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &sleep_cmd, 1)) {
+			ESP_LOGE(TAG, "Unable to send sleep command during setup");
+			return false;
+		}
 
-		ESP_LOGV(TAG, "Setting filtering x16 and standby 20ms");
 		// Set filtering x16 and set the standby in normal mode to 20ms
-		const uint8_t filter_standby { 0xf0 };
-		const esp_err_t filtering_ret { i2c_write(I2C_ADDRESS, REG_CONFIG, &filter_standby, 1) };
-		if (filtering_ret != ESP_OK)
-			return filtering_ret;
+		ESP_LOGD(TAG, "Setting filtering x16 and standby 20ms");
+		const char filter_standby { 0xf0 };
+		if (!i2c_write(I2C_ADDRESS, REG_CONFIG, &filter_standby, 1)) {
+			ESP_LOGE(TAG, "Unable to set filtering x16 and standby 20ms");
+			return false;
+		}
 
-		ESP_LOGV(TAG, "Setting humidity sampling x16");
 		// Write the sample rate to the Humidity control register
-		const uint8_t hum_sample { 0x05 };
-		const esp_err_t sample_ret { i2c_write(I2C_ADDRESS, REG_CONTROLHUMID, &hum_sample, 1) };
-		if (sample_ret != ESP_OK)
-			return sample_ret;
+		ESP_LOGD(TAG, "Setting humidity sampling x16");
+		const char hum_sample { 0x05 };
+		if (!i2c_write(I2C_ADDRESS, REG_CONTROLHUMID, &hum_sample, 1)) {
+			ESP_LOGE(TAG, "Unable to set humidity sampling x16");
+			return false;
+		}
 
 		// Set temperature and pressure sampling to x16 and sleep mode
-		ESP_LOGV(TAG, "Setting temperature and pressure sampling x16 and sleep "
-				"mode");
-		const uint8_t tpm_setting { 0xb0 };
-		return i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1);
+		ESP_LOGD(TAG, "Setting temperature and pressure sampling x16 and wakeup");
+		const char tpm_setting { 0xb0 };
+		if (!i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1)) {
+			ESP_LOGE(TAG, "Unable to set temperature and pressuring sampling "
+					"x16 and wakeup");
+			return false;
+		}
+
+		return true;
 	}
 
-	esp_err_t wakeup() override {
+	bool wakeup() override {
 		// Set temperature and pressure sampling to x16 and normal mode
-		const uint8_t tpm_setting { 0xb7 };
-		return i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1);
+		ESP_LOGD(TAG, "Sending wakeup command");
+		const char tpm_setting { 0xb0 };
+		if (!i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1)) {
+			ESP_LOGE(TAG, "Unable send wakeup command");
+			return false;
+		}
+
+		return true;
 	}
 
-	esp_err_t get_data(cJSON *json) override {
+	bool get_data(cJSON *json) override {
 		// Store all the ADC values from the BME280 into a buffer
-		uint8_t buf[8];
-		const esp_err_t read_ret { i2c_read(I2C_ADDRESS, REG_DATA_START, buf, 8) };
-		if (read_ret != ESP_OK)
-			return read_ret;
+		char buf[8];
+		if (!i2c_read(I2C_ADDRESS, REG_DATA_START, buf, 8)) {
+			ESP_LOGE(TAG, "Unable to read ADC values from device");
+			return false;
+		}
 
-		// Declare temperature in this scope so we can get dew point later
-		double temperature_C;
-
-		// Extract the pressure ADC values from the buffer
+		// Extract the temperature ADC values from the buffer
 		int32_t adc_T = buf[3];
 		for (int i = 4; i < 6; ++i) {
 			adc_T <<= 8;
 			adc_T |= buf[i];
 		}
 
-		// Check if temperature is turned off
-		if (adc_T == 0x800000)
-			// If temperature is turned off, we can't get any data
-			return ESP_ERR_INVALID_STATE;
-		else {
-			// Calculate temperature in degrees Celsius
+		// Calculate the temperature in Celsius
+		if (adc_T != 0x800000) {
 			adc_T >>= 4;
 			t_fine = calculate_t_fine(adc_T);
-			temperature_C = compensate_temperature() / 100.0;
-
-			// We have at least one data point now, so start building the JSON object
+			const double temperature_C { compensate_temperature() / 100.0 };
 			add_JSON_elem(json, "Temperature", temperature_C, celsius);
+		} else {
+			ESP_LOGE(TAG, "Unable to get data (invalid state)");
+			return false; // temperature must be turned on
 		}
 
 		// Extract the pressure ADC values from the buffer
@@ -230,30 +247,41 @@ public:
 			adc_P <<= 8;
 			adc_P |= buf[i];
 		}
+
 		// Calculate pressure in Pascals
-		if (adc_P != 0x800000) {
+		if (adc_P != 0x800000) { // ensure pressure is turned on
 			adc_P >>= 4;
 			const uint64_t pressure_Pa { compensate_pressure(adc_P) / 256 };
 			add_JSON_elem(json, "Barometric Pressure", pressure_Pa, pascals);
+		} else {
+			ESP_LOGW(TAG, "Unable to get Pressure data (invalid state)");
 		}
 
 		// Extract the pressure ADC values from the buffer
 		int32_t adc_H = (buf[6] << 8) | buf[7];
 
-		// Calculate relative humidity and dew point
+		// Calculate relative humidity
 		if (adc_H != 0x8000) {
 			const double relative_humidity { compensate_humidity(adc_H) / 1024.0 };
 			add_JSON_elem(json, "Relative Humidity", relative_humidity,
 					relative_humidity_scale);
+		} else {
+			ESP_LOGW(TAG, "Unable to get relative humidity data (invalid state)");
 		}
 
-		return ESP_OK;
+		return true;
 	}
 
-	esp_err_t sleep() override {
+	bool sleep() override {
 		// Set temperature and pressure sampling to x16 and sleep mode
-		const uint8_t tpm_setting { 0xb4 };
-		return i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1);
+		ESP_LOGD(TAG, "Sending sleep command");
+		const char tpm_setting { 0xb4 };
+		if (!i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1)) {
+			ESP_LOGE(TAG, "Unable to send sleep command");
+			return false;
+		}
+
+		return true;
 	}
 
 };

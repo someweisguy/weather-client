@@ -9,7 +9,7 @@
 #include "uart.h"
 static const char *TAG { "uart" };
 
-esp_err_t uart_start() {
+bool uart_start() {
 	// Configure the UART port
 	ESP_LOGV(TAG, "Configuring the UART port");
 	uart_config_t uart_config;
@@ -21,8 +21,8 @@ esp_err_t uart_start() {
 	uart_config.rx_flow_ctrl_thresh = 0;
 	esp_err_t config_ret { uart_param_config(UART_PORT, &uart_config) };
 	if (config_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to configure the UART port (%x)", config_ret);
-		return config_ret;
+		ESP_LOGE(TAG, "Unable to configure the UART port (%i)", config_ret);
+		return false;
 	}
 
 	// Set the UART pin
@@ -30,8 +30,8 @@ esp_err_t uart_start() {
 	esp_err_t set_pin_ret { uart_set_pin(UART_PORT, PIN_NUM_TX, PIN_NUM_RX,
 			UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE) };
 	if (set_pin_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to set the UART pin number (%x)", set_pin_ret);
-		return set_pin_ret;
+		ESP_LOGE(TAG, "Unable to set the UART pin number (%i)", set_pin_ret);
+		return false;
 	}
 
 	// Install the driver
@@ -39,12 +39,14 @@ esp_err_t uart_start() {
 	QueueHandle_t uart_queue;
 	esp_err_t install_ret { uart_driver_install(UART_PORT, BUF_SIZE * 2,
 			BUF_SIZE * 2, 10, &uart_queue, 0) };
-	if (install_ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to install UART driver (%x)", install_ret);
-	return install_ret;
+	if (install_ret != ESP_OK) {
+		ESP_LOGE(TAG, "Unable to install UART driver (%i)", install_ret);
+		return false;
+	}
+	return true;
 }
 
-esp_err_t uart_stop() {
+bool uart_stop() {
 	// Flush the UART port
 	ESP_LOGV(TAG, "Flushing the UART port");
 	esp_err_t flush_ret { uart_flush(UART_PORT) };

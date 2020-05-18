@@ -38,35 +38,35 @@ public:
 		return "Undefined generic sensor";
 	}
 
-	virtual esp_err_t ready() {
+	virtual bool ready() {
 		// Get the sensor ready a few seconds before it takes a measurement
 		// Do nothing by default
-		return ESP_OK;
+		return true;
 	}
 
-	virtual esp_err_t setup() {
+	virtual bool setup() {
 		// Performs initial setup of the sensor, including resetting it
 		// Do nothing by default
-		return ESP_OK;
+		return true;
 	}
 
-	virtual esp_err_t wakeup() {
+	virtual bool wakeup() {
 		// Wake up the sensor some time before the measurement is taken
 		// Do nothing by default
-		return ESP_OK;
+		return true;
 	}
 
-	virtual esp_err_t get_data(cJSON *json_root) {
+	virtual bool get_data(cJSON *json_root) {
 		// Takes a JSON object and adds sensor data to it
 		// Must be overridden
 		ESP_LOGW("sensor", "Undefined generic sensor has no data");
-		return ESP_OK;
+		return true;
 	}
 
-	virtual esp_err_t sleep() {
+	virtual bool sleep() {
 		// Go into a low-power sleep mode between measurements
 		// Do nothing by default
-		return ESP_OK;
+		return true;
 	}
 };
 

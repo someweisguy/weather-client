@@ -10,8 +10,6 @@ static const char *TAG { "mqtt" };
 static EventGroupHandle_t mqtt_event_group { nullptr };
 static esp_mqtt_client_handle_t client;
 
-static volatile uint8_t connect_retry_num;
-
 static void event_handler(void *handler_args, esp_event_base_t base,
 		int32_t event_id, void *event_data) {
 
@@ -34,16 +32,11 @@ static void event_handler(void *handler_args, esp_event_base_t base,
 		xEventGroupSetBits(mqtt_event_group, DISCONNECT_BIT);
 		xEventGroupClearBits(mqtt_event_group, CONNECT_BIT);
 
-		// Attempt to auto-reconnect
-		if (wlan_connected() && ++connect_retry_num < MQTT_MAX_RETRIES) {
-			esp_err_t connect_ret { esp_mqtt_client_reconnect(client) };
-			if (connect_ret != ESP_OK)
-				ESP_LOGE(TAG, "An error occurred while trying to connect: %s",
-						esp_err_to_name(connect_ret));
-		} else {
+		// Stop MQTT if WiFi is not started
+		if (!wlan_started()) {
 			xEventGroupSetBits(mqtt_event_group, STOP_BIT);
 			xEventGroupClearBits(mqtt_event_group, START_BIT);
-			ESP_LOGE(TAG, "Unable to connect to MQTT broker (type: %i, conn:%i)",
+			ESP_LOGE(TAG, "Unable to connect to MQTT broker (type: %i, conn: %i)",
 					mqtt_event->error_handle->error_type,
 					mqtt_event->error_handle->connect_return_code);
 			mqtt_stop();
@@ -54,7 +47,7 @@ static void event_handler(void *handler_args, esp_event_base_t base,
 		ESP_LOGV(TAG, "Handling MQTT_EVENT_ERROR event");
 		// Return an error if we are not handling a connection error event
 		if (mqtt_event->error_handle->error_type != MQTT_ERROR_TYPE_ESP_TLS) {
-			ESP_LOGE(TAG, "An unexpected error occurred (type: %i, conn:%i)",
+			ESP_LOGE(TAG, "An unexpected error occurred (type: %i, conn: %i)",
 					mqtt_event->error_handle->error_type,
 					mqtt_event->error_handle->connect_return_code);
 			xEventGroupSetBits(mqtt_event_group, FAIL_BIT);
@@ -75,10 +68,8 @@ static void event_handler(void *handler_args, esp_event_base_t base,
 
 	case MQTT_EVENT_BEFORE_CONNECT:
 		ESP_LOGV(TAG, "Handling MQTT_EVENT_BEFORE_CONNECT event");
-		if (wlan_connected()) {
-			xEventGroupSetBits(mqtt_event_group, START_BIT);
-			xEventGroupClearBits(mqtt_event_group, STOP_BIT);
-		}
+		xEventGroupSetBits(mqtt_event_group, START_BIT);
+		xEventGroupClearBits(mqtt_event_group, STOP_BIT);
 		break;
 
 	default:
@@ -116,7 +107,7 @@ void mqtt_connect(const char* mqtt_broker) {
 		esp_err_t register_ret { esp_mqtt_client_register_event(client,
 				MQTT_EVENT_ANY_ID, event_handler, nullptr) };
 		if (register_ret != ESP_OK) {
-			ESP_LOGE(TAG, "Unable to register the event handler (%x)",
+			ESP_LOGE(TAG, "Unable to register the event handler (%i)",
 					register_ret);
 			mqtt_stop();
 			return;
@@ -126,24 +117,18 @@ void mqtt_connect(const char* mqtt_broker) {
 		ESP_LOGV(TAG, "Setting connection URI");
 		esp_err_t uri_ret { esp_mqtt_client_set_uri(client, mqtt_broker) };
 		if (uri_ret != ESP_OK) {
-			ESP_LOGE(TAG, "Unable to set connection URI (%x)", uri_ret);
+			ESP_LOGE(TAG, "Unable to set connection URI (%i)", uri_ret);
 			mqtt_stop();
 			return;
 		}
 	}
 
-	if (!wlan_connected()) {
-		ESP_LOGW(TAG, "The MQTT service was not started because the WiFi is "
-				"not connected");
-		return;
-	}
-
 	if (!mqtt_started()) {
 		ESP_LOGI(TAG, "Connecting to the MQTT broker '%s'...", mqtt_broker);
 		esp_err_t start_ret { esp_mqtt_client_start(client) };
-		if (start_ret != ESP_OK)
-			ESP_LOGW(TAG, "Unable to start the MQTT client (%x)", start_ret);
-		else {
+		if (start_ret != ESP_OK) {
+			ESP_LOGW(TAG, "Unable to start the MQTT client (%i)", start_ret);
+		} else {
 			// Report service started without having to wait for scheduler
 			xEventGroupSetBits(mqtt_event_group, START_BIT);
 			xEventGroupClearBits(mqtt_event_group, STOP_BIT);
@@ -151,10 +136,13 @@ void mqtt_connect(const char* mqtt_broker) {
 	} else {
 		ESP_LOGI(TAG, "Reconnecting the MQTT client...");
 		esp_err_t reconnect_ret { esp_mqtt_client_reconnect(client) };
-		if (reconnect_ret != ESP_OK)
-			ESP_LOGW(TAG, "Unable to reconnect the MQTT client (%x)",
+		if (reconnect_ret != ESP_OK) {
+			ESP_LOGW(TAG, "Unable to reconnect the MQTT client (%i)",
 					reconnect_ret);
+		}
 	}
+
+	xEventGroupClearBits(mqtt_event_group, CONNECT_BIT | DISCONNECT_BIT);
 }
 
 bool mqtt_block_until_connected(const time_t wait_millis) {

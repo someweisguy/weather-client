@@ -22,8 +22,8 @@
 #define PIN_NUM_RX 	16 // Adafruit Feather 32 Default
 
 
-esp_err_t uart_start();
-esp_err_t uart_stop();
+bool uart_start();
+bool uart_stop();
 
 int uart_write(const char *data_wr, const size_t size, const time_t wait_millis = 0);
 int uart_read(char *data_rd, const size_t size, const time_t wait_millis = 0);
