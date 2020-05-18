@@ -32,16 +32,12 @@ extern "C" void app_main() {
 
 	setup_required_services();
 
-	// TODO: documentation about setting i2c to log level info or above for
-	//  most accurate time sync in ds3231
 	// TODO: clean up helper functions
 	// TODO: Reimplement the old sd card function in the txt file on desktop
 	//  TODO: read config file from sd card
 	//  TODO: write string to file
 	// TODO: clean up http source
 	// TODO: figure out how to download log file over http
-	// TODO: figure out how to store data to NVS and store it after successfully
-	//  reading it from SD card
 	// TODO: documentation for all functions
 	// TODO: figure out how to manage event handlers for publishing MQTT data
 	//  from file - there could be an issue if sending data and writing new data
