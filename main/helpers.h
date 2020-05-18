@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <sys/time.h>
 
 #include "esp_system.h"
 #include "esp_event.h"
@@ -31,6 +32,13 @@ struct config_t {
 	char *mqtt_boot_log_topic;
 };
 
+/**
+ * Returns a string name for the ESP reset reason.
+ *
+ * @param code	the ESP reset reason
+ *
+ * @return a pointer to a string that specifies the reset reason
+ */
 const char* esp_reset_to_name(esp_reset_reason_t code);
 
 /**
@@ -57,11 +65,14 @@ int vlogf(const char *format, va_list arg);
 void set_system_time(const time_t epoch);
 
 /**
- * Gets the system time as the Unix epoch.
+ * Gets the system time as the Unix epoch. Sets a timeval struct if it was
+ * passed.
+ *
+ * @param tv	an empty timeval to be set to get precise time.
  *
  * @return the time in seconds since 1 January 1970
  */
-time_t get_system_time();
+time_t get_system_time(struct timeval *tv = nullptr);
 
 void strip(char *s);
 
@@ -110,5 +121,10 @@ char *strnhex(char *destination, const char *source, size_t num);
  * @return 			the size of the file in bytes
  */
 int fsize(FILE *fd);
+
+/**
+ *
+ */
+time_t get_next_window_delta_ms(timeval &tv);
 
 #endif /* MAIN_HELPERS_H_ */

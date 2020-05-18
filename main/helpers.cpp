@@ -76,8 +76,12 @@ void set_system_time(const time_t epoch) {
 	settimeofday(&tv, nullptr);
 }
 
-time_t get_system_time() {
-	return time(nullptr);
+time_t get_system_time(struct timeval *tv) {
+	gettimeofday(tv, nullptr);
+	if (tv != nullptr)
+		return tv->tv_sec;
+	else
+		return time(nullptr);
 }
 
 int32_t get_line_length(FILE *f) {
@@ -116,4 +120,8 @@ int fsize(FILE *fd) {
 	const int status { fstat(reinterpret_cast<int>(fd), &st) };
 	if (status == -1) return -1;
 	else return st.st_size;
+}
+
+time_t get_next_window_delta_ms(timeval &tv) {
+	return (300 - tv.tv_sec % 300) * 1000 - (tv.tv_usec / 1000);
 }
