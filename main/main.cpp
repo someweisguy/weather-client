@@ -1,46 +1,9 @@
-
-#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
-
-#include <cstdio>
-#include "sdkconfig.h"
-#include "esp_system.h"
-#include "esp_log.h"
-#include "nvs_flash.h"
-#include "esp_sleep.h"
-
-#include "i2c.h"
-#include "uart.h"
-#include "ds3231.h"
-#include "sdcard.h"
-
-#include "wlan.h"
-#include "http.h"
-#include "mqtt.h"
-
-#include "helpers.h"
-
-#include "Sensor.h"
-#include "BME280.h"
-//#include "PMS5003.h"
-
-#define SENSOR_READY    30 /* Longest time (in seconds) that it takes for sensors to wake up */
-#define BOOT_DELAY       5 /* Time (in seconds) that it takes the ESP32 to wake up */
-#define BOOT_LOG_SIZE_BYTES 4096
-
-#define LOG_FILE_NAME       "/sdcard/events.log"
-#define CONFIG_FILE_NAME    "/sdcard/config.json"
-#define DATA_FILE_NAME      "/sdcard/data.txt"
-
-#define TIME_BETWEEN_RTC_SYNC_SEC 604800 // 7 days
-#define NTP_SERVER "pool.ntp.org"
-
+#include "main.h"
 
 static const char *TAG { "main" };
-//static RTC_DATA_ATTR wakeup_reason_t wakeup_reason { UNEXPECTED_REASON };
 static Sensor* sensors[] { new BME280() };
 
-extern "C" void app_main() {
-
+static void set_log_levels() {
 	esp_log_level_set("*", ESP_LOG_NONE);
 	esp_log_level_set("sdcard", ESP_LOG_DEBUG);
 	esp_log_level_set("wlan", ESP_LOG_DEBUG);
@@ -52,17 +15,129 @@ extern "C" void app_main() {
 	esp_log_level_set("ds3231", ESP_LOG_INFO);
 
 	esp_log_level_set("main", ESP_LOG_VERBOSE);
+	esp_log_level_set("helpers", ESP_LOG_VERBOSE);
 	//esp_log_level_set("power", ESP_LOG_VERBOSE);
 	//esp_log_level_set("http", ESP_LOG_VERBOSE);
+}
 
+extern "C" void app_main() {
 	esp_log_set_vprintf(vlogf);
+	set_log_levels();
 
-	// Mount the SD card
-	if (!sdcard_mount()) {
+	// Mount the SD card - deny service until mounted
+	while (!sdcard_mount()) {
 		ESP_LOGE(TAG, "Unable to mount the SD card");
-		abort();
+		vTaskDelay(2000 / portTICK_PERIOD_MS);
 	}
 
+	setup_required_services();
+
+	// TODO: documentation about setting i2c to log level info or above for
+	//  most accurate time sync in ds3231
+	// TODO: clean up helper functions
+	// TODO: Reimplement the old sd card function in the txt file on desktop
+	//  TODO: read config file from sd card
+	//  TODO: write string to file
+	// TODO: clean up http source
+	// TODO: figure out how to download log file over http
+	// TODO: figure out how to store data to NVS and store it after successfully
+	//  reading it from SD card
+	// TODO: documentation for all functions
+	// TODO: set or remove WiFi retry amounts so that it retries forever
+
+	// Set the system time if possible
+	bool time_is_synchronized { false };
+	if (!ds3231_lost_power()) {
+		set_system_time(ds3231_get_time());
+		time_is_synchronized = true;
+	}
+
+	// Connect to WiFi and MQTT
+	wlan_connect("ESPTestNetwork", "ThisIsMyTestNetwork!");
+	mqtt_connect("mqtt://192.168.0.2");
+
+	// Synchronize system time with time server
+	do {
+		wlan_block_until_connected();
+		if (wlan_connected() && sntp_synchronize_system_time())
+			time_is_synchronized = ds3231_set_time();
+
+		// Deny service if we are unable to synchronize the system time
+		if (!time_is_synchronized) {
+			// Re-check WiFi and MQTT credentials
+			wlan_connect("ESPTestNetwork", "ThisIsMyTestNetwork!");
+		}
+	} while (!time_is_synchronized);
+
+	// Do initial sensor setup then sleep the sensors
+	ESP_LOGI(TAG, "Setting up the sensors");
+	for (Sensor *sensor : sensors)
+		sensor->setup();
+
+	// TODO: Start a task that periodically resyncs the clock
+
+	// Calculate the next sensor ready time
+	TickType_t last_tick { xTaskGetTickCount() };
+	int offset_ms { -SENSOR_READY_MS - 1000 };
+	time_t wait_ms { get_wait_ms(offset_ms) };
+
+	// Sleep sensors if there is time
+	if (wait_ms > 1100) {
+		xTaskCreate(sensor_sleep_task, "sensor_sleep", 2048, nullptr,
+				tskIDLE_PRIORITY, nullptr);
+	}
+
+	vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
+
+	while (true) {
+		ESP_LOGI(TAG, "Readying sensors");
+		for (Sensor *sensor : sensors)
+			sensor->wakeup();
+		
+		// Prepare the JSON root, time, and data object
+		ESP_LOGD(TAG, "Constructing the JSON object");
+		const time_t epoch = get_system_time();
+		cJSON *json_root { cJSON_CreateObject() }, *json_data;
+		cJSON_AddNumberToObject(json_root, "time", epoch + (300 - epoch % 300));
+		cJSON_AddItemToObject(json_root, "data", json_data=cJSON_CreateObject());
+
+		// Calculate next wake time
+		last_tick = xTaskGetTickCount();
+		offset_ms = 0;
+		wait_ms = get_wait_ms(offset_ms);
+		vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
+
+		
+		ESP_LOGI(TAG, "Getting weather data");
+		for (Sensor *sensor : sensors)
+			sensor->get_data(json_data);
+
+		// Create sensor sleep task to sleep sensor after 1 second
+		xTaskCreate(sensor_sleep_task, "sensor_sleep", 2048, nullptr,
+				tskIDLE_PRIORITY, nullptr);
+
+		// Delete the JSON root
+		ESP_LOGD(TAG, "Converting the JSON object to a string");
+		ESP_LOGV(TAG, "Printing JSON to string");
+		char *json_str { cJSON_Print(json_root) };
+		ESP_LOGV(TAG, "Deleting the JSON object");
+		cJSON_Delete(json_root);
+
+		// TODO: Do stuff with the JSON string
+		printf("%s\n", json_str);
+
+		// Free the memory in json_str
+		delete[] json_str;
+
+		// Calculate next wake time
+		last_tick = xTaskGetTickCount();
+		offset_ms = -SENSOR_READY_MS - 1000;
+		wait_ms = get_wait_ms(offset_ms);
+		vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
+	}
+}
+
+void setup_required_services() {
 	esp_err_t setup_ret;
 	if ((setup_ret = nvs_flash_init()) != ESP_OK) {
 		ESP_LOGE(TAG, "Unable to initialize NVS flash (%i)", setup_ret);
@@ -86,88 +161,12 @@ extern "C" void app_main() {
 		ESP_LOGE(TAG, "Unable to start the I2C port");
 		abort();
 	}
-
-	// TODO: documentation about setting i2c to log level info or above for
-	//  most accurate time sync in ds3231
-	// TODO: clean up helper functions
-	// TODO: Reimplement the old sd card function in the txt file on desktop
-	//  TODO: read config file from sd card
-	//  TODO: write string to file
-	// TODO: clean up http source
-	// TODO: figure out how to download log file over http
-	// TODO: figure out how to store data to NVS and store it after successfully
-	//  reading it from SD card
-	// TODO: documentation for all functions
-
-	// Do initial sensor setup
-	bool time_is_synchronized { false };
-
-	// Set the system time if possible
-	if (!ds3231_lost_power()) {
-		set_system_time(ds3231_get_time());
-		time_is_synchronized = true;
-	}
-
-	// Connect to WiFi and MQTT
-	wlan_connect("ESPTestNetwork", "ThisIsMyTestNetwork!");
-
-	// Synchronize system time with time server
-	do {
-		wlan_block_until_connected();
-		if (wlan_connected() && sntp_synchronize_system_time())
-			time_is_synchronized = ds3231_set_time();
-
-		// Deny service if we are unable to synchronize the system time
-		if (!time_is_synchronized) {
-			// Re-check WiFi and MQTT credentials
-			wlan_connect("ESPTestNetwork", "ThisIsMyTestNetwork!");
-		}
-	} while (!time_is_synchronized);
-
-	// Do initial sensor setup then sleep the sensors
-	for (Sensor *sensor : sensors)
-		sensor->setup();
-	vTaskDelay(1000 / portTICK_PERIOD_MS);
-	for (Sensor *sensor : sensors)
-		sensor->sleep();
-
-	// Calculate the next sensor ready time
-	TickType_t last_wake_tick { xTaskGetTickCount() };
-	const time_t epoch { get_system_time() };
-	time_t window_delta { 300 - (epoch % 300) };
-	if (window_delta < (SENSOR_READY + BOOT_DELAY)) {
-		ESP_LOGI(TAG, "Skipping next measurement window (not enough time)");
-		window_delta += 300;
-	}
-	window_delta -= SENSOR_READY + BOOT_DELAY;
-
-	// Log results
-	const time_t window_epoch { epoch + window_delta };
-	const tm *window_tm { localtime(&window_epoch) };
-	ESP_LOGI(TAG, "Sleeping until %02d:%02d:%02dZ", window_tm->tm_hour,
-				window_tm->tm_min, window_tm->tm_sec);
-
-	mqtt_connect("mqtt://192.168.0.2");
-
-	// Wait
-	vTaskDelayUntil(&last_wake_tick, window_delta * 1000 / portTICK_PERIOD_MS);
-
-	// Enter main event loop
-	while (true) {
-			ESP_LOGD(TAG, "Doing main loop");
-
-			const char *greeting { "Hello world!" };
-			uart_write(greeting, strlen(greeting));
-
-
-			ds3231_get_time();
-
-			vTaskDelay(15000 / portTICK_PERIOD_MS);
-
-
-
-	}
-
-
 }
 
+void sensor_sleep_task(void *args) {
+	vTaskDelay(1000 / portTICK_PERIOD_MS);
+	ESP_LOGI(TAG, "Putting sensors to sleep");
+	for (Sensor *sensor : sensors)
+		sensor->sleep();
+	vTaskDelete(nullptr);
+}
