@@ -103,8 +103,7 @@ void wlan_connect(const char *ssid, const char *pass) {
 		esp_err_t ip_handler_ret { esp_event_handler_register(IP_EVENT,
 				IP_EVENT_STA_GOT_IP, event_handler, nullptr) };
 		if (wifi_handler_ret != ESP_OK || ip_handler_ret != ESP_OK) {
-			ESP_LOGE(TAG,
-					"Unable to register event handlers (wifi: %i, " "ip: %i)",
+			ESP_LOGE(TAG, "Unable to register event handlers (wifi: %i, " "ip: %i)",
 					wifi_handler_ret, ip_handler_ret);
 			wlan_stop();
 			return;
@@ -120,8 +119,7 @@ void wlan_connect(const char *ssid, const char *pass) {
 		esp_err_t config_ret { esp_wifi_set_config(ESP_IF_WIFI_STA,
 				&wifi_config) };
 		if (mode_ret != ESP_OK || config_ret != ESP_OK) {
-			ESP_LOGE(TAG,
-					"Unable to configure connection (mode: %i, " "config: %i)",
+			ESP_LOGE(TAG, "Unable to configure connection (mode: %i, " "config: %i)",
 					mode_ret, config_ret);
 			wlan_stop();
 			return;
@@ -167,8 +165,8 @@ bool wlan_block_until_connected(const time_t wait_millis) {
 	}
 
 	// Get the amount of ticks to wait
-	const TickType_t ticks {
-			wait_millis == 0 ? portMAX_DELAY : wait_millis / portTICK_PERIOD_MS };
+	const TickType_t ticks { wait_millis == 0 ?
+			portMAX_DELAY : wait_millis / portTICK_PERIOD_MS };
 
 	// Block until a result is returned
 	const EventBits_t wifi_ret { xEventGroupWaitBits(wifi_event_group,
@@ -245,12 +243,10 @@ bool wlan_connected() {
 
 bool sntp_synchronize_system_time(const time_t wait_millis) {
 	if (!wlan_initialized()) {
-		ESP_LOGE(TAG,
-				"Unable to synchronize system time with the SNTP server " "(not initialized)");
+		ESP_LOGE(TAG, "Unable to synchronize system time with the SNTP server (not initialized)");
 		return false;
 	} else if (!wlan_connected()) {
-		ESP_LOGE(TAG,
-				"Unable to synchronize system time with the SNTP server " "(not connected)");
+		ESP_LOGE(TAG, "Unable to synchronize system time with the SNTP server (not connected)");
 		return false;
 	}
 
@@ -267,12 +263,10 @@ bool sntp_synchronize_system_time(const time_t wait_millis) {
 	sntp_stop();
 
 	if (sntp_ret & STOP_BIT) {
-		ESP_LOGE(TAG,
-				"Unable to synchronize system time with the SNTP server " "(disconnected)");
+		ESP_LOGE(TAG, "Unable to synchronize system time with the SNTP server (disconnected)");
 		return false;
 	} else if (!(sntp_ret & SNTP_BIT)) {
-		ESP_LOGE(TAG,
-				"Unable to synchronize system time with the SNTP server " "(timed out)");
+		ESP_LOGE(TAG, "Unable to synchronize system time with the SNTP server (timed out)");
 		return false;
 	} else {
 		ESP_LOGI(TAG, "Synchronized system time");
