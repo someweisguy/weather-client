@@ -9,24 +9,9 @@
 static const char *TAG { "sdcard" };
 
 bool sdcard_mount() {
-	// Initialize the SPI host using SDSPI_HOST_DEFAULT()
+	// Initialize the SPI host
 	ESP_LOGV(TAG, "Initializing SPI host");
-	sdmmc_host_t host;
-	host.flags = SDMMC_HOST_FLAG_SPI | SDMMC_HOST_FLAG_DEINIT_ARG;
-	host.slot = HSPI_HOST;
-	host.max_freq_khz = SDMMC_FREQ_DEFAULT;
-	host.io_voltage = 3.3f;
-	host.init = &sdspi_host_init;
-	host.set_bus_width = nullptr;
-	host.get_bus_width = nullptr;
-	host.set_bus_ddr_mode = nullptr;
-	host.set_card_clk = &sdspi_host_set_card_clk;
-	host.do_transaction = &sdspi_host_do_transaction;
-	host.deinit_p = &sdspi_host_remove_device;
-	host.io_int_enable = &sdspi_host_io_int_enable;
-	host.io_int_wait = &sdspi_host_io_int_wait;
-	host.command_timeout_ms = 0;
-
+	sdmmc_host_t host = SDSPI_HOST_DEFAULT();
 
 	// Configure SPI SD device slot
 	ESP_LOGV(TAG, "Configuring SPI device slot");
