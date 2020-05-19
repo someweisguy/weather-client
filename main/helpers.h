@@ -20,19 +20,17 @@
 #include "esp_event.h"
 #include "freertos/event_groups.h"
 #include "driver/adc.h"
+#include "driver/gpio.h"
 
-enum wakeup_reason_t {
-	UNEXPECTED_REASON,
-	READY_SENSORS,
-	TAKE_MEASUREMENT
-};
+#include "wlan.h"
+
+#define BATT_INTERRUPT_PIN 34
 
 struct config_t {
 	char *wifi_ssid;
 	char *wifi_password;
 	char *mqtt_broker;
 	char *mqtt_data_topic;
-	char *mqtt_boot_log_topic;
 };
 
 /**
@@ -77,6 +75,15 @@ void set_system_time(const time_t epoch);
  */
 time_t get_system_time(struct timeval *tv = nullptr);
 
+/**
+ * Strips the newline characters from a string and returns the string without
+ * newlines. The result is shifted left to hide the newlines. For example, the
+ * string "Hello\nWorld!" will return "HelloWorld!".
+ *
+ * @param s a pointer to a null terminated string
+ *
+ * @return a pointer to the edited string
+ */
 char* strip(char *s);
 
 int32_t get_line_length(FILE *f);
@@ -129,5 +136,7 @@ int fsize(FILE *fd);
  *
  */
 time_t get_wait_ms(const int modifier_ms);
+
+void synchronize_system_time_task(void *args);
 
 #endif /* MAIN_HELPERS_H_ */

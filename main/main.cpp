@@ -38,7 +38,6 @@ extern "C" void app_main() {
 	//  TODO: write string to file
 	// TODO: clean up http source
 	// TODO: figure out how to download log file over http
-	// TODO: documentation for all functions
 	// TODO: figure out how to manage event handlers for publishing MQTT data
 	//  from file - there could be an issue if sending data and writing new data
 	//  at the same time
@@ -72,14 +71,17 @@ extern "C" void app_main() {
 	for (Sensor *sensor : sensors)
 		sensor->setup();
 
-	// TODO: Start a task that periodically resyncs the clock
+	// Start a task to periodically synchronize the system time
+	ESP_LOGD(TAG, "Starting system time synchronization task");
+	xTaskCreate(synchronize_system_time_task, "sync_sys_time", 2048, nullptr,
+			tskIDLE_PRIORITY, nullptr);
 
 	// TODO: Attach event handler on MQTT connect that sends all of the
 	//  backlogged data
 
 	// Calculate the next sensor ready time
 	TickType_t last_tick { xTaskGetTickCount() };
-	int offset_ms { -SENSOR_READY_MS - 1000 };
+	int offset_ms { -SENSOR_READY_MS - 500 };
 	time_t wait_ms { get_wait_ms(offset_ms) };
 	if (wait_ms > 1100) // sleep sensors if there is time
 		xTaskCreate(sensor_sleep_task, "sensor_sleep", 2048, nullptr,
@@ -105,7 +107,7 @@ extern "C" void app_main() {
 		wait_ms = get_wait_ms(offset_ms);
 		vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
 
-		
+		// Get the weather data
 		ESP_LOGI(TAG, "Getting weather data");
 		for (Sensor *sensor : sensors)
 			sensor->get_data(json_data);
@@ -143,7 +145,7 @@ extern "C" void app_main() {
 		// Calculate next wake time
 		ESP_LOGV(TAG, "Calculating next wake time");
 		last_tick = xTaskGetTickCount();
-		offset_ms = -SENSOR_READY_MS - 1000;
+		offset_ms = -SENSOR_READY_MS - 500;
 		wait_ms = get_wait_ms(offset_ms);
 		vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
 	}
