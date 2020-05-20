@@ -3,6 +3,7 @@
 static const char *TAG { "main" };
 static Sensor* sensors[] { new BME280() };
 
+
 static void set_log_levels() {
 	esp_log_level_set("*", ESP_LOG_NONE);
 	esp_log_level_set("sdcard", ESP_LOG_DEBUG);
@@ -24,12 +25,7 @@ extern "C" void app_main() {
 	esp_log_set_vprintf(vlogf);
 	set_log_levels();
 
-	// Mount the SD card - deny service until mounted
-	while (!sdcard_mount()) {
-		ESP_LOGE(TAG, "Unable to mount the SD card");
-		vTaskDelay(2000 / portTICK_PERIOD_MS);
-	}
-
+	sdcard_auto_detect();
 	setup_required_services();
 
 	// TODO: clean up helper functions
@@ -47,6 +43,12 @@ extern "C" void app_main() {
 	if (!ds3231_lost_power()) {
 		set_system_time(ds3231_get_time());
 		time_is_synchronized = true;
+	}
+
+	// Mount the SD card - deny service until mounted
+	while (!sdcard_is_mounted()) {
+		ESP_LOGE(TAG, "Unable to mount the SD card");
+		vTaskDelay(2000 / portTICK_PERIOD_MS);
 	}
 
 	// Connect to WiFi and MQTT

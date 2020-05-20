@@ -7,8 +7,38 @@
 
 #include "sdcard.h"
 static const char *TAG { "sdcard" };
+static volatile bool is_mounted { false };
+static volatile bool handling_task { false };
+
+static void sdcard_monitor_task(void *args) {
+
+	// Debounce the interrupt
+	vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+	// Mount or unmount the card depending on card detect pin
+	const bool cd { gpio_get_level(static_cast<gpio_num_t>(PIN_NUM_CD)) };
+	if (!cd) sdcard_mount();
+	else sdcard_unmount();
+
+	// Free the task so it can be called again
+	handling_task = false;
+	vTaskDelete(nullptr);
+}
+
+static void IRAM_ATTR sdcard_isr(void *args) {
+	if (handling_task == false) {
+		handling_task = true;
+		xTaskCreate(sdcard_monitor_task, "mount_sdcard", 4096, args,
+				tskIDLE_PRIORITY, nullptr);
+	}
+}
 
 bool sdcard_mount() {
+	if (is_mounted) {
+		ESP_LOGD(TAG, "The filesystem is already mounted");
+		return true;
+	}
+
 	// Initialize the SPI host
 	ESP_LOGV(TAG, "Initializing SPI host");
 	sdmmc_host_t host = SDSPI_HOST_DEFAULT();
@@ -39,7 +69,7 @@ bool sdcard_mount() {
 	strcat(mount_point, TAG);
 
 	// Mount the filesystem - reduce the host frequency the card mounts
-	ESP_LOGD(TAG, "Mounting the filesystem to '%s'", mount_point);
+	ESP_LOGI(TAG, "Mounting the filesystem to '%s'", mount_point);
 	size_t retries { 10 };
 	esp_err_t mount_ret;
 	do {
@@ -49,20 +79,50 @@ bool sdcard_mount() {
 
 	// Log error or warnings and return result
 	if (mount_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to mount the SD card (%x)", mount_ret);
+		ESP_LOGE(TAG, "Unable to mount the filesystem (%i)", mount_ret);
 		return false;
 	} else if (host.max_freq_khz < 20000)
-		ESP_LOGW(TAG, "The SD card host maximum frequency was set to %ukHz",
+		ESP_LOGW(TAG, "The SD card host max frequency was set to %ukHz",
 				host.max_freq_khz);
+	is_mounted = true;
 	return true;
 }
 
 bool sdcard_unmount() {
-	ESP_LOGD(TAG, "Unmounting card");
+	if (!is_mounted) {
+		ESP_LOGD(TAG, "The filesystem is already unmounted");
+		return true;
+	}
+
+	ESP_LOGI(TAG, "Unmounting the filesystem");
 	esp_err_t unmount_ret { esp_vfs_fat_sdmmc_unmount() };
 	if (unmount_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to unmount the SD card (%x)", unmount_ret);
+		ESP_LOGE(TAG, "Unable to unmount the filesystem (%i)", unmount_ret);
 		return false;
 	}
+	is_mounted = false;
 	return true;
+}
+
+bool sdcard_is_mounted() {
+	return is_mounted;
+}
+
+void sdcard_auto_detect() {
+	// Setup interrupt pin
+	gpio_set_direction(static_cast<gpio_num_t>(PIN_NUM_CD), GPIO_MODE_INPUT);
+	gpio_set_pull_mode(static_cast<gpio_num_t>(PIN_NUM_CD), GPIO_PULLUP_ONLY);
+	gpio_set_intr_type(static_cast<gpio_num_t>(PIN_NUM_CD), GPIO_INTR_ANYEDGE);
+	gpio_pullup_en(static_cast<gpio_num_t>(PIN_NUM_CD));
+
+	// Setup and enable the lowest priority interrupt
+	gpio_install_isr_service(ESP_INTR_FLAG_EDGE);
+	gpio_isr_handler_add(static_cast<gpio_num_t>(PIN_NUM_CD), sdcard_isr,
+			nullptr);
+	gpio_intr_enable(static_cast<gpio_num_t>(PIN_NUM_CD));
+
+	// Set the starting state
+	const bool cd { gpio_get_level(static_cast<gpio_num_t>(PIN_NUM_CD)) };
+	if (!cd) sdcard_mount();
+	else sdcard_unmount();
 }

@@ -24,7 +24,8 @@
 #define PIN_NUM_MISO 19 // Adafruit Feather 32 Default
 #define PIN_NUM_MOSI 18 // Adafruit Feather 32 Default
 #define PIN_NUM_SCLK  5 // Adafruit Feather 32 Default
-#define PIN_NUM_CS   21 // User Defined
+#define PIN_NUM_CS   21 // User defined
+#define PIN_NUM_CD    4 // User defined
 
 /**
  * Mounts the SD card on the SPI bus.
@@ -39,5 +40,14 @@ bool sdcard_mount();
  * @return true on success
  */
 bool sdcard_unmount();
+
+/**
+ * Returns true if the SD card is mounted.
+ *
+ * @return true if card is mounted
+ */
+bool sdcard_is_mounted();
+
+void sdcard_auto_detect();
 
 #endif /* MAIN_HARDWARE_SDCARD_SDCARD_H_ */
