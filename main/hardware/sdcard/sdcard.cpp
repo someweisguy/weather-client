@@ -8,29 +8,31 @@
 #include "sdcard.h"
 static const char *TAG { "sdcard" };
 static volatile bool is_mounted { false };
-static volatile bool handling_task { false };
+SemaphoreHandle_t detect_semaphore;
 
 static void sdcard_monitor_task(void *args) {
+	const gpio_num_t CD_PIN { static_cast<gpio_num_t>(PIN_NUM_CD) };
+	while (true) {
+		if(xSemaphoreTake(detect_semaphore, portMAX_DELAY) == pdTRUE) {
+			// Debounce
+			bool cd_level { gpio_get_level(CD_PIN) };
+			for (int c = 0; c < 8; ++c) {
+				if (cd_level != gpio_get_level(CD_PIN)) {
+					cd_level = !cd_level;
+					c = 0;
+				}
+				vTaskDelay(10 / portTICK_PERIOD_MS);
+			}
 
-	// Debounce the interrupt
-	vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-	// Mount or unmount the card depending on card detect pin
-	const bool cd { gpio_get_level(static_cast<gpio_num_t>(PIN_NUM_CD)) };
-	if (!cd) sdcard_mount();
-	else sdcard_unmount();
-
-	// Free the task so it can be called again
-	handling_task = false;
-	vTaskDelete(nullptr);
+			// Mount or unmount the card depending on card detect pin
+			if (!cd_level) sdcard_mount();
+			else sdcard_unmount();
+		}
+	}
 }
 
 static void IRAM_ATTR sdcard_isr(void *args) {
-	if (handling_task == false) {
-		handling_task = true;
-		xTaskCreate(sdcard_monitor_task, "mount_sdcard", 4096, args,
-				tskIDLE_PRIORITY, nullptr);
-	}
+	xSemaphoreGiveFromISR(detect_semaphore, nullptr);
 }
 
 bool sdcard_mount() {
@@ -40,8 +42,8 @@ bool sdcard_mount() {
 	}
 
 	// Initialize the SPI host
-	ESP_LOGV(TAG, "Initializing SPI host");
-	sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+	ESP_LOGV(TAG, "Initializing the SPI host");
+	sdmmc_host_t host = SDSPI_HOST_DEFAULT(); // @suppress("Invalid arguments")
 
 	// Configure SPI SD device slot
 	ESP_LOGV(TAG, "Configuring SPI device slot");
@@ -50,6 +52,8 @@ bool sdcard_mount() {
 	slot_config.gpio_mosi = static_cast<gpio_num_t>(PIN_NUM_MOSI);
 	slot_config.gpio_sck = static_cast<gpio_num_t>(PIN_NUM_SCLK);
 	slot_config.gpio_cs = static_cast<gpio_num_t>(PIN_NUM_CS);
+	// TODO: what happens when gpio_cd is defined?
+	//slot_config.gpio_cd = static_cast<gpio_num_t>(PIN_NUM_CD);
 
 	// Configure filesystem mount options
 	ESP_LOGV(TAG, "Configuring filesystem mount options");
@@ -109,20 +113,22 @@ bool sdcard_is_mounted() {
 }
 
 void sdcard_auto_detect() {
-	// Setup interrupt pin
-	gpio_set_direction(static_cast<gpio_num_t>(PIN_NUM_CD), GPIO_MODE_INPUT);
-	gpio_set_pull_mode(static_cast<gpio_num_t>(PIN_NUM_CD), GPIO_PULLUP_ONLY);
-	gpio_set_intr_type(static_cast<gpio_num_t>(PIN_NUM_CD), GPIO_INTR_ANYEDGE);
-	gpio_pullup_en(static_cast<gpio_num_t>(PIN_NUM_CD));
+	// Setup card detect pin
+	const gpio_num_t CD_PIN { static_cast<gpio_num_t>(PIN_NUM_CD) };
+	gpio_set_direction(CD_PIN, GPIO_MODE_INPUT);
+	gpio_set_pull_mode(CD_PIN, GPIO_PULLUP_ONLY);
+	gpio_set_intr_type(CD_PIN, GPIO_INTR_ANYEDGE);
+	gpio_pullup_en(CD_PIN);
 
-	// Setup and enable the lowest priority interrupt
+	// Setup and enable the interrupt
 	gpio_install_isr_service(ESP_INTR_FLAG_EDGE);
-	gpio_isr_handler_add(static_cast<gpio_num_t>(PIN_NUM_CD), sdcard_isr,
+	gpio_isr_handler_add(CD_PIN, sdcard_isr,
 			nullptr);
-	gpio_intr_enable(static_cast<gpio_num_t>(PIN_NUM_CD));
+	gpio_intr_enable(CD_PIN);
 
 	// Set the starting state
-	const bool cd { gpio_get_level(static_cast<gpio_num_t>(PIN_NUM_CD)) };
-	if (!cd) sdcard_mount();
-	else sdcard_unmount();
+	detect_semaphore = xSemaphoreCreateBinary();
+	xTaskCreate(sdcard_monitor_task, "detect_sdcard", 2048, nullptr,
+			tskIDLE_PRIORITY, nullptr);
+	xSemaphoreGive(detect_semaphore);
 }
