@@ -111,31 +111,6 @@ public:
 		return "BME280";
 	}
 
-	bool ready() override {
-		// Get compensation "dig" values
-		uint8_t dig_buf[32];
-		ESP_LOGV(TAG, "Getting data trim values");
-		const esp_err_t dig_1_ret { i2c_read(I2C_ADDRESS, REG_TRIM_T1_TO_H1,
-				dig_buf, 25) };
-		if (dig_1_ret != ESP_OK)
-			return dig_1_ret;
-		const esp_err_t dig_2_ret { i2c_read(I2C_ADDRESS, REG_TRIM_H2_TO_H5,
-				dig_buf + 25, 7) };
-		if (dig_2_ret != ESP_OK)
-			return dig_2_ret;
-
-		// Bulk copy T1 to H1
-		memcpy(&dig, dig_buf, 25);
-		// Copy H2 to H6
-		dig.h2 = (dig_buf[26] << 8) | dig_buf[25];
-		dig.h3 = dig_buf[27];
-		dig.h4 = (dig_buf[28] << 4) | (dig_buf[29] & 0x0f);
-		dig.h5 = (dig_buf[30] << 4) | (dig_buf[29] >> 4);
-		dig.h6 = dig_buf[31];
-
-		return true;
-	}
-
 	bool setup() override {
 		// Soft reset the BME280
 		ESP_LOGD(TAG, "Sending soft reset command");
@@ -200,13 +175,34 @@ public:
 			return false;
 		}
 
+		// Get compensation "dig" values
+		char dig_buf[32];
+		ESP_LOGV(TAG, "Getting data trim values");
+		const esp_err_t dig_1_ret { i2c_read(I2C_ADDRESS, REG_TRIM_T1_TO_H1,
+				dig_buf, 25) };
+		if (dig_1_ret != ESP_OK)
+			return dig_1_ret;
+		const esp_err_t dig_2_ret { i2c_read(I2C_ADDRESS, REG_TRIM_H2_TO_H5,
+				dig_buf + 25, 7) };
+		if (dig_2_ret != ESP_OK)
+			return dig_2_ret;
+
+		// Bulk copy T1 to H1
+		memcpy(&dig, dig_buf, 25);
+		// Copy H2 to H6
+		dig.h2 = (dig_buf[26] << 8) | dig_buf[25];
+		dig.h3 = dig_buf[27];
+		dig.h4 = (dig_buf[28] << 4) | (dig_buf[29] & 0x0f);
+		dig.h5 = (dig_buf[30] << 4) | (dig_buf[29] >> 4);
+		dig.h6 = dig_buf[31];
+
 		return true;
 	}
 
 	bool wakeup() override {
 		// Set temperature and pressure sampling to x16 and normal mode
 		ESP_LOGD(TAG, "Sending wakeup command");
-		const char tpm_setting { 0xb0 };
+		const char tpm_setting { 0xb7 };
 		if (!i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1)) {
 			ESP_LOGE(TAG, "Unable send wakeup command");
 			return false;
@@ -217,7 +213,7 @@ public:
 
 	bool get_data(cJSON *json) override {
 		// Store all the ADC values from the BME280 into a buffer
-		char buf[8];
+		unsigned char buf[8];
 		if (!i2c_read(I2C_ADDRESS, REG_DATA_START, buf, 8)) {
 			ESP_LOGE(TAG, "Unable to read ADC values from device");
 			return false;
