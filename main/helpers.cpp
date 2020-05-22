@@ -9,8 +9,6 @@
 #include "helpers.h"
 static const char *TAG { "helpers" };
 
-
-
 const char* esp_reset_to_name(esp_reset_reason_t code) {
 	switch (code) {
 	case ESP_RST_POWERON: return "power-on event";
@@ -34,7 +32,7 @@ int vlogf(const char *format, va_list arg) {
 	vsprintf(message, format, arg);
 
 	const char *file_name { "/sdcard/events.log" };
-	FILE *fd { fopen(file_name, "a+") };
+	FILE *fd { sdcard_open(file_name, "a+") };
 
 	// Delete the file if it gets too big
 	if (fd != nullptr && fsize(fd) > 100 * 1024) { // 100KB
@@ -55,7 +53,7 @@ int vlogf(const char *format, va_list arg) {
 				else fputc(message[i], fd);
 			}
 		}
-		fclose(fd);
+		sdcard_close(fd);
 	}
 
 	// Print to stdout
