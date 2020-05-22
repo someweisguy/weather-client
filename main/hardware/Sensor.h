@@ -38,12 +38,6 @@ public:
 		return "Undefined generic sensor";
 	}
 
-	virtual bool ready() {
-		// Get the sensor ready a few seconds before it takes a measurement
-		// Do nothing by default
-		return true;
-	}
-
 	virtual bool setup() {
 		// Performs initial setup of the sensor, including resetting it
 		// Do nothing by default

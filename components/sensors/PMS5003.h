@@ -43,10 +43,6 @@ public:
 		return "PMS5003";
 	}
 
-	esp_err_t ready() override {
-		// Do nothing
-		return ESP_OK;
-	}
 
 	esp_err_t setup() override {
 		ESP_LOGV(TAG, "Sending active mode command");
