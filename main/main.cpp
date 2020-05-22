@@ -5,7 +5,7 @@ static Sensor* sensors[] { new BME280() };
 
 
 static void set_log_levels() {
-	esp_log_level_set("*", ESP_LOG_NONE);
+	esp_log_level_set("*", ESP_LOG_WARN);
 	esp_log_level_set("sdcard", ESP_LOG_DEBUG);
 	esp_log_level_set("wlan", ESP_LOG_DEBUG);
 	esp_log_level_set("mqtt", ESP_LOG_DEBUG);
@@ -25,7 +25,6 @@ extern "C" void app_main() {
 	esp_log_set_vprintf(vlogf);
 	set_log_levels();
 
-	sdcard_auto_detect();
 	setup_required_services();
 
 	// TODO: clean up helper functions
@@ -46,8 +45,8 @@ extern "C" void app_main() {
 	}
 
 	// Mount the SD card - deny service until mounted
-	while (!sdcard_is_mounted()) {
-		ESP_LOGE(TAG, "Unable to mount the SD card");
+	while (!sdcard_mount()) {
+		ESP_LOGW(TAG, "Insert SD card to continue");
 		vTaskDelay(2000 / portTICK_PERIOD_MS);
 	}
 
@@ -80,6 +79,7 @@ extern "C" void app_main() {
 
 	// TODO: Attach event handler on MQTT connect that sends all of the
 	//  backlogged data
+
 
 	// Calculate the next sensor ready time
 	TickType_t last_tick { xTaskGetTickCount() };
@@ -132,12 +132,12 @@ extern "C" void app_main() {
 		if (!json_published) {
 			// Write the data to file
 			ESP_LOGI(TAG, "Writing data to file");
-			FILE *fd { fopen(DATA_FILE_PATH, "a+") };
+			FILE *fd { sdcard_open(DATA_FILE_PATH, "a+") };
 			if (fd != nullptr) {
 				// Strip the JSON string and print it to file
 				if (fputs(strip(json_str), fd) < 0 || fputc('\n', fd) != '\n')
 					ESP_LOGE(TAG, "Unable to write data to file (cannot write to file)");
-				fclose(fd);
+				sdcard_close(fd);
 			} else {
 				ESP_LOGE(TAG, "Unable to write data to file (cannot open file)");
 			}
