@@ -145,18 +145,3 @@ time_t get_wait_ms(const int modifier_ms) {
 				window_tm->tm_min, window_tm->tm_sec);
 	return window_delta_ms;
 }
-
-void synchronize_system_time_task(void *args) {
-	while (true) {
-		bool time_is_synchronized { false };
-		vTaskDelay(604800000 / portTICK_PERIOD_MS); // 1 week
-		do {
-			if (wlan_connected())
-				time_is_synchronized = sntp_synchronize_system_time();
-			else {
-				ESP_LOGW(TAG, "Unable to synchronize system time (not connected)");
-				vTaskDelay(60000 / portTICK_PERIOD_MS);
-			}
-		} while (!time_is_synchronized);
-	}
-}

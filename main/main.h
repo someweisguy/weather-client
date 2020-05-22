@@ -41,6 +41,7 @@
 #define TIME_BETWEEN_RTC_SYNC_SEC 604800 // 7 days
 
 void setup_required_services();
+void synchronize_system_time_task(void *args);
 void sensor_sleep_task(void *args);
 
 #endif /* MAIN_H_ */

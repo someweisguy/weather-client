@@ -1,4 +1,5 @@
 #include "main.h"
+#include "regex.h"
 
 static const char *TAG { "main" };
 static Sensor* sensors[] { new BME280() };
@@ -27,6 +28,10 @@ extern "C" void app_main() {
 
 	setup_required_services();
 
+	// TODO: Write code to read the log file over http
+	// TODO: Code to store data to SD card if WiFi fails
+
+
 	// TODO: clean up helper functions
 	// TODO: Reimplement the old sd card function in the txt file on desktop
 	//  TODO: read config file from sd card
@@ -50,20 +55,50 @@ extern "C" void app_main() {
 		vTaskDelay(2000 / portTICK_PERIOD_MS);
 	}
 
+	// Load the config file values into memory
+	char *ssid, *wifi_pass, *mqtt_topic, *mqtt_broker;
+	FILE *fd { sdcard_open("/sdcard/config.json", "r") };
+	if (fd != nullptr) {
+		// Read the JSON file into memory
+		ESP_LOGV(TAG, "Reading config file into memory");
+		fseek(fd, 0, SEEK_END);
+		const long size { ftell(fd) };
+		rewind(fd);
+		char file_str[size + 1]; // TODO: Chunk file?
+		fread(file_str, 1, size, fd);
+		sdcard_close(fd);
+
+		// Parse the JSON
+		ESP_LOGV(TAG, "Parsing JSON file");
+		cJSON *config { cJSON_Parse(file_str) };
+		ssid = strdup(cJSON_GetObjectItem(config, "ssid")->valuestring);
+		wifi_pass = strdup(cJSON_GetObjectItem(config, "pass")->valuestring);
+		mqtt_topic = strdup(cJSON_GetObjectItem(config, "topic")->valuestring);
+		mqtt_broker = strdup(cJSON_GetObjectItem(config, "mqtt")->valuestring);
+		cJSON_Delete(config);
+	} else {
+		ESP_LOGE(TAG, "Unable to load config file");
+		while (true);
+	}
+
 	// Connect to WiFi and MQTT
-	wlan_connect("ESPTestNetwork", "ThisIsMyTestNetwork!");
-	mqtt_connect("mqtt://192.168.0.2");
+	wlan_connect(ssid, wifi_pass);
+	mqtt_connect(mqtt_broker);
 
 	// Synchronize system time with time server
 	do {
 		wlan_block_until_connected();
+		if (time_is_synchronized) {
+			// TODO: start the time
+		}
+
+
 		if (wlan_connected() && sntp_synchronize_system_time())
 			time_is_synchronized = ds3231_set_time();
 
 		// Deny service if we are unable to synchronize the system time
 		if (!time_is_synchronized) {
-			// Re-check WiFi and MQTT credentials
-			wlan_connect("ESPTestNetwork", "ThisIsMyTestNetwork!");
+			ESP_LOGE(TAG, "Unable to synchronize time");
 		}
 	} while (!time_is_synchronized);
 
@@ -79,7 +114,6 @@ extern "C" void app_main() {
 
 	// TODO: Attach event handler on MQTT connect that sends all of the
 	//  backlogged data
-
 
 	// Calculate the next sensor ready time
 	TickType_t last_tick { xTaskGetTickCount() };
@@ -128,7 +162,7 @@ extern "C" void app_main() {
 		// Handle the JSON string
 		bool json_published { false };
 		if (mqtt_connected())
-			json_published = mqtt_publish("/test/weather/data", json_str);
+			json_published = mqtt_publish(mqtt_topic, json_str);
 		if (!json_published) {
 			// Write the data to file
 			ESP_LOGI(TAG, "Writing data to file");
@@ -178,6 +212,22 @@ void setup_required_services() {
 		abort();
 	}
 }
+
+void synchronize_system_time_task(void *args) {
+	while (true) {
+		bool time_is_synchronized { false };
+		do {
+			if (wlan_connected())
+				time_is_synchronized = sntp_synchronize_system_time();
+			else {
+				ESP_LOGW(TAG, "Unable to synchronize system time (not connected)");
+				vTaskDelay(60000 / portTICK_PERIOD_MS);
+			}
+		} while (!time_is_synchronized);
+		vTaskDelay(604800000 / portTICK_PERIOD_MS); // 1 week
+	}
+}
+
 
 void sensor_sleep_task(void *args) {
 	vTaskDelay(1000 / portTICK_PERIOD_MS);

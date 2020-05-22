@@ -138,6 +138,4 @@ int fsize(FILE *fd);
  */
 time_t get_wait_ms(const int modifier_ms);
 
-void synchronize_system_time_task(void *args);
-
 #endif /* MAIN_HELPERS_H_ */
