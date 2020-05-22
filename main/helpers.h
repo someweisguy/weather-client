@@ -23,6 +23,7 @@
 #include "driver/gpio.h"
 
 #include "wlan.h"
+#include "sdcard.h"
 
 #define BATT_INTERRUPT_PIN 34
 
