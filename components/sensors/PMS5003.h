@@ -16,6 +16,7 @@ private:
 	const char *TAG { "pms5003" };
 	const char *pm1 { "pm1" }, *pm2_5 { "pm2.5" }, *pm10 { "pm10" },
 		*count_per_liter { "count per liter" };
+	const int CMD_SIZE { 7 };
 
 	struct pms_data_t {
 		// Micrograms per cubic meter
@@ -38,58 +39,68 @@ private:
 	};
 
 public:
-
 	const char* get_name() override {
 		return "PMS5003";
 	}
 
-
-	esp_err_t setup() override {
+	bool setup() override {
 		ESP_LOGV(TAG, "Sending active mode command");
 		const char passive_cmd[7] { 0x42, 0x4d, 0xe1, 0x00, 0x01, 0x01, 0x71 };
-		return uart_write(passive_cmd, 7);
+		if (uart_write(passive_cmd, 7) != CMD_SIZE) {
+			ESP_LOGE(TAG, "Unable to send active mode command");
+			return false;
+		}
+
+		return true;
 	}
 
-	esp_err_t wakeup() override {
+	bool wakeup() override {
 		ESP_LOGV(TAG, "Sending wake up command");
 		const char wakeup_cmd[7] { 0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74 };
-		return uart_write(wakeup_cmd, 7);
+		if (uart_write(wakeup_cmd, 7) != CMD_SIZE) {
+			ESP_LOGE(TAG, "Unable to send wake up command");
+			return false;
+		}
+
+		return true;
 	}
 
-	esp_err_t get_data(cJSON *json) override {
+	bool get_data(cJSON *json) override {
 		uint16_t computed_checksum { 0 }, received_checksum;
 		uint8_t retries { 0 };
-		char buffer[32];
+		char buf[32];
 		do {
 			ESP_LOGV(TAG, "Reading data");
-			const int read { uart_read(buffer, 32) };
-			if (read != 32)
-				return read;
+			if (uart_read(buf, 32) != 32) {
+				ESP_LOGE(TAG, "Unable to read data");
+				return false;
+			}
 
 			// Compute and check checksum
 			ESP_LOGV(TAG, "Computing and comparing checksum");
 			for (int i = 0; i < 30; ++i)
-				computed_checksum += buffer[i];
-			received_checksum = static_cast<uint16_t>((buffer[30] << 8) +
-					buffer[31]);
+				computed_checksum += buf[i];
+			received_checksum = static_cast<uint16_t>((buf[30] << 8) + buf[31]);
 		} while (computed_checksum != received_checksum && ++retries <= 5);
-		if (computed_checksum != received_checksum)
-			return ESP_ERR_INVALID_CRC;
+		if (computed_checksum != received_checksum) {
+			ESP_LOGE(TAG, "Unable to verify checksum");
+			return false;
+		}
 
 		// Copy the buffer - skip the first 4 and last 4 bytes
 		pms_data_t pms_data;
-		pms_data.pm1_0_std = (buffer[4] << 8) | buffer[5];
-		pms_data.pm2_5_std = (buffer[6] << 8) | buffer[7];
-		pms_data.pm10_0_std = (buffer[8] << 8) | buffer[9];
-		pms_data.pm1_0_atm = (buffer[10] << 8) | buffer[11];
-		pms_data.pm2_5_atm = (buffer[12] << 8) | buffer[13];
-		pms_data.pm10_0_atm = (buffer[14] << 8) | buffer[15];
-		pms_data.part_0_3 = (buffer[16] << 8) | buffer[17];
-		pms_data.part_0_5 = (buffer[18] << 8) | buffer[19];
-		pms_data.part_1_0 = (buffer[20] << 8) | buffer[21];
-		pms_data.part_2_5 = (buffer[22] << 8) | buffer[23];
-		pms_data.part_5_0 = (buffer[24] << 8) | buffer[25];
-		pms_data.part_10_0 = (buffer[26] << 8) | buffer[27];
+		pms_data.pm1_0_std =  (buf[4] << 8) | buf[5];
+		pms_data.pm2_5_std =  (buf[6] << 8) | buf[7];
+		pms_data.pm10_0_std = (buf[8] << 8) | buf[9];
+		pms_data.pm1_0_atm =  (buf[10] << 8) | buf[11];
+		pms_data.pm2_5_atm =  (buf[12] << 8) | buf[13];
+		pms_data.pm10_0_atm = (buf[14] << 8) | buf[15];
+		pms_data.part_0_3 =   (buf[16] << 8) | buf[17];
+		pms_data.part_0_5 =   (buf[18] << 8) | buf[19];
+		pms_data.part_1_0 =   (buf[20] << 8) | buf[21];
+		pms_data.part_2_5 =   (buf[22] << 8) | buf[23];
+		pms_data.part_5_0 =   (buf[24] << 8) | buf[25];
+		pms_data.part_10_0 =  (buf[26] << 8) | buf[27];
 
 		// Add PM data to JSON array object
 		add_JSON_elem(json, "PM 1",  pms_data.pm1_0_std, pm1);
@@ -101,26 +112,31 @@ public:
 
 		// Add particle count data to JSON array object - multiply by 10 to get
 		//  units per Liter
-		add_JSON_elem(json, "0.3 microns Particles",
-				pms_data.part_0_3 * 10, count_per_liter);
-		add_JSON_elem(json, "0.5 microns Particles",
-				pms_data.part_0_5 * 10, count_per_liter);
-		add_JSON_elem(json, "1 micron Particles",
-				pms_data.part_1_0 * 10, count_per_liter);
-		add_JSON_elem(json, "2.5 microns Particles",
-				pms_data.part_2_5 * 10, count_per_liter);
-		add_JSON_elem(json, "5 microns Particles",
-				pms_data.part_5_0 * 10.0, count_per_liter);
-		add_JSON_elem(json, "10 microns Particles",
-				pms_data.part_10_0 * 10, count_per_liter);
+		add_JSON_elem(json, "0.3 microns Particles", pms_data.part_0_3 * 10,
+				count_per_liter);
+		add_JSON_elem(json, "0.5 microns Particles", pms_data.part_0_5 * 10,
+				count_per_liter);
+		add_JSON_elem(json, "1 micron Particles", pms_data.part_1_0 * 10,
+				count_per_liter);
+		add_JSON_elem(json, "2.5 microns Particles", pms_data.part_2_5 * 10,
+				count_per_liter);
+		add_JSON_elem(json, "5 microns Particles", pms_data.part_5_0 * 10.0,
+				count_per_liter);
+		add_JSON_elem(json, "10 microns Particles", pms_data.part_10_0 * 10,
+				count_per_liter);
 
-		return ESP_OK;
+		return true;
 	}
 
-	esp_err_t sleep() override {
+	bool sleep() override {
+		ESP_LOGV(TAG, "Sending sleep command");
 		const char sleep_cmd[7] { 0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73 };
-		if (uart_write(sleep_cmd, 7) == 7) return ESP_OK;
-		else return ESP_FAIL;
+		if (uart_write(sleep_cmd, 7) != CMD_SIZE) {
+			ESP_LOGE(TAG, "Unable to send sleep command");
+			return false;
+		}
+
+		return true;
 	}
 
 };
