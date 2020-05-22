@@ -30,7 +30,7 @@
 
 #include "Sensor.h"
 #include "BME280.h"
-//#include "PMS5003.h"
+#include "PMS5003.h"
 
 #define SENSOR_READY_MS 30 * 1000
 
