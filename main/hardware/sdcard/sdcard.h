@@ -20,6 +20,8 @@
 #include "driver/adc.h"
 #include "driver/sdmmc_types.h"
 
+#include "diskio_sdmmc.h"
+
 
 #define PIN_NUM_MISO 19 // Adafruit Feather 32 Default
 #define PIN_NUM_MOSI 18 // Adafruit Feather 32 Default
@@ -49,5 +51,9 @@ bool sdcard_unmount();
 bool sdcard_is_mounted();
 
 void sdcard_auto_detect();
+
+FILE *sdcard_open(const char *file_name, const char *mode);
+
+void sdcard_close(FILE *fd);
 
 #endif /* MAIN_HARDWARE_SDCARD_SDCARD_H_ */
