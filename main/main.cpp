@@ -52,10 +52,10 @@ extern "C" void app_main() {
 	if (fd != nullptr) {
 		// Read the JSON file into memory
 		ESP_LOGV(TAG, "Reading config file into memory");
-		fseek(fd, 0, SEEK_END);
-		const long size { ftell(fd) };
-		rewind(fd);
-		char file_str[size + 1]; // TODO: Chunk file?
+		const long size { fsize(fd) };
+		if (size > 1024)
+			ESP_LOGW(TAG, "Config file is larger than expected");
+		char file_str[size + 1];
 		fread(file_str, 1, size, fd);
 		fclose(fd);
 
@@ -293,7 +293,7 @@ void send_backlog_task(void *args) {
 		ESP_LOGI(TAG, "Sending the backlogged data...");
 		FILE *fd { fopen(DATA_FILE_PATH, "r") };
 		if (fd != nullptr) {
-			fseek(fd, file_pos, SEEK_CUR); // goto fail point
+			fseek(fd, file_pos, SEEK_CUR); // goto last fail
 			while (!feof(fd)) {
 				// Allocate an appropriately sized string and read into it
 				ESP_LOGV(TAG, "Reading JSON string from file into memory");
