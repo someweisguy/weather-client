@@ -166,7 +166,7 @@ extern "C" void app_main() {
 			// TODO: Take sdcard mutex
 			FILE *fd { fopen(DATA_FILE_PATH, "a+") };
 			if (fd != nullptr) {
-				if (fputs(strip(json_str), fd) < 0 || fputc('\n', fd) != '\n')
+				if (fputs(json_str, fd) < 0 || fputc('\n', fd) != '\n')
 					ESP_LOGE(TAG, "Unable to write data to file (cannot write to file)");
 				else xSemaphoreGive(backlog_semaphore);
 				fclose(fd);

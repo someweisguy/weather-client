@@ -46,18 +46,6 @@ int vlogf(const char *format, va_list arg) {
 	return fputs(message, stdout);
 }
 
-char *strip(char *s) {
-    char *p2 = s;
-    while (*s != '\0') {
-        if (*s != '\t' && *s != '\n')
-            *p2++ = *s++;
-        else
-            ++s;
-    }
-    *p2 = '\0';
-    return s;
-}
-
 void set_system_time(const time_t epoch) {
 	timeval tv;
 	tv.tv_sec = epoch;

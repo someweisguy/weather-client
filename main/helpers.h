@@ -58,17 +58,6 @@ void set_system_time(const time_t epoch);
  */
 time_t get_system_time(struct timeval *tv = nullptr);
 
-/**
- * Strips the newline characters from a string and returns the string without
- * newlines. The result is shifted left to hide the newlines. For example, the
- * string "Hello\nWorld!" will return "HelloWorld!".
- *
- * @param s a pointer to a null terminated string
- *
- * @return a pointer to the edited string
- */
-char* strip(char *s);
-
 int32_t get_line_length(FILE *f);
 
 /**
