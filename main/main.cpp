@@ -244,7 +244,7 @@ time_t get_window_wait_ms(const int modifier_ms) {
 
 	// Log results
 	time_t millis { window_delta_ms };
-	const int mins { millis / 60 * 1000 };
+	const int mins { millis / (60 * 1000) };
 	millis %= 60 * 1000;
 	const int secs { millis / 1000 };
 	millis %= 1000;
@@ -262,10 +262,10 @@ void synchronize_system_time_task(void *args) {
 				time_is_synchronized = sntp_synchronize_system_time();
 			else {
 				ESP_LOGW(TAG, "Unable to synchronize system time (not connected)");
-				vTaskDelay(60 * 1000 / portTICK_PERIOD_MS); // 1 minute
+				vTaskDelay((60 * 1000) / portTICK_PERIOD_MS); // 1 minute
 			}
 		};
-		vTaskDelay(7 * 24 * 60 * 60 * 1000 / portTICK_PERIOD_MS); // 1 week
+		vTaskDelay((7 * 24 * 60 * 60 * 1000) / portTICK_PERIOD_MS); // 1 week
 		time_is_synchronized = false;
 	}
 }
@@ -285,7 +285,7 @@ void send_backlog_task(void *args) {
 		// Wait for semaphore and for MQTT to connect
 		xSemaphoreTake(backlog_semaphore, wait_ticks);
 		if (!mqtt_connected()) {
-			wait_ticks = 10 * 1000 / portTICK_PERIOD_MS; // 10 seconds
+			wait_ticks = (10 * 1000) / portTICK_PERIOD_MS; // 10 seconds
 			continue;
 		}
 
