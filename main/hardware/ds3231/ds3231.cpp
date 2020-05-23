@@ -18,29 +18,28 @@ time_t ds3231_get_time() {
 	}
 
 	// Construct a tm (tm_wday and tm_yday are ignored)
-	tm t; // see pg.11 https://datasheets.maximintegrated.com/en/ds/DS3231.pdf
+	// see pg.11 https://datasheets.maximintegrated.com/en/ds/DS3231.pdf
+	tm t;
 
 	// Get seconds and minutes 0-59
-	t.tm_sec = (data[0] >> 4) * 10 + (data[0] & 0xf); // seconds
-	t.tm_min = (data[1] >> 4) * 10 + (data[1] & 0xf); // minutes
+	t.tm_sec = (data[0] >> 4) * 10 | (data[0] & 0xf); // seconds
+	t.tm_min = (data[1] >> 4) * 10 | (data[1] & 0xf); // minutes
 
 	// Get hour 0-23 (check if in 12-hour or 24-hour mode)
-	t.tm_hour = data[2] & 0xf; 							 	  // get hour 0-9
-	t.tm_hour += data[2] & 0x10 ? 10 : 0;					  // add 10 hour bit
-	if (data[2] & 0x40)
-		t.tm_hour += data[2] & 0x20 ? 12 : 0; // add am/pm
-	else
-		t.tm_hour += data[2] & 0x20 ? 20 : 0;  			  // add 20 hour bit
+	t.tm_hour = data[2] & 0xf; 							 	   // get hour 0-9
+	t.tm_hour += data[2] & 0x10 ? 10 : 0;					   // add 10 hour bit
+	if (data[2] & 0x40) t.tm_hour += data[2] & 0x20 ? 12 : 0;  // add am/pm
+	else t.tm_hour += data[2] & 0x20 ? 20 : 0;  			   // add 20 hour bit
 
 	// Get day of month 1-31
-	t.tm_mday = (data[4] >> 4) * 10 + (data[4] & 0xf);
+	t.tm_mday = (data[4] >> 4) * 10 | (data[4] & 0xf);
 
 	// Get month 0-11
-	t.tm_mon = ((data[5] & 0x7) >> 4) * 10 + (data[5] & 0xf) - 1; // from month 1-12
+	t.tm_mon = ((data[5] & 0x7) >> 4) * 10 | ((data[5] & 0xf) - 1); // from month 1-12
 
 	// Get year since 1900
-	t.tm_year = ((data[6] & 0xf0) * 10 >> 4) + (data[6] & 0xf); // from year 0-99
-	t.tm_year += data[5] & 0x80 ? 100 : 0; 		   		  	// add century bit
+	t.tm_year = ((data[6] & 0xf0) * 10 >> 4) | (data[6] & 0xf); // from year 0-99
+	t.tm_year += data[5] & 0x80 ? 100 : 0; 		   		  	    // add century bit
 
 	// Set daylight saving time flag
 	t.tm_isdst = -1; // information not available
@@ -74,28 +73,28 @@ bool ds3231_set_time() {
 	char data[7];
 
 	// Set seconds and minutes 0-59
-	data[0] = (t->tm_sec / 10 << 4) + (t->tm_sec % 10);
-	data[1] = (t->tm_min / 10 << 4) + (t->tm_min % 10);
+	data[0] = (t->tm_sec / 10 << 4) | (t->tm_sec % 10);
+	data[1] = (t->tm_min / 10 << 4) | (t->tm_min % 10);
 
 	// Set hours 0-23 (bit 5 is 20 hour, bit 4 is 10 hour, bits 3-0 are 1 hour)
-	data[2] = ((t->tm_hour / 10) << 4) + (t->tm_hour % 10);
+	data[2] = ((t->tm_hour / 10) << 4) | (t->tm_hour % 10);
 
 	// Set weekday 1-7
 	data[3] = t->tm_wday + 1; // from weekday 0-6
 
 	// Set day of month 1-31 (bits 5-4 are 10 day, bits 3-0 are 1 day)
-	data[4] = (t->tm_mday / 10 << 4) + (t->tm_mday % 10);
+	data[4] = (t->tm_mday / 10 << 4) | (t->tm_mday % 10);
 
 	// Set month 1-12 (bit 4 is 10 month, bits 3-0 are 1 month)
 	t->tm_mon += 1; // from month 0-11
-	data[5] = (t->tm_mon / 10 << 4) + (t->tm_mon % 10);
+	data[5] = (t->tm_mon / 10 << 4) | (t->tm_mon % 10);
 
 	// Set year 0-99 (bits 7-4 are 10 year, bits 3-0 are 1 year)
 	if (t->tm_year >= 100) {
 		data[5] |= 0x80;   // set century bit
 		t->tm_year -= 100; // from years since 1900
 	}
-	data[6] = (t->tm_year / 10 << 4) + (t->tm_year % 10);
+	data[6] = (t->tm_year / 10 << 4) | (t->tm_year % 10);
 
 	// Wait as close to the start of the second as possible for max accuracy
 	vTaskDelayUntil(&got_time_tick, send_time_tick);
