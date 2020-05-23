@@ -1,5 +1,5 @@
 /*
- * sd.h
+ * sdcard.h
  *
  *  Created on: Mar 28, 2020
  *      Author: Mitch

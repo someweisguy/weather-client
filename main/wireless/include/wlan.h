@@ -1,5 +1,5 @@
 /*
- * wifi.h
+ * wlan.h
  *
  *  Created on: Apr 4, 2020
  *      Author: Mitch
@@ -17,8 +17,6 @@
 #include "freertos/event_groups.h"
 #include "esp_wifi.h"
 #include "esp_sntp.h"
-
-#define WIFI_MAX_RETRIES 5
 
 #define START_BIT 		BIT0
 #define CONNECT_BIT 	BIT1

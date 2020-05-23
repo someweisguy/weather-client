@@ -1,5 +1,5 @@
 /*
- * bsp.h
+ * helpers.h
  *
  *  Created on: Apr 4, 2020
  *      Author: Mitch
@@ -8,23 +8,13 @@
 #ifndef MAIN_HELPERS_H_
 #define MAIN_HELPERS_H_
 
-#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
-
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <sys/time.h>
 
 #include "esp_system.h"
-#include "esp_log.h"
 #include "esp_event.h"
-#include "freertos/event_groups.h"
-#include "driver/adc.h"
-#include "driver/gpio.h"
-
-//#include "main.h"
-#include "wlan.h"
-#include "sdcard.h"
 
 /**
  * A vprintf like function to be used for logging in the ESP Logging Library.
