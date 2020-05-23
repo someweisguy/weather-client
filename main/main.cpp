@@ -26,15 +26,12 @@ extern "C" void app_main() {
 
 	setup_required_services();
 
-	// TODO: Write code to read the log file over http
-
-	// TODO: clean up http source
-	// TODO: figure out how to download log file over http
-
 	// Mount the SD card - deny service until mounted
-	if (!sdcard_mount()) {
+	if (!sdcard_mount(SDCARD_MOUNT_POINT)) {
 		ESP_LOGW(TAG, "Insert SD card to continue...");
-		vTaskDelay(2000 / portTICK_PERIOD_MS);
+		do {
+			vTaskDelay(2000 / portTICK_PERIOD_MS);
+		} while (!sdcard_mount(SDCARD_MOUNT_POINT));
 	}
 
 	// Load the config file values into memory

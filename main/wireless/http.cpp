@@ -9,6 +9,11 @@
 static const char *TAG { "http" };
 static httpd_handle_t http_server { nullptr };
 
+// TODO: Write code to read the log file over http
+
+// TODO: clean up http source
+// TODO: figure out how to download log file over http
+
 static esp_err_t http_get_handler(httpd_req_t *req) {
 	ESP_LOGD(TAG, "Handling HTTP_GET event");
 
