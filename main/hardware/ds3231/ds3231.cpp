@@ -65,7 +65,7 @@ bool ds3231_set_time() {
 	tm *t { gmtime(&tv.tv_sec) };
 	int wait_millis = (1e+6 - tv.tv_usec) / 1000;
 	const TickType_t send_time_tick { wait_millis / portTICK_PERIOD_MS };
-	ESP_LOGI(TAG, "Sending %d-%02d-%02d %02d:%02d:%02dZ to DS3231 in %d millisecond(s)",
+	ESP_LOGI(TAG, "Sending %d-%02d-%02d %02d:%02d:%02dZ to DS3231 in %i millisecond(s)",
 			t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min,
 			t->tm_sec, wait_millis);
 
