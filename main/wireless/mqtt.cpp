@@ -204,6 +204,10 @@ bool mqtt_connected() {
 			& CONNECT_BIT);
 }
 
+esp_mqtt_client_handle_t &mqtt_get_client() {
+	return client;
+}
+
 bool mqtt_publish(const char* topic, const char* data) {
 	if (!mqtt_connected()) {
 		ESP_LOGE(TAG, "Unable to publish data to the MQTT broker (not connected)");

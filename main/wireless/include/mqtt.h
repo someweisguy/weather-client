@@ -44,6 +44,8 @@ bool mqtt_initialized();
 bool mqtt_started();
 bool mqtt_connected();
 
+esp_mqtt_client_handle_t &mqtt_get_client();
+
 bool mqtt_publish(const char* topic, const char *data);
 
 #endif /* MAIN_WIRELESS_MQTT_H_ */
