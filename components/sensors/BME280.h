@@ -129,7 +129,7 @@ public:
 				ESP_LOGE(TAG, "Unable to read ready bit");
 				return false;
 			}
-		} while ((status & 0x01) == 0x01);
+		} while (status & 0x01);
 
 		// Ensure that chip ID is correct
 		ESP_LOGD(TAG, "Getting chip ID");
@@ -207,6 +207,7 @@ public:
 			ESP_LOGE(TAG, "Unable send wakeup command");
 			return false;
 		}
+		// FIXME: Find out why this isn't actually waking up the sensor
 
 		return true;
 	}
