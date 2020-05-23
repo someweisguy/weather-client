@@ -174,26 +174,42 @@ extern "C" void app_main() {
 
 void setup_required_services() {
 	esp_err_t setup_ret;
+	ESP_LOGV(TAG, "Initializing NVS flash");
 	if ((setup_ret = nvs_flash_init()) != ESP_OK) {
 		ESP_LOGE(TAG, "Unable to initialize NVS flash (%i)", setup_ret);
 		abort();
 	}
+
+	ESP_LOGV(TAG, "Initializing net interface");
 	if ((setup_ret = esp_netif_init()) != ESP_OK) {
 		ESP_LOGE(TAG, "Unable to initialize network interface (%i)", setup_ret);
 		abort();
 	}
+
+	ESP_LOGV(TAG, "Creating default event loop");
 	if ((setup_ret = esp_event_loop_create_default()) != ESP_OK) {
 		ESP_LOGE(TAG, "Unable to create default event loop (%i)", setup_ret);
 		abort();
 	}
 
+	ESP_LOGV(TAG, "Starting the UART port");
 	if (!uart_start()) {
 		ESP_LOGE(TAG, "Unable to start the UART port");
 		abort();
 	}
 
+	ESP_LOGV(TAG, "Starting the I2C port");
 	if (!i2c_start()) {
 		ESP_LOGE(TAG, "Unable to start the I2C port");
+		abort();
+	}
+
+	// Set main task to high priority
+	const int priority { 10 };
+	ESP_LOGV(TAG, "Setting main task to priority %i", priority);
+	vTaskPrioritySet(nullptr, priority);
+	if (static_cast<int>(uxTaskPriorityGet(nullptr)) != priority) {
+		ESP_LOGE(TAG, "Unable to set main task to priority %i", priority);
 		abort();
 	}
 
