@@ -8,11 +8,18 @@
 
 #include "helpers.h"
 
-void set_system_time(const time_t epoch) {
+void set_system_time(const time_t epoch, const char* timezone_str) {
 	timeval tv;
 	tv.tv_sec = epoch;
 	tv.tv_usec = 0;
 	settimeofday(&tv, nullptr);
+
+	// Set the time zone
+	if (timezone_str != nullptr) {
+		// See: https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html
+		setenv("TZ", timezone_str, 1);
+		tzset();
+	}
 }
 
 time_t get_system_time(struct timeval *tv) {

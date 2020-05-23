@@ -1,7 +1,7 @@
 #include "main.h"
 
 static const char *TAG { "main" };
-static char *ssid, *wifi_pass, *mqtt_topic, *mqtt_broker;
+static char *ssid, *wifi_pass, *mqtt_topic, *mqtt_broker, *timezone;
 static Sensor* sensors[] { new BME280() };
 static SemaphoreHandle_t backlog_semaphore;
 
@@ -29,16 +29,8 @@ extern "C" void app_main() {
 
 	// TODO: Write code to read the log file over http
 
-	// TODO: clean up helper functions
 	// TODO: clean up http source
 	// TODO: figure out how to download log file over http
-
-	// Set the system time if possible
-	bool time_is_synchronized { false };
-	if (!ds3231_lost_power()) {
-		set_system_time(ds3231_get_time());
-		time_is_synchronized = true;
-	}
 
 	// Mount the SD card - deny service until mounted
 	while (!sdcard_mount()) {
@@ -66,10 +58,18 @@ extern "C" void app_main() {
 		wifi_pass = strdup(cJSON_GetObjectItem(config, "pass")->valuestring);
 		mqtt_topic = strdup(cJSON_GetObjectItem(config, "topic")->valuestring);
 		mqtt_broker = strdup(cJSON_GetObjectItem(config, "mqtt")->valuestring);
+		timezone = strdup(cJSON_GetObjectItem(config, "tz")->valuestring);
 		cJSON_Delete(config);
 	} else {
 		ESP_LOGE(TAG, "Unable to load config file");
 		while (true);
+	}
+
+	// Set the system time if possible
+	bool time_is_synchronized { false };
+	if (!ds3231_lost_power()) {
+		set_system_time(ds3231_get_time(), timezone);
+		time_is_synchronized = true;
 	}
 
 	// Connect to WiFi and MQTT
@@ -79,7 +79,7 @@ extern "C" void app_main() {
 	// Synchronize system time with time server
 	while (!time_is_synchronized) {
 		wlan_block_until_connected(5000); // block 5 seconds
-		if (wlan_connected() && sntp_synchronize_system_time())
+		if (wlan_connected() && sntp_synchronize_system_time(timezone))
 			time_is_synchronized = ds3231_set_time();
 	}
 
@@ -248,7 +248,8 @@ time_t get_window_wait_ms(const int modifier_ms) {
 	millis %= 60 * 1000;
 	const int secs { millis / 1000 };
 	millis %= 1000;
-	ESP_LOGD(TAG, "Next window is in %02i:%02i.%03li", mins, secs, millis);
+	ESP_LOGD(TAG, "Next window is in %02i:%02i.%03li (%+i ms)", mins,
+			secs, millis, modifier_ms);
 	return window_delta_ms;
 }
 
@@ -259,7 +260,7 @@ void synchronize_system_time_task(void *args) {
 	while (true) {
 		while (!time_is_synchronized) {
 			if (wlan_connected())
-				time_is_synchronized = sntp_synchronize_system_time();
+				time_is_synchronized = sntp_synchronize_system_time(timezone);
 			else {
 				ESP_LOGW(TAG, "Unable to synchronize system time (not connected)");
 				vTaskDelay((60 * 1000) / portTICK_PERIOD_MS); // 1 minute

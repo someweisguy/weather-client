@@ -241,7 +241,8 @@ bool wlan_connected() {
 			&& (xEventGroupGetBits(wifi_event_group) & CONNECT_BIT);
 }
 
-bool sntp_synchronize_system_time(const time_t wait_millis) {
+bool sntp_synchronize_system_time(const char* timezone_str,
+		const time_t wait_millis) {
 	if (!wlan_initialized()) {
 		ESP_LOGE(TAG, "Unable to synchronize system time with the SNTP server (not initialized)");
 		return false;
@@ -269,6 +270,10 @@ bool sntp_synchronize_system_time(const time_t wait_millis) {
 		ESP_LOGE(TAG, "Unable to synchronize system time with the SNTP server (timed out)");
 		return false;
 	} else {
+		if (timezone_str != nullptr) {
+			setenv("TZ", timezone_str, 1);
+			tzset();
+		}
 		ESP_LOGI(TAG, "Synchronized system time");
 		xEventGroupClearBits(wifi_event_group, SNTP_BIT);
 		return true;

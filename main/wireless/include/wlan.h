@@ -11,6 +11,8 @@
 #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 
 #include <cstring>
+#include <cstdlib>
+
 #include "esp_system.h"
 #include "esp_log.h"
 #include "esp_event.h"
@@ -34,6 +36,7 @@ bool wlan_initialized();
 bool wlan_started();
 bool wlan_connected();
 
-bool sntp_synchronize_system_time(const time_t wait_millis = 0);
+bool sntp_synchronize_system_time(const char* timezone_str,
+		const time_t wait_millis = 0);
 
 #endif /* MAIN_SERVICES_WIFI_H_ */

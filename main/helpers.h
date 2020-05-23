@@ -35,9 +35,10 @@ int vlogf(const char *format, va_list arg);
 /**
  * Sets the system time to the corresponding Unix epoch.
  *
- * @param epoch	 the Unix epoch in seconds since 1 January 1970
+ * @param epoch	 		the Unix epoch in seconds since 1 January 1970
+ * @param timezone_str  the appropriate time zone per POSIX TZ (null for UTC)
  */
-void set_system_time(const time_t epoch);
+void set_system_time(const time_t epoch, const char* timezone_str);
 
 /**
  * Gets the system time as the Unix epoch. Sets a timeval struct if it was
