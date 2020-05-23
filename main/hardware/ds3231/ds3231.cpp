@@ -54,6 +54,7 @@ time_t ds3231_get_time() {
 }
 
 bool ds3231_set_time() {
+
 	// Get Unix epoch plus 1 second
 	timeval tv;
 	gettimeofday(&tv, nullptr);
@@ -61,7 +62,7 @@ bool ds3231_set_time() {
 	tv.tv_sec += 1;
 
 	// Log the datetime that we are transmitting and how long we will be blocking
-	tm *t { localtime(&tv.tv_sec) };
+	tm *t { gmtime(&tv.tv_sec) };
 	int wait_millis = (1e+6 - tv.tv_usec) / 1000;
 	const TickType_t send_time_tick { wait_millis / portTICK_PERIOD_MS };
 	ESP_LOGI(TAG, "Sending %d-%02d-%02d %02d:%02d:%02dZ to DS3231 in %d millisecond(s)",
