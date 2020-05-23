@@ -32,7 +32,7 @@ extern "C" void app_main() {
 	// TODO: figure out how to download log file over http
 
 	// Mount the SD card - deny service until mounted
-	while (!sdcard_mount()) {
+	if (!sdcard_mount()) {
 		ESP_LOGW(TAG, "Insert SD card to continue...");
 		vTaskDelay(2000 / portTICK_PERIOD_MS);
 	}
@@ -62,7 +62,7 @@ extern "C" void app_main() {
 	} else {
 		ESP_LOGE(TAG, "Unable to load configuration file (cannot open file)");
 		ESP_LOGI(TAG, "Denying service...");
-		while (true);
+		vTaskDelay(portMAX_DELAY);
 	}
 
 	// Set the system time if possible
@@ -227,11 +227,14 @@ int vlogf(const char *format, va_list arg) {
 
 	// Open the file and delete it if it gets too big
 	FILE *fd { fopen(LOG_FILE_PATH, "a+") };
-	if (fd != nullptr && fsize(fd) > 100 * 1024) { // 100 KB
-		fclose(fd);
-		remove(LOG_FILE_PATH);
-		fd = fopen(LOG_FILE_PATH, "a+");
-	} else if (fd != nullptr) {
+	if (fd != nullptr) {
+		// Delete the log file if it gets too big
+		if (fsize(fd) > LOG_FILE_MAX_SIZE_BYTES) {
+			fclose(fd);
+			remove(LOG_FILE_PATH);
+			fd = fopen(LOG_FILE_PATH, "a+");
+		}
+
 		// Print everything to file except ASCII color codes
 		bool in_esc { false };
 		for (int i = 0; i < len; ++i) {

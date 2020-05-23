@@ -32,11 +32,13 @@
 #include "BME280.h"
 #include "PMS5003.h"
 
-#define SENSOR_READY_MS 30 * 1000 // 30 seconds
+#define SENSOR_READY_MS 		30 * 1000 // 30 seconds
+#define LOG_FILE_MAX_SIZE_BYTES 100 * 1024 // 100 kB
 
-#define LOG_FILE_PATH       "/sdcard/events.log"
-#define CONFIG_FILE_PATH    "/sdcard/config.json"
-#define DATA_FILE_PATH      "/sdcard/data.txt"
+#define SDCARD_MOUNT_POINT  "/sdcard"
+#define LOG_FILE_PATH       SDCARD_MOUNT_POINT "/events.log"
+#define CONFIG_FILE_PATH    SDCARD_MOUNT_POINT "/config.json"
+#define DATA_FILE_PATH      SDCARD_MOUNT_POINT "/data.txt"
 
 
 void setup_required_services();
