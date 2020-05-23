@@ -24,9 +24,7 @@ int vlogf(const char *format, va_list arg) {
 		fclose(fd);
 		remove(file_name);
 		fd = fopen(file_name, "a+");
-	}
-
-	if (fd != nullptr) {
+	} else if (fd != nullptr) {
 		// Print everything to file except ASCII color codes
 		bool in_esc { false };
 		for (int i = 0; i < len; ++i) {
