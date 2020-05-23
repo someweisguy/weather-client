@@ -2,22 +2,21 @@
 
 static const char *TAG { "main" };
 static char *ssid, *wifi_pass, *mqtt_topic, *mqtt_broker, *timezone;
+static SemaphoreHandle_t backlog_semaphore, sensor_sleep_semaphore;
 static Sensor* sensors[] { new BME280() };
-static SemaphoreHandle_t backlog_semaphore;
 
 static void set_log_levels() {
 	esp_log_level_set("*", ESP_LOG_WARN);
-	esp_log_level_set("sdcard", ESP_LOG_DEBUG);
-	esp_log_level_set("wlan", ESP_LOG_DEBUG);
-	esp_log_level_set("mqtt", ESP_LOG_DEBUG);
 
 	esp_log_level_set("i2c", ESP_LOG_WARN);
 	esp_log_level_set("uart", ESP_LOG_WARN);
-
+	esp_log_level_set("sdcard", ESP_LOG_DEBUG);
 	esp_log_level_set("ds3231", ESP_LOG_INFO);
 
+	esp_log_level_set("wlan", ESP_LOG_DEBUG);
+	esp_log_level_set("mqtt", ESP_LOG_DEBUG);
+
 	esp_log_level_set("main", ESP_LOG_VERBOSE);
-	esp_log_level_set("helpers", ESP_LOG_VERBOSE);
 	//esp_log_level_set("http", ESP_LOG_VERBOSE);
 }
 
@@ -86,6 +85,12 @@ extern "C" void app_main() {
 		}
 	}
 
+	// Create sensor sleep task to sleep sensor after 1 second
+	ESP_LOGD(TAG, "Starting sensor sleep task");
+	sensor_sleep_semaphore = xSemaphoreCreateBinary();
+	xTaskCreate(sensor_sleep_task, "sensor_sleep", 2048, nullptr,
+			tskIDLE_PRIORITY + 1, nullptr);
+
 	// Create the synchronize system time task
 	ESP_LOGD(TAG, "Starting system time synchronization task");
 	xTaskCreate(synchronize_system_time_task, "synchronize_system_time", 2048,
@@ -94,8 +99,8 @@ extern "C" void app_main() {
 	// Create the send backlog task
 	ESP_LOGD(TAG, "Starting data backlog monitor task");
 	backlog_semaphore = xSemaphoreCreateBinary();
-	xTaskCreate(send_backlog_task, "send_backlog", 4096, nullptr,
-			tskIDLE_PRIORITY, nullptr);
+	xTaskCreate(send_backlogged_data_task, "send_backlogged_data", 4096,
+			nullptr, tskIDLE_PRIORITY, nullptr);
 
 	// Check if there is data to be written
 	ESP_LOGD(TAG, "Checking for backlogged data");
@@ -111,9 +116,7 @@ extern "C" void app_main() {
 	TickType_t last_tick { xTaskGetTickCount() };
 	int offset_ms { -(SENSOR_READY_MS + 1000) };
 	time_t wait_ms { get_window_wait_ms(offset_ms) };
-	if (wait_ms > 5000) // sleep if there more than 5 seconds to wait
-		xTaskCreate(sensor_sleep_task, "sensor_sleep", 2048, nullptr,
-				tskIDLE_PRIORITY + 1, nullptr);
+	if (wait_ms > 5000) xSemaphoreGive(sensor_sleep_semaphore);
 	vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
 
 	while (true) {
@@ -139,10 +142,7 @@ extern "C" void app_main() {
 		ESP_LOGI(TAG, "Getting weather data");
 		for (Sensor *sensor : sensors)
 			sensor->get_data(json_data);
-
-		// Create sensor sleep task to sleep sensor after 1 second
-		xTaskCreate(sensor_sleep_task, "sensor_sleep", 2048, nullptr,
-				tskIDLE_PRIORITY + 1, nullptr);
+		xSemaphoreGive(sensor_sleep_semaphore);
 
 		// Delete the JSON root
 		ESP_LOGV(TAG, "Converting the JSON object to a string");
@@ -277,7 +277,7 @@ void synchronize_system_time_task(void *args) {
 	bool time_is_synchronized { *static_cast<bool*>(args) };
 	if (time_is_synchronized)
 		ESP_LOGD(TAG, "Skipping initial SNTP server synchronization (already synchronized)");
-	else wlan_block_until_connected(); // suppresses not connected warning
+	else wlan_block_until_connected(); // suppress first warning
 	while (true) {
 		while (!time_is_synchronized) {
 			if (wlan_connected())
@@ -292,15 +292,7 @@ void synchronize_system_time_task(void *args) {
 	}
 }
 
-void sensor_sleep_task(void *args) {
-	vTaskDelay(1000 / portTICK_PERIOD_MS);
-	ESP_LOGI(TAG, "Putting sensors to sleep");
-	for (Sensor *sensor : sensors)
-		sensor->sleep();
-	vTaskDelete(nullptr);
-}
-
-void send_backlog_task(void *args) {
+void send_backlogged_data_task(void *args) {
 	int file_pos { 0 };
 	TickType_t wait_ticks { portMAX_DELAY };
 	while (true) {
@@ -349,6 +341,18 @@ void send_backlog_task(void *args) {
 			} else fclose(fd);
 		} else {
 			ESP_LOGE(TAG, "Unable to read data from file (cannot open file)");
+		}
+	}
+}
+
+void sensor_sleep_task(void *args) {
+	while (true) {
+		// Wait one second then sleep
+		if (xSemaphoreTake(sensor_sleep_semaphore, portMAX_DELAY) == pdTRUE) {
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
+			ESP_LOGI(TAG, "Putting sensors to sleep");
+			for (Sensor *sensor : sensors)
+				sensor->sleep();
 		}
 	}
 }
