@@ -25,24 +25,6 @@
 #include "wlan.h"
 #include "sdcard.h"
 
-#define BATT_INTERRUPT_PIN 34
-
-struct config_t {
-	char *wifi_ssid;
-	char *wifi_password;
-	char *mqtt_broker;
-	char *mqtt_data_topic;
-};
-
-/**
- * Returns a string name for the ESP reset reason.
- *
- * @param code	the ESP reset reason
- *
- * @return a pointer to a string that specifies the reset reason
- */
-const char* esp_reset_to_name(esp_reset_reason_t code);
-
 /**
  * A vprintf like function to be used for logging in the ESP Logging Library.
  * Set this function as the argument to esp_log_set_vprintf and the ESP32

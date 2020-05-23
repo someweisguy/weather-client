@@ -9,22 +9,6 @@
 #include "helpers.h"
 static const char *TAG { "helpers" };
 
-const char* esp_reset_to_name(esp_reset_reason_t code) {
-	switch (code) {
-	case ESP_RST_POWERON: return "power-on event";
-	case ESP_RST_EXT: return "external pin reset";
-	case ESP_RST_SW: return "software API reset or abort";
-	case ESP_RST_PANIC: return "exception/panic reset";
-	case ESP_RST_INT_WDT: return "interrupt watchdog reset";
-	case ESP_RST_TASK_WDT: return "task watchdog reset";
-	case ESP_RST_WDT: return "other watchdog reset";
-	case ESP_RST_DEEPSLEEP: return "exiting deep sleep reset";
-	case ESP_RST_BROWNOUT: return "brownout reset";
-	case ESP_RST_SDIO: return "reset over SDIO";
-	case ESP_RST_UNKNOWN: default: return "unknown reset";
-	}
-}
-
 int vlogf(const char *format, va_list arg) {
 	// Get an appropriate sized buffer for the message
 	const int len { vsnprintf(nullptr, 0, format, arg) };
@@ -32,7 +16,8 @@ int vlogf(const char *format, va_list arg) {
 	vsprintf(message, format, arg);
 
 	const char *file_name { "/sdcard/events.log" };
-	FILE *fd { sdcard_open(file_name, "a+") };
+	// TODO: Take sdcard mutex
+	FILE *fd { fopen(file_name, "a+") };
 
 	// Delete the file if it gets too big
 	if (fd != nullptr && fsize(fd) > 100 * 1024) { // 100KB
@@ -53,7 +38,8 @@ int vlogf(const char *format, va_list arg) {
 				else fputc(message[i], fd);
 			}
 		}
-		sdcard_close(fd);
+		fclose(fd);
+		// TODO: Release sdcard mutex
 	}
 
 	// Print to stdout
