@@ -54,7 +54,7 @@ extern "C" void app_main() {
 		ESP_LOGV(TAG, "Reading config file into memory");
 		const long size { fsize(fd) };
 		if (size > 1024)
-			ESP_LOGW(TAG, "Config file is larger than expected");
+			ESP_LOGW(TAG, "Config file is larger than expected (%li bytes)", size);
 		char file_str[size + 1];
 		fread(file_str, 1, size, fd);
 		fclose(fd);

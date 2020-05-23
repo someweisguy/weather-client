@@ -37,8 +37,10 @@ char *strnhex(char *destination, const char *source, size_t num) {
 }
 
 int fsize(FILE *fd) {
-	struct stat st;
-	const int status { fstat(reinterpret_cast<int>(fd), &st) };
-	if (status == -1) return -1;
-	else return st.st_size;
+	fpos_t start;
+	fgetpos(fd, &start);
+	fseek(fd, 0, SEEK_END);
+	const long size { ftell(fd) };
+	fsetpos(fd, &start);
+	return size;
 }
