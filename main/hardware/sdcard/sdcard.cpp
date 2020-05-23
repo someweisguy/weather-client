@@ -14,7 +14,7 @@ SemaphoreHandle_t detect_semaphore;
 static void sdcard_monitor_task(void *args) {
 	const gpio_num_t CD_PIN { static_cast<gpio_num_t>(PIN_NUM_CD) };
 	while (true) {
-		if(xSemaphoreTake(detect_semaphore, portMAX_DELAY) == pdTRUE) {
+		if (xSemaphoreTake(detect_semaphore, portMAX_DELAY) == pdTRUE) {
 			// Debounce
 			vTaskDelay(100 / portTICK_PERIOD_MS);
 			bool cd_level { gpio_get_level(CD_PIN) };
@@ -150,10 +150,10 @@ void sdcard_auto_detect() {
 		sdcard_mount();
 }
 
-FILE *sdcard_open(const char* file_name, const char* mode) {
-	return fopen(file_name, mode);
+void hold_mutex() {
+	// TODO
 }
 
-void sdcard_close(FILE* fd) {
-	fclose(fd);
+void release_mutex() {
+	// TODO
 }

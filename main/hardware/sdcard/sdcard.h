@@ -52,8 +52,8 @@ bool sdcard_is_mounted();
 
 void sdcard_auto_detect();
 
-FILE *sdcard_open(const char *file_name, const char *mode);
+void hold_mutex();
 
-void sdcard_close(FILE *fd);
+void release_mutex();
 
 #endif /* MAIN_HARDWARE_SDCARD_SDCARD_H_ */
