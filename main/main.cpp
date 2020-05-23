@@ -62,6 +62,7 @@ extern "C" void app_main() {
 		cJSON_Delete(config);
 	} else {
 		ESP_LOGE(TAG, "Unable to load config file");
+		ESP_LOGI(TAG, "Denying service...");
 		while (true);
 	}
 
@@ -106,11 +107,11 @@ extern "C" void app_main() {
 
 	// Calculate the next sensor ready time
 	TickType_t last_tick { xTaskGetTickCount() };
-	int offset_ms { -SENSOR_READY_MS - 500 };
+	int offset_ms { -(SENSOR_READY_MS + 1000) };
 	time_t wait_ms { get_window_wait_ms(offset_ms) };
 	if (wait_ms > 5000) // sleep if there more than 5 seconds to wait
-		xTaskCreate(sensor_sleep_task, "sensor_sleep_task", 2048, nullptr,
-				tskIDLE_PRIORITY, nullptr);
+		xTaskCreate(sensor_sleep_task, "sensor_sleep", 2048, nullptr,
+				tskIDLE_PRIORITY + 1, nullptr);
 	vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
 
 	while (true) {
@@ -139,7 +140,7 @@ extern "C" void app_main() {
 
 		// Create sensor sleep task to sleep sensor after 1 second
 		xTaskCreate(sensor_sleep_task, "sensor_sleep", 2048, nullptr,
-				tskIDLE_PRIORITY, nullptr);
+				tskIDLE_PRIORITY + 1, nullptr);
 
 		// Delete the JSON root
 		ESP_LOGV(TAG, "Converting the JSON object to a string");
@@ -166,7 +167,7 @@ extern "C" void app_main() {
 		// Calculate next wake time
 		ESP_LOGV(TAG, "Calculating next wake time");
 		last_tick = xTaskGetTickCount();
-		offset_ms = -SENSOR_READY_MS - 500;
+		offset_ms = -(SENSOR_READY_MS + 1000);
 		wait_ms = get_window_wait_ms(offset_ms);
 		vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
 	}
@@ -264,8 +265,8 @@ time_t get_window_wait_ms(const int modifier_ms) {
 	millis %= 60 * 1000;
 	const int secs { millis / 1000 };
 	millis %= 1000;
-	ESP_LOGD(TAG, "Next window is in %02i:%02i.%03li (%+i ms)", mins,
-			secs, millis, modifier_ms);
+	ESP_LOGD(TAG, "Next window is in %02i:%02i.%03li", mins,
+			secs, millis);
 	return window_delta_ms;
 }
 
