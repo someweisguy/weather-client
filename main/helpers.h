@@ -22,6 +22,7 @@
 #include "driver/adc.h"
 #include "driver/gpio.h"
 
+//#include "main.h"
 #include "wlan.h"
 #include "sdcard.h"
 

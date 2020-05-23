@@ -40,6 +40,7 @@
 
 
 void setup_required_services();
+int vlogf(const char *format, va_list arg);
 time_t get_window_wait_ms(const int modifier_ms);
 void synchronize_system_time_task(void *args);
 void sensor_sleep_task(void *args);

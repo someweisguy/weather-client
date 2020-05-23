@@ -200,9 +200,41 @@ void setup_required_services() {
 	// TODO: Register shutdown handler
 }
 
+int vlogf(const char *format, va_list arg) {
+	// Get an appropriate sized buffer for the message
+	const int len { vsnprintf(nullptr, 0, format, arg) };
+	char message[len + 1];
+	vsprintf(message, format, arg);
+
+	// Open the file and delete it if it gets too big
+	FILE *fd { fopen(LOG_FILE_PATH, "a+") };
+	if (fd != nullptr && fsize(fd) > 100 * 1024) { // 100 KB
+		fclose(fd);
+		remove(LOG_FILE_PATH);
+		fd = fopen(LOG_FILE_PATH, "a+");
+	} else if (fd != nullptr) {
+		// Print everything to file except ASCII color codes
+		bool in_esc { false };
+		for (int i = 0; i < len; ++i) {
+			if (in_esc) {
+				if (message[i] == 'm') in_esc = false;
+				else continue;
+			} else {
+				if (message[i] == '\033') in_esc = true;
+				else fputc(message[i], fd);
+			}
+		}
+		fclose(fd);
+	}
+
+	// Print to stdout
+	return fputs(message, stdout);
+}
+
 time_t get_window_wait_ms(const int modifier_ms) {
 	// Calculate next wake time
 	timeval tv;
+	get_system_time(&tv);
 	time_t window_delta_ms = (300 - tv.tv_sec % 300) * 1000 - (tv.tv_usec
 			/ 1000) + modifier_ms;
 	if (window_delta_ms < 0) {

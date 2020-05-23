@@ -8,38 +8,6 @@
 
 #include "helpers.h"
 
-int vlogf(const char *format, va_list arg) {
-	// Get an appropriate sized buffer for the message
-	const int len { vsnprintf(nullptr, 0, format, arg) };
-	char message[len + 1];
-	vsprintf(message, format, arg);
-
-	// Open the file and delete it if it gets too big
-	const char *file_name { "/sdcard/events.log" };
-	FILE *fd { fopen(file_name, "a+") };
-	if (fd != nullptr && fsize(fd) > 100 * 1024) { // 100 KB
-		fclose(fd);
-		remove(file_name);
-		fd = fopen(file_name, "a+");
-	} else if (fd != nullptr) {
-		// Print everything to file except ASCII color codes
-		bool in_esc { false };
-		for (int i = 0; i < len; ++i) {
-			if (in_esc) {
-				if (message[i] == 'm') in_esc = false;
-				else continue;
-			} else {
-				if (message[i] == '\033') in_esc = true;
-				else fputc(message[i], fd);
-			}
-		}
-		fclose(fd);
-	}
-
-	// Print to stdout
-	return fputs(message, stdout);
-}
-
 void set_system_time(const time_t epoch) {
 	timeval tv;
 	tv.tv_sec = epoch;
