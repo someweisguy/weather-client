@@ -43,5 +43,6 @@
 void setup_required_services();
 void synchronize_system_time_task(void *args);
 void sensor_sleep_task(void *args);
+void send_backlog_task(void *args);
 
 #endif /* MAIN_H_ */

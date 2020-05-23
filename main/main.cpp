@@ -1,9 +1,10 @@
 #include "main.h"
-#include "regex.h"
 
 static const char *TAG { "main" };
 static Sensor* sensors[] { new BME280() };
+static SemaphoreHandle_t backlog_semaphore { xSemaphoreCreateBinary() };
 
+static char *ssid, *wifi_pass, *mqtt_topic, *mqtt_broker;
 
 static void set_log_levels() {
 	esp_log_level_set("*", ESP_LOG_WARN);
@@ -56,8 +57,9 @@ extern "C" void app_main() {
 	}
 
 	// Load the config file values into memory
-	char *ssid, *wifi_pass, *mqtt_topic, *mqtt_broker;
-	FILE *fd { sdcard_open("/sdcard/config.json", "r") };
+	ESP_LOGD(TAG, "Loading config file values into memory");
+	// TODO: Take sdcard mutex
+	FILE *fd { fopen("/sdcard/config.json", "r") };
 	if (fd != nullptr) {
 		// Read the JSON file into memory
 		ESP_LOGV(TAG, "Reading config file into memory");
@@ -66,7 +68,7 @@ extern "C" void app_main() {
 		rewind(fd);
 		char file_str[size + 1]; // TODO: Chunk file?
 		fread(file_str, 1, size, fd);
-		sdcard_close(fd);
+		fclose(fd);
 
 		// Parse the JSON
 		ESP_LOGV(TAG, "Parsing JSON file");
@@ -80,6 +82,7 @@ extern "C" void app_main() {
 		ESP_LOGE(TAG, "Unable to load config file");
 		while (true);
 	}
+	// TODO: Release sdcard mutex
 
 	// Connect to WiFi and MQTT
 	wlan_connect(ssid, wifi_pass);
@@ -89,17 +92,15 @@ extern "C" void app_main() {
 	do {
 		wlan_block_until_connected();
 		if (time_is_synchronized) {
-			// TODO: start the time
+			// TODO: start the time task
 		}
-
 
 		if (wlan_connected() && sntp_synchronize_system_time())
 			time_is_synchronized = ds3231_set_time();
 
-		// Deny service if we are unable to synchronize the system time
-		if (!time_is_synchronized) {
+
+		if (!time_is_synchronized)
 			ESP_LOGE(TAG, "Unable to synchronize time");
-		}
 	} while (!time_is_synchronized);
 
 	// Do initial sensor setup then sleep the sensors
@@ -112,8 +113,17 @@ extern "C" void app_main() {
 	xTaskCreate(synchronize_system_time_task, "sync_sys_time", 2048, nullptr,
 			tskIDLE_PRIORITY, nullptr);
 
-	// TODO: Attach event handler on MQTT connect that sends all of the
-	//  backlogged data
+	// Create the send backlog task
+	ESP_LOGD(TAG, "Starting data backlog monitor task");
+	xTaskCreate(send_backlog_task, "send_backlog", 4096, nullptr,
+			tskIDLE_PRIORITY, nullptr);
+
+	// Check if there is data to be written
+	ESP_LOGD(TAG, "Checking for backlogged data");
+	// TODO: Take sdcard mutex
+	if (access("/sdcard/data.txt", F_OK) != -1)
+		xSemaphoreGive(backlog_semaphore);
+	// TODO: Release sdcard mutex
 
 	// Calculate the next sensor ready time
 	TickType_t last_tick { xTaskGetTickCount() };
@@ -154,27 +164,29 @@ extern "C" void app_main() {
 
 		// Delete the JSON root
 		ESP_LOGD(TAG, "Converting the JSON object to a string");
-		ESP_LOGV(TAG, "Printing JSON to string");
 		char *json_str { cJSON_Print(json_root) };
 		ESP_LOGV(TAG, "Deleting the JSON object");
 		cJSON_Delete(json_root);
 
 		// Handle the JSON string
-		bool json_published { false };
-		if (mqtt_connected())
-			json_published = mqtt_publish(mqtt_topic, json_str);
-		if (!json_published) {
+		if (!mqtt_publish(mqtt_topic, json_str)) {
 			// Write the data to file
 			ESP_LOGI(TAG, "Writing data to file");
-			FILE *fd { sdcard_open(DATA_FILE_PATH, "a+") };
+			bool wrote_to_file { false };
+			// TODO: Take sdcard mutex
+			FILE *fd { fopen(DATA_FILE_PATH, "a+") };
 			if (fd != nullptr) {
-				// Strip the JSON string and print it to file
 				if (fputs(strip(json_str), fd) < 0 || fputc('\n', fd) != '\n')
 					ESP_LOGE(TAG, "Unable to write data to file (cannot write to file)");
-				sdcard_close(fd);
+				else wrote_to_file = true;
+				fclose(fd);
 			} else {
 				ESP_LOGE(TAG, "Unable to write data to file (cannot open file)");
 			}
+			// TODO: Release sdcard mutex
+
+			// Activate send backlog task
+			if (wrote_to_file) xSemaphoreGive(backlog_semaphore);
 		}
 		delete[] json_str;
 
@@ -228,11 +240,73 @@ void synchronize_system_time_task(void *args) {
 	}
 }
 
-
 void sensor_sleep_task(void *args) {
 	vTaskDelay(1000 / portTICK_PERIOD_MS);
 	ESP_LOGI(TAG, "Putting sensors to sleep");
 	for (Sensor *sensor : sensors)
 		sensor->sleep();
 	vTaskDelete(nullptr);
+}
+
+void send_backlog_task(void *args) {
+	while (true) {
+
+		ESP_LOGV(TAG, "Waiting for backlog semaphore...");
+		if (xSemaphoreTake(backlog_semaphore, portMAX_DELAY) == pdFALSE)
+			continue;
+
+		// Wait for MQTT to connect
+		ESP_LOGV(TAG, "Waiting for MQTT connection...");
+		while (!mqtt_connected())
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+		ESP_LOGI(TAG, "Sending backlogged data to MQTT");
+		// TODO: Take sdcard mutex
+		FILE *fd { fopen("/sdcard/data.txt", "r") };
+		if (fd != nullptr) {
+			while (mqtt_connected()) {
+				if (feof(fd)) {
+					break;
+				}
+
+				// Get line length
+				int line_len = 0;
+				while (fgetc(fd) != '\n')
+					++line_len;
+				fseek(fd, -line_len, SEEK_CUR);
+
+				// Allocate a string and read into it
+				char json_str[line_len + 1];
+				if (fgets(json_str, line_len, fd) == nullptr)
+					continue;
+				fseek(fd, 1, SEEK_CUR); // skip newline
+
+				// Publish the string to MQTT broker
+				if (!mqtt_publish(mqtt_topic, json_str)) {
+					ESP_LOGW(TAG, "Failed to send backlogged data to MQTT");
+					FILE *fd2 { fopen("/sdcard/data2.txt", "w") };
+					if (fd2 != nullptr) {
+						// Seek to the beginning of the line and copy old file to new file
+						fseek(fd, -(line_len + 1), SEEK_CUR);
+						while (fputc(fgetc(fd), fd2) != EOF);
+						fclose(fd);
+						fclose(fd2);
+
+						// Delete the old file and rename the new file
+						if (remove("/sdcard/data.txt") != 0) {
+							ESP_LOGE(TAG, "Unable to remove file");
+							continue;
+						}
+						if (rename("/sdcard/data2.txt", "/sdcard/data.txt") != 0)
+							ESP_LOGE(TAG, "Unable to rename file");
+					} else {
+						ESP_LOGE(TAG, "Unable to transfer data to new file");
+						break;
+					}
+				}
+			}
+		} else
+			ESP_LOGE(TAG, "Unable to read data from file (cannot open file)");
+		// TODO: Release sdcard mutex
+	}
 }
