@@ -59,8 +59,6 @@ void set_system_time(const time_t epoch);
  */
 time_t get_system_time(struct timeval *tv = nullptr);
 
-int32_t get_line_length(FILE *f);
-
 /**
  * Create a hexadecimal representation of the source string and store it in the
  * destination string. The hexadecimal string is separated into 8 bit segments

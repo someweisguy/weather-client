@@ -23,24 +23,6 @@ time_t get_system_time(struct timeval *tv) {
 		return time(nullptr);
 }
 
-int32_t get_line_length(FILE *f) {
-	if (f == nullptr)
-		return -1;
-
-	fpos_t start_pos;
-	fgetpos(f, &start_pos);
-	int c, count { 0 };
-
-	while (true) {
-		c = fgetc(f);
-		if (c == EOF || c == '\n')
-			break;
-		++count;
-	}
-	fsetpos(f, &start_pos);
-	return count;
-}
-
 char *strhex(char *destination, const char *source) {
 	const unsigned int len { strlen(source) };
 	return strnhex(destination, source, len);
