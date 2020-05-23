@@ -1,10 +1,9 @@
 #include "main.h"
 
 static const char *TAG { "main" };
-static Sensor* sensors[] { new BME280() };
-static SemaphoreHandle_t backlog_semaphore { xSemaphoreCreateBinary() };
-
 static char *ssid, *wifi_pass, *mqtt_topic, *mqtt_broker;
+static Sensor* sensors[] { new BME280() };
+static SemaphoreHandle_t backlog_semaphore;
 
 static void set_log_levels() {
 	esp_log_level_set("*", ESP_LOG_WARN);
@@ -84,13 +83,14 @@ extern "C" void app_main() {
 			time_is_synchronized = ds3231_set_time();
 	}
 
-	// Start a task to periodically synchronize the system time
+	// Create the synchronize system time task
 	ESP_LOGD(TAG, "Starting system time synchronization task");
-	xTaskCreate(synchronize_system_time_task, "sync_system_time", 2048,
+	xTaskCreate(synchronize_system_time_task, "synchronize_system_time", 2048,
 			&time_is_synchronized, tskIDLE_PRIORITY, nullptr);
 
 	// Create the send backlog task
 	ESP_LOGD(TAG, "Starting data backlog monitor task");
+	backlog_semaphore = xSemaphoreCreateBinary();
 	xTaskCreate(send_backlog_task, "send_backlog", 4096, nullptr,
 			tskIDLE_PRIORITY, nullptr);
 
@@ -107,7 +107,7 @@ extern "C" void app_main() {
 	// Calculate the next sensor ready time
 	TickType_t last_tick { xTaskGetTickCount() };
 	int offset_ms { -SENSOR_READY_MS - 500 };
-	time_t wait_ms { get_wait_ms(offset_ms) };
+	time_t wait_ms { get_window_wait_ms(offset_ms) };
 	if (wait_ms > 5000) // sleep if there more than 5 seconds to wait
 		xTaskCreate(sensor_sleep_task, "sensor_sleep_task", 2048, nullptr,
 				tskIDLE_PRIORITY, nullptr);
@@ -129,7 +129,7 @@ extern "C" void app_main() {
 		ESP_LOGV(TAG, "Calculating next wake time");
 		last_tick = xTaskGetTickCount();
 		offset_ms = 0;
-		wait_ms = get_wait_ms(offset_ms);
+		wait_ms = get_window_wait_ms(offset_ms);
 		vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
 
 		// Get the weather data
@@ -167,7 +167,7 @@ extern "C" void app_main() {
 		ESP_LOGV(TAG, "Calculating next wake time");
 		last_tick = xTaskGetTickCount();
 		offset_ms = -SENSOR_READY_MS - 500;
-		wait_ms = get_wait_ms(offset_ms);
+		wait_ms = get_window_wait_ms(offset_ms);
 		vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
 	}
 }
@@ -200,6 +200,26 @@ void setup_required_services() {
 	// TODO: Register shutdown handler
 }
 
+time_t get_window_wait_ms(const int modifier_ms) {
+	// Calculate next wake time
+	timeval tv;
+	time_t window_delta_ms = (300 - tv.tv_sec % 300) * 1000 - (tv.tv_usec
+			/ 1000) + modifier_ms;
+	if (window_delta_ms < 0) {
+		ESP_LOGD(TAG, "Skipping next measurement window");
+		window_delta_ms += 5 * 60 * 1000; // 5 minutes
+	}
+
+	// Log results
+	int millis { window_delta_ms };
+	const int mins { millis / 60 * 1000 };
+	millis %= 60 * 1000;
+	const int secs { millis / 1000 };
+	millis %= 1000;
+	ESP_LOGD(TAG, "Next window is in %02i:%02i.%03i", mins, secs, millis);
+	return window_delta_ms;
+}
+
 void synchronize_system_time_task(void *args) {
 	bool time_is_synchronized { *static_cast<bool*>(args) };
 	if (time_is_synchronized)
@@ -210,10 +230,10 @@ void synchronize_system_time_task(void *args) {
 				time_is_synchronized = sntp_synchronize_system_time();
 			else {
 				ESP_LOGW(TAG, "Unable to synchronize system time (not connected)");
-				vTaskDelay(60000 / portTICK_PERIOD_MS); // 1 minute
+				vTaskDelay(60 * 1000 / portTICK_PERIOD_MS); // 1 minute
 			}
 		};
-		vTaskDelay(604800000 / portTICK_PERIOD_MS); // 1 week
+		vTaskDelay(7 * 24 * 60 * 60 * 1000 / portTICK_PERIOD_MS); // 1 week
 		time_is_synchronized = false;
 	}
 }
@@ -233,7 +253,7 @@ void send_backlog_task(void *args) {
 		// Wait for semaphore and for MQTT to connect
 		xSemaphoreTake(backlog_semaphore, wait_ticks);
 		if (!mqtt_connected()) {
-			wait_ticks = 10000 / portTICK_PERIOD_MS; // try again in 10 seconds
+			wait_ticks = 10 * 1000 / portTICK_PERIOD_MS; // 10 seconds
 			continue;
 		}
 
@@ -241,7 +261,7 @@ void send_backlog_task(void *args) {
 		ESP_LOGI(TAG, "Sending the backlogged data...");
 		FILE *fd { fopen(DATA_FILE_PATH, "r") };
 		if (fd != nullptr) {
-			fseek(fd, file_pos, SEEK_CUR); // go to last data recorded
+			fseek(fd, file_pos, SEEK_CUR); // goto fail point
 			while (!feof(fd)) {
 				// Allocate an appropriately sized string and read into it
 				ESP_LOGV(TAG, "Reading JSON string from file into memory");

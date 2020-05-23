@@ -15,12 +15,10 @@ int vlogf(const char *format, va_list arg) {
 	char message[len + 1];
 	vsprintf(message, format, arg);
 
+	// Open the file and delete it if it gets too big
 	const char *file_name { "/sdcard/events.log" };
-	// TODO: Take sdcard mutex
 	FILE *fd { fopen(file_name, "a+") };
-
-	// Delete the file if it gets too big
-	if (fd != nullptr && fsize(fd) > 100 * 1024) { // 100KB
+	if (fd != nullptr && fsize(fd) > 100 * 1024) { // 100 KB
 		fclose(fd);
 		remove(file_name);
 		fd = fopen(file_name, "a+");
@@ -37,7 +35,6 @@ int vlogf(const char *format, va_list arg) {
 			}
 		}
 		fclose(fd);
-		// TODO: Release sdcard mutex
 	}
 
 	// Print to stdout
@@ -95,25 +92,4 @@ int fsize(FILE *fd) {
 	const int status { fstat(reinterpret_cast<int>(fd), &st) };
 	if (status == -1) return -1;
 	else return st.st_size;
-}
-
-time_t get_wait_ms(const int modifier_ms) {
-	// Calculate next wake time
-	timeval tv;
-	const time_t epoch = get_system_time(&tv);
-	// FIXME: window_delta_ms should not be negative
-	time_t window_delta_ms = (300 - tv.tv_sec % 300) * 1000 - (tv.tv_usec
-			/ 1000) + modifier_ms;
-	if (window_delta_ms < 0) {
-		ESP_LOGD(TAG, "Skipping next measurement window");
-		window_delta_ms += 300000; // 5 minutes
-	}
-	ESP_LOGD(TAG, "Next window is in %ld ms", window_delta_ms);
-
-	// Log results and wait
-	const time_t window_epoch = epoch + window_delta_ms / 1000;
-	tm *window_tm = localtime(&window_epoch);
-	ESP_LOGI(TAG, "Waiting until %02d:%02d:%02dZ", window_tm->tm_hour,
-				window_tm->tm_min, window_tm->tm_sec);
-	return window_delta_ms;
 }

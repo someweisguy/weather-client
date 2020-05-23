@@ -32,15 +32,15 @@
 #include "BME280.h"
 #include "PMS5003.h"
 
-#define SENSOR_READY_MS 30 * 1000
+#define SENSOR_READY_MS 30 * 1000 // 30 seconds
 
 #define LOG_FILE_PATH       "/sdcard/events.log"
 #define CONFIG_FILE_PATH    "/sdcard/config.json"
 #define DATA_FILE_PATH      "/sdcard/data.txt"
 
-#define TIME_BETWEEN_RTC_SYNC_SEC 604800 // 7 days
 
 void setup_required_services();
+time_t get_window_wait_ms(const int modifier_ms);
 void synchronize_system_time_task(void *args);
 void sensor_sleep_task(void *args);
 void send_backlog_task(void *args);
