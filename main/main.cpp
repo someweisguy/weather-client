@@ -34,7 +34,7 @@ extern "C" void app_main() {
 
 	// Mount the SD card - deny service until mounted
 	while (!sdcard_mount()) {
-		ESP_LOGW(TAG, "Insert SD card to continue");
+		ESP_LOGW(TAG, "Insert SD card to continue...");
 		vTaskDelay(2000 / portTICK_PERIOD_MS);
 	}
 
@@ -61,13 +61,13 @@ extern "C" void app_main() {
 		timezone = strdup(cJSON_GetObjectItem(config, "tz")->valuestring);
 		cJSON_Delete(config);
 	} else {
-		ESP_LOGE(TAG, "Unable to load config file");
+		ESP_LOGE(TAG, "Unable to load configuration file (cannot open file)");
 		ESP_LOGI(TAG, "Denying service...");
 		while (true);
 	}
 
 	// Set the system time if possible
-	bool time_is_synchronized { false };
+	bool time_is_synchronized { false }, sntp_synchronized { false };
 	if (!ds3231_lost_power()) {
 		set_system_time(ds3231_get_time(), timezone);
 		time_is_synchronized = true;
@@ -80,14 +80,16 @@ extern "C" void app_main() {
 	// Synchronize system time with time server
 	while (!time_is_synchronized) {
 		wlan_block_until_connected(5000); // block 5 seconds
-		if (wlan_connected() && sntp_synchronize_system_time(timezone))
+		if (wlan_connected() && sntp_synchronize_system_time(timezone)) {
 			time_is_synchronized = ds3231_set_time();
+			sntp_synchronized = true;
+		}
 	}
 
 	// Create the synchronize system time task
 	ESP_LOGD(TAG, "Starting system time synchronization task");
 	xTaskCreate(synchronize_system_time_task, "synchronize_system_time", 2048,
-			&time_is_synchronized, tskIDLE_PRIORITY, nullptr);
+			&sntp_synchronized, tskIDLE_PRIORITY, nullptr);
 
 	// Create the send backlog task
 	ESP_LOGD(TAG, "Starting data backlog monitor task");
@@ -252,28 +254,30 @@ time_t get_window_wait_ms(const int modifier_ms) {
 	// Calculate next wake time
 	timeval tv;
 	get_system_time(&tv);
-	time_t window_delta_ms = (300 - tv.tv_sec % 300) * 1000 - (tv.tv_usec
-			/ 1000) + modifier_ms;
+	time_t window_delta_ms = (300 - tv.tv_sec % 300) * 1000
+			- (tv.tv_usec / 1000) + modifier_ms;
 	if (window_delta_ms < 0) {
-		ESP_LOGD(TAG, "Skipping next measurement window");
+		ESP_LOGD(TAG, "Skipping next measurement window (not enough time)");
 		window_delta_ms += 5 * 60 * 1000; // 5 minutes
 	}
 
 	// Log results
-	time_t millis { window_delta_ms };
+	time_t millis { window_delta_ms - modifier_ms };
 	const int mins { millis / (60 * 1000) };
 	millis %= 60 * 1000;
 	const int secs { millis / 1000 };
 	millis %= 1000;
-	ESP_LOGD(TAG, "Next window is in %02i:%02i.%03li", mins,
+	ESP_LOGD(TAG, "Next measurement window is in %02i:%02i.%03li", mins,
 			secs, millis);
 	return window_delta_ms;
 }
 
 void synchronize_system_time_task(void *args) {
+	// Check if we should skip the initial synchronization
 	bool time_is_synchronized { *static_cast<bool*>(args) };
 	if (time_is_synchronized)
-		ESP_LOGD(TAG, "Skipping initial SNTP server synchronization");
+		ESP_LOGD(TAG, "Skipping initial SNTP server synchronization (already synchronized)");
+	else wlan_block_until_connected(); // suppresses not connected warning
 	while (true) {
 		while (!time_is_synchronized) {
 			if (wlan_connected())
