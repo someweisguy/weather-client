@@ -49,7 +49,6 @@ extern "C" void app_main() {
 
 	// Load the config file values into memory
 	ESP_LOGD(TAG, "Loading config file values into memory");
-	// TODO: Take sdcard mutex
 	FILE *fd { fopen(CONFIG_FILE_PATH, "r") };
 	if (fd != nullptr) {
 		// Read the JSON file into memory
@@ -73,36 +72,22 @@ extern "C" void app_main() {
 		ESP_LOGE(TAG, "Unable to load config file");
 		while (true);
 	}
-	// TODO: Release sdcard mutex
 
 	// Connect to WiFi and MQTT
 	wlan_connect(ssid, wifi_pass);
 	mqtt_connect(mqtt_broker);
 
 	// Synchronize system time with time server
-	do {
+	while (!time_is_synchronized) {
 		wlan_block_until_connected(5000); // block 5 seconds
-		if (time_is_synchronized) {
-			// TODO: start the time task
-		}
-
 		if (wlan_connected() && sntp_synchronize_system_time())
 			time_is_synchronized = ds3231_set_time();
-
-
-		if (!time_is_synchronized)
-			ESP_LOGE(TAG, "Unable to synchronize time");
-	} while (!time_is_synchronized);
-
-	// Do initial sensor setup then sleep the sensors
-	ESP_LOGI(TAG, "Setting up the sensors");
-	for (Sensor *sensor : sensors)
-		sensor->setup();
+	}
 
 	// Start a task to periodically synchronize the system time
 	ESP_LOGD(TAG, "Starting system time synchronization task");
-	xTaskCreate(synchronize_system_time_task, "sync_sys_time", 2048, nullptr,
-			tskIDLE_PRIORITY, nullptr);
+	xTaskCreate(synchronize_system_time_task, "sync_system_time", 2048,
+			&time_is_synchronized, tskIDLE_PRIORITY, nullptr);
 
 	// Create the send backlog task
 	ESP_LOGD(TAG, "Starting data backlog monitor task");
@@ -111,17 +96,20 @@ extern "C" void app_main() {
 
 	// Check if there is data to be written
 	ESP_LOGD(TAG, "Checking for backlogged data");
-	// TODO: Take sdcard mutex
 	if (access("/sdcard/data.txt", F_OK) != -1)
 		xSemaphoreGive(backlog_semaphore);
-	// TODO: Release sdcard mutex
+
+	// Do initial sensor setup
+	ESP_LOGI(TAG, "Setting up the sensors");
+	for (Sensor *sensor : sensors)
+		sensor->setup();
 
 	// Calculate the next sensor ready time
 	TickType_t last_tick { xTaskGetTickCount() };
 	int offset_ms { -SENSOR_READY_MS - 500 };
 	time_t wait_ms { get_wait_ms(offset_ms) };
-	if (wait_ms > 1100) // sleep sensors if there is time
-		xTaskCreate(sensor_sleep_task, "sensor_sleep", 2048, nullptr,
+	if (wait_ms > 5000) // sleep if there more than 5 seconds to wait
+		xTaskCreate(sensor_sleep_task, "sensor_sleep_task", 2048, nullptr,
 				tskIDLE_PRIORITY, nullptr);
 	vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
 
@@ -131,7 +119,7 @@ extern "C" void app_main() {
 			sensor->wakeup();
 		
 		// Prepare the JSON root, time, and data object
-		ESP_LOGD(TAG, "Constructing the JSON object");
+		ESP_LOGV(TAG, "Constructing the JSON object");
 		const time_t epoch = get_system_time();
 		cJSON *json_root { cJSON_CreateObject() }, *json_data;
 		cJSON_AddNumberToObject(json_root, "time", epoch + (300 - epoch % 300));
@@ -154,7 +142,7 @@ extern "C" void app_main() {
 				tskIDLE_PRIORITY, nullptr);
 
 		// Delete the JSON root
-		ESP_LOGD(TAG, "Converting the JSON object to a string");
+		ESP_LOGV(TAG, "Converting the JSON object to a string");
 		char *json_str { cJSON_PrintUnformatted(json_root) };
 		ESP_LOGV(TAG, "Deleting the JSON object");
 		cJSON_Delete(json_root);
@@ -163,7 +151,6 @@ extern "C" void app_main() {
 		if (!mqtt_publish(mqtt_topic, json_str)) {
 			// Write the data to file
 			ESP_LOGI(TAG, "Writing data to file");
-			// TODO: Take sdcard mutex
 			FILE *fd { fopen(DATA_FILE_PATH, "a+") };
 			if (fd != nullptr) {
 				if (fputs(json_str, fd) < 0 || fputc('\n', fd) != '\n')
@@ -173,7 +160,6 @@ extern "C" void app_main() {
 			} else {
 				ESP_LOGE(TAG, "Unable to write data to file (cannot open file)");
 			}
-			// TODO: Release sdcard mutex
 		}
 		delete[] json_str;
 
@@ -210,20 +196,25 @@ void setup_required_services() {
 		ESP_LOGE(TAG, "Unable to start the I2C port");
 		abort();
 	}
+
+	// TODO: Register shutdown handler
 }
 
 void synchronize_system_time_task(void *args) {
+	bool time_is_synchronized { *static_cast<bool*>(args) };
+	if (time_is_synchronized)
+		ESP_LOGD(TAG, "Skipping initial SNTP server synchronization");
 	while (true) {
-		bool time_is_synchronized { false };
-		do {
+		while (!time_is_synchronized) {
 			if (wlan_connected())
 				time_is_synchronized = sntp_synchronize_system_time();
 			else {
 				ESP_LOGW(TAG, "Unable to synchronize system time (not connected)");
-				vTaskDelay(60000 / portTICK_PERIOD_MS);
+				vTaskDelay(60000 / portTICK_PERIOD_MS); // 1 minute
 			}
-		} while (!time_is_synchronized);
+		};
 		vTaskDelay(604800000 / portTICK_PERIOD_MS); // 1 week
+		time_is_synchronized = false;
 	}
 }
 
@@ -247,41 +238,43 @@ void send_backlog_task(void *args) {
 		}
 
 		// Open the file and read from it
-		// TODO: Take sdcard mutex
+		ESP_LOGI(TAG, "Sending the backlogged data...");
 		FILE *fd { fopen(DATA_FILE_PATH, "r") };
 		if (fd != nullptr) {
 			fseek(fd, file_pos, SEEK_CUR); // go to last data recorded
-			while (feof(fd) == 0) {
+			while (!feof(fd)) {
 				// Allocate an appropriately sized string and read into it
-				int line_len = 0;
-				while (fgetc(fd) != '\n')
+				ESP_LOGV(TAG, "Reading JSON string from file into memory");
+				int c, line_len = 0;
+				while ((c = fgetc(fd)) != '\n' && c != EOF)
 					++line_len;
+				if (c == EOF) break;
 				fseek(fd, -line_len, SEEK_CUR);
-				char json_str[line_len + 2]; // include newline
-				if (fgets(json_str, line_len, fd) == nullptr)
-					continue;
+				char json_str[line_len + 1];
+				fgets(json_str, line_len, fd);
+				fgetc(fd); // skip newline
 
 				// Publish the string to MQTT broker
+				ESP_LOGV(TAG, "Sending backlogged data to MQTT");
 				if (!mqtt_publish(mqtt_topic, json_str)) {
-					ESP_LOGW(TAG, "Failed to send backlogged data to MQTT");
-					file_pos = ftell(fd) - (line_len + 1);
-					wait_ticks = 5000 / portTICK_PERIOD_MS; // try again in 5 seconds
+					file_pos = ftell(fd) - (line_len + 1); // include newline
+					ESP_LOGW(TAG, "Did not complete sending backlogged data (failed at %i)",
+							file_pos);
+					wait_ticks = 5000 / portTICK_PERIOD_MS;
 					break;
 				}
 			}
 
 			// Remove the file if we reached the end of data
-			if (feof(fd) != 0) {
-				ESP_LOGD(TAG, "Backlogged data was flushed");
+			if (feof(fd)) {
+				ESP_LOGI(TAG, "Backlogged data was sent");
 				fclose(fd);
 				remove(DATA_FILE_PATH);
 				file_pos = 0;
 				wait_ticks = portMAX_DELAY;
 			} else fclose(fd);
-
 		} else {
 			ESP_LOGE(TAG, "Unable to read data from file (cannot open file)");
 		}
-		// TODO: Release sdcard mutex
 	}
 }
