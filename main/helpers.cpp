@@ -7,7 +7,6 @@
 
 
 #include "helpers.h"
-static const char *TAG { "helpers" };
 
 int vlogf(const char *format, va_list arg) {
 	// Get an appropriate sized buffer for the message
