@@ -56,9 +56,11 @@ bool uart_stop() {
 	// Delete the driver
 	ESP_LOGD(TAG, "Deleting the UART driver");
 	esp_err_t delete_ret { uart_driver_delete(UART_PORT) };
-	if (delete_ret != ESP_OK)
+	if (delete_ret != ESP_OK) {
 		ESP_LOGE(TAG, "Unable to delete the UART driver (%i)", delete_ret);
-	return delete_ret;
+		return false;
+	}
+	return true;
 }
 
 int uart_write(const char *data_wr, const size_t size, const time_t wait_millis) {
