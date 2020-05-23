@@ -243,12 +243,12 @@ time_t get_window_wait_ms(const int modifier_ms) {
 	}
 
 	// Log results
-	int millis { window_delta_ms };
+	time_t millis { window_delta_ms };
 	const int mins { millis / 60 * 1000 };
 	millis %= 60 * 1000;
 	const int secs { millis / 1000 };
 	millis %= 1000;
-	ESP_LOGD(TAG, "Next window is in %02i:%02i.%03i", mins, secs, millis);
+	ESP_LOGD(TAG, "Next window is in %02i:%02i.%03li", mins, secs, millis);
 	return window_delta_ms;
 }
 
