@@ -9,7 +9,7 @@
 static const char *TAG { "sdcard" };
 static volatile bool is_mounted { false };
 
-bool sdcard_mount() {
+bool sdcard_mount(const char* mount_point) {
 	if (is_mounted) {
 		ESP_LOGD(TAG, "The filesystem is already mounted");
 		return true;
@@ -37,12 +37,6 @@ bool sdcard_mount() {
 	// Initialize SD card
 	ESP_LOGV(TAG, "Initializing SD card");
 	sdmmc_card_t *card;
-
-	// Declare the mount point as '/' + TAG
-	ESP_LOGV(TAG, "Setting the mount point");
-	const size_t len { strlen(TAG) };
-	char mount_point[len + 2] { "/" };
-	strcat(mount_point, TAG);
 
 	// Mount the filesystem - reduce the host frequency the card mounts
 	ESP_LOGI(TAG, "Mounting the filesystem to '%s'", mount_point);

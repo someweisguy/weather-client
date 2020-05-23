@@ -32,7 +32,7 @@
  *
  * @return true on success
  */
-bool sdcard_mount();
+bool sdcard_mount(const char* mount_point);
 
 /**
  * Unmounts the SD card and frees the memory allocated.
