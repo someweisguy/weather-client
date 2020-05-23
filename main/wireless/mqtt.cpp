@@ -214,6 +214,9 @@ bool mqtt_publish(const char* topic, const char* data) {
 		return false;
 	}
 
+	// Clear the publish bit before publishing
+	xEventGroupClearBits(mqtt_event_group, PUBLISH_BIT);
+
 	ESP_LOGV(TAG, "Publishing MQTT message to topic '%s'", topic);
 	const int msg_id { esp_mqtt_client_publish(client, topic, data, 0, 2, 0) };
 	if (msg_id == -1) {
@@ -226,7 +229,7 @@ bool mqtt_publish(const char* topic, const char* data) {
 
 	// Wait for the message to be published
 	const EventBits_t publish_ret { xEventGroupWaitBits(mqtt_event_group,
-			PUBLISH_BIT | FAIL_BIT | DISCONNECT_BIT, pdTRUE, pdFALSE, portMAX_DELAY) };
+			PUBLISH_BIT | FAIL_BIT | DISCONNECT_BIT, pdFALSE, pdFALSE, portMAX_DELAY) };
 
 	// Return the results
 	if (publish_ret & PUBLISH_BIT)
