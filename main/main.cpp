@@ -6,25 +6,23 @@ static SemaphoreHandle_t backlog_semaphore, sensor_sleep_semaphore;
 static Sensor* sensors[] { new BME280() };
 
 static void set_log_levels() {
-	esp_log_level_set("*", ESP_LOG_WARN);
+	esp_log_level_set("*", ESP_LOG_NONE);
 
 	esp_log_level_set("i2c", ESP_LOG_WARN);
 	esp_log_level_set("uart", ESP_LOG_WARN);
-	esp_log_level_set("sdcard", ESP_LOG_DEBUG);
+	esp_log_level_set("sdcard", ESP_LOG_INFO);
 	esp_log_level_set("ds3231", ESP_LOG_INFO);
 
-	esp_log_level_set("wlan", ESP_LOG_DEBUG);
-	esp_log_level_set("mqtt", ESP_LOG_DEBUG);
+	esp_log_level_set("wlan", ESP_LOG_INFO);
+	esp_log_level_set("mqtt", ESP_LOG_INFO);
 
-	esp_log_level_set("main", ESP_LOG_VERBOSE);
-	//esp_log_level_set("http", ESP_LOG_VERBOSE);
+	esp_log_level_set("main", ESP_LOG_DEBUG);
+	esp_log_level_set("http", ESP_LOG_VERBOSE);
 }
 
 extern "C" void app_main() {
-	esp_log_set_vprintf(vlogf);
-	set_log_levels();
-
-	setup_required_services();
+	// Install drivers and set logging
+	initialize_required_services();
 
 	// Mount the SD card - deny service until mounted
 	if (!sdcard_mount(SDCARD_MOUNT_POINT)) {
@@ -172,7 +170,22 @@ extern "C" void app_main() {
 	}
 }
 
-void setup_required_services() {
+void initialize_required_services() {
+	// Setup log to card and initial log levels
+	esp_log_set_vprintf(vlogf);
+	set_log_levels();
+
+	// Register shutdown handler
+	ESP_LOGV(TAG, "Registering shutdown handler");
+	auto shutdown_handler =  [] () {
+		 if (!mqtt_stop()) ESP_LOGE(TAG, "Unable to stop the MQTT client");
+		 if (!wlan_stop()) ESP_LOGE(TAG, "Unable to stop the WiFi driver");
+		 if (!uart_stop()) ESP_LOGE(TAG, "Unable to stop the UART bus");
+		 if (!i2c_stop()) ESP_LOGE(TAG, "Unable to stop the I2C bus");
+		 if (!sdcard_unmount()) ESP_LOGE(TAG, "Unable to unmount the filesystem");
+	};
+	esp_register_shutdown_handler(shutdown_handler);
+
 	esp_err_t setup_ret;
 	ESP_LOGV(TAG, "Initializing NVS flash");
 	if ((setup_ret = nvs_flash_init()) != ESP_OK) {
@@ -212,8 +225,6 @@ void setup_required_services() {
 		ESP_LOGE(TAG, "Unable to set main task to priority %i", priority);
 		abort();
 	}
-
-	// TODO: Register shutdown handler
 }
 
 int vlogf(const char *format, va_list arg) {

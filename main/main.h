@@ -41,7 +41,7 @@
 #define DATA_FILE_PATH      SDCARD_MOUNT_POINT "/data.txt"
 
 
-void setup_required_services();
+void initialize_required_services();
 int vlogf(const char *format, va_list arg);
 time_t get_window_wait_ms(const int modifier_ms);
 void synchronize_system_time_task(void *args);
