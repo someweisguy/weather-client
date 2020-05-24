@@ -16,6 +16,7 @@
 #include "i2c.h"
 #include "uart.h"
 #include "cJSON.h"
+#include "helpers.h"
 
 class Sensor {
 protected:
