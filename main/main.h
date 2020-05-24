@@ -33,7 +33,7 @@
 #include "PMS5003.h"
 
 #define SENSOR_READY_MS 		30 * 1000 // 30 seconds
-#define LOG_FILE_MAX_SIZE_BYTES 100 * 1024 // 100 kB
+#define LOG_FILE_MAX_SIZE_BYTES 100 * 1024 // 100 KB
 
 #define SDCARD_MOUNT_POINT  "/sdcard"
 #define LOG_FILE_PATH       SDCARD_MOUNT_POINT "/events.log"
