@@ -91,32 +91,40 @@ static esp_err_t http_get_handler(httpd_req_t *req) {
 
 bool http_start() {
 	if (http_server != nullptr)
-		return ESP_OK;
+		return true;
 
 	// Configure and start the web server
-	ESP_LOGD(TAG, "Starting web server");
+	ESP_LOGI(TAG, "Starting the web server");
     const httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     const esp_err_t start_ret { httpd_start(&http_server, &config) };
-
-    // Set http handler
-    if (start_ret == ESP_OK) {
-    	httpd_uri_t get;
-    	get.uri = "/";
-    	get.method = HTTP_GET;
-    	get.handler = http_get_handler;
-    	get.user_ctx = nullptr;
-        httpd_register_uri_handler(http_server, &get);
-        return true;
+    if (start_ret != ESP_OK) {
+    	ESP_LOGE(TAG, "Unable to start the web server");
+    	return false;
     }
 
-    return false;
+    // Set http handler
+	httpd_uri_t get;
+	get.uri = "/";
+	get.method = HTTP_GET;
+	get.handler = http_get_handler;
+	get.user_ctx = nullptr;
+	httpd_register_uri_handler(http_server, &get);
+
+    return true;
 }
 
 bool http_stop() {
 	if (http_server == nullptr)
 		return true;
 
-	httpd_stop(http_server);
+	// Stop the web server
+	ESP_LOGI(TAG, "Stopping the web server");
+	esp_err_t stop_ret { httpd_stop(http_server) };
+	if (stop_ret != ESP_OK) {
+		ESP_LOGE(TAG, "Unable to stop the web server");
+		return false;
+	}
+
 	http_server = nullptr;
 	return true;
 }
