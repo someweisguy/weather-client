@@ -2,13 +2,13 @@
 
 static const char *TAG { "main" };
 static char *ssid, *wifi_pass, *mqtt_topic, *mqtt_broker, *timezone;
-static TaskHandle_t main_task;
+static TaskHandle_t main_task_handle;
 static SemaphoreHandle_t backlog_semaphore, sensor_sleep_semaphore;
 static esp_timer_handle_t timer;
 static Sensor* sensors[] { new BME280() };
 
 static void timer_callback(void *args) {
-	xTaskNotifyGive(main_task);
+	xTaskNotifyGive(main_task_handle);
 }
 
 static void set_log_levels() {
@@ -91,19 +91,18 @@ extern "C" void app_main() {
 	// Create sensor sleep task to sleep sensor after 1 second
 	ESP_LOGD(TAG, "Starting sensor sleep task");
 	sensor_sleep_semaphore = xSemaphoreCreateBinary();
-	xTaskCreate(sensor_sleep_task, "sensor_sleep", 4096, nullptr,
-			tskIDLE_PRIORITY + 1, nullptr);
+	xTaskCreate(sensor_sleep_task, "sensor_sleep", 4096, nullptr, 1, nullptr);
 
 	// Create the synchronize system time task
 	ESP_LOGD(TAG, "Starting system time synchronization task");
 	xTaskCreate(synchronize_system_time_task, "synchronize_system_time", 4096,
-			&sntp_synchronized, tskIDLE_PRIORITY, nullptr);
+			&sntp_synchronized, 0, nullptr);
 
 	// Create the send backlog task
 	ESP_LOGD(TAG, "Starting data backlog monitor task");
 	backlog_semaphore = xSemaphoreCreateBinary();
 	xTaskCreate(send_backlogged_data_task, "send_backlogged_data", 4096,
-			nullptr, tskIDLE_PRIORITY, nullptr);
+			nullptr, 0, nullptr);
 
 	// Check if there is data to be written
 	ESP_LOGD(TAG, "Checking for backlogged data");
@@ -154,6 +153,7 @@ extern "C" void app_main() {
 		cJSON_Delete(json_root);
 
 		// Handle the JSON string
+		ESP_LOGI(TAG, "Publishing data to MQTT broker");
 		if (!mqtt_publish(mqtt_topic, json_str)) {
 			// Write the data to file
 			ESP_LOGI(TAG, "Writing data to file");
@@ -183,7 +183,7 @@ void initialize_required_services() {
 	ESP_LOGV(TAG, "Registering shutdown handler");
 	auto shutdown_handler =  [] () {
 		ESP_LOGI(TAG, "Restarting...");
-		if (!http_stop()) ESP_LOGE(TAG, "Unable to stop the web server");
+		//if (!http_stop()) ESP_LOGE(TAG, "Unable to stop the web server");
 		if (!mqtt_stop()) ESP_LOGE(TAG, "Unable to stop the MQTT client");
 		if (!wlan_stop()) ESP_LOGE(TAG, "Unable to stop the WiFi driver");
 		if (!uart_stop()) ESP_LOGE(TAG, "Unable to stop the UART bus");
@@ -224,12 +224,12 @@ void initialize_required_services() {
 	}
 
 	// Get the handle for the main task
-	main_task = xTaskGetCurrentTaskHandle();
+	main_task_handle = xTaskGetCurrentTaskHandle();
 
 	// Set main task to high priority
 	const int priority { 10 };
 	ESP_LOGV(TAG, "Setting main task to priority %i", priority);
-	vTaskPrioritySet(main_task, priority);
+	vTaskPrioritySet(main_task_handle, priority);
 	if (static_cast<int>(uxTaskPriorityGet(nullptr)) != priority) {
 		ESP_LOGE(TAG, "Unable to set main task to priority %i", priority);
 		abort();
@@ -318,7 +318,7 @@ void send_backlogged_data_task(void *args) {
 			while (!feof(fd)) {
 				// Allocate an appropriately sized string and read into it
 				ESP_LOGV(TAG, "Reading JSON string from file into memory");
-				int c, line_len = 0;
+				int c, line_len = 1;
 				while ((c = fgetc(fd)) != '\n' && c != EOF)
 					++line_len;
 				if (c == EOF) break;
