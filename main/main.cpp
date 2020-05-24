@@ -17,7 +17,7 @@ static void set_log_levels() {
 	esp_log_level_set("i2c", ESP_LOG_WARN);
 	esp_log_level_set("uart", ESP_LOG_WARN);
 	esp_log_level_set("sdcard", ESP_LOG_INFO);
-	esp_log_level_set("ds3231", ESP_LOG_INFO);
+	esp_log_level_set("ds3231", ESP_LOG_VERBOSE);
 
 	esp_log_level_set("wlan", ESP_LOG_INFO);
 	esp_log_level_set("mqtt", ESP_LOG_INFO);
@@ -25,6 +25,8 @@ static void set_log_levels() {
 	esp_log_level_set("main", ESP_LOG_DEBUG);
 	esp_log_level_set("http", ESP_LOG_VERBOSE);
 }
+
+// TODO: set number of SNTP servers in sdkconfig
 
 extern "C" void app_main() {
 	// Install drivers and set logging
@@ -68,14 +70,15 @@ extern "C" void app_main() {
 
 	// Set the system time if possible
 	bool time_is_synchronized { false }, sntp_synchronized { false };
-	if (!ds3231_lost_power()) {
+	if (!ds3231_lost_power() && esp_reset_reason() == ESP_RST_SW) {
 		set_system_time(ds3231_get_time(), timezone);
 		time_is_synchronized = true;
 	}
 
-	// Connect to WiFi and MQTT
+	// Connect to WiFi, MQTT, and start the HTTP server
 	wlan_connect(ssid, wifi_pass);
 	mqtt_connect(mqtt_broker);
+	http_start();
 
 	// Synchronize system time with time server
 	while (!time_is_synchronized) {
@@ -89,12 +92,12 @@ extern "C" void app_main() {
 	// Create sensor sleep task to sleep sensor after 1 second
 	ESP_LOGD(TAG, "Starting sensor sleep task");
 	sensor_sleep_semaphore = xSemaphoreCreateBinary();
-	xTaskCreate(sensor_sleep_task, "sensor_sleep", 2048, nullptr,
+	xTaskCreate(sensor_sleep_task, "sensor_sleep", 4096, nullptr,
 			tskIDLE_PRIORITY + 1, nullptr);
 
 	// Create the synchronize system time task
 	ESP_LOGD(TAG, "Starting system time synchronization task");
-	xTaskCreate(synchronize_system_time_task, "synchronize_system_time", 2048,
+	xTaskCreate(synchronize_system_time_task, "synchronize_system_time", 4096,
 			&sntp_synchronized, tskIDLE_PRIORITY, nullptr);
 
 	// Create the send backlog task
@@ -181,6 +184,7 @@ void initialize_required_services() {
 	ESP_LOGV(TAG, "Registering shutdown handler");
 	auto shutdown_handler =  [] () {
 		ESP_LOGI(TAG, "Restarting...");
+		if (!http_stop()) ESP_LOGE(TAG, "Unable to stop the web server");
 		if (!mqtt_stop()) ESP_LOGE(TAG, "Unable to stop the MQTT client");
 		if (!wlan_stop()) ESP_LOGE(TAG, "Unable to stop the WiFi driver");
 		if (!uart_stop()) ESP_LOGE(TAG, "Unable to stop the UART bus");
@@ -283,9 +287,10 @@ void synchronize_system_time_task(void *args) {
 	else wlan_block_until_connected(); // suppress first warning
 	while (true) {
 		while (!time_is_synchronized) {
-			if (wlan_connected())
+			if (wlan_connected()) {
 				time_is_synchronized = sntp_synchronize_system_time(timezone);
-			else {
+				if (time_is_synchronized) ds3231_set_time();
+			} else {
 				ESP_LOGW(TAG, "Unable to synchronize system time (not connected)");
 				vTaskDelay((60 * 1000) / portTICK_PERIOD_MS); // 1 minute
 			}
