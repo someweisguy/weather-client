@@ -17,16 +17,15 @@ static void set_log_levels() {
 	esp_log_level_set("i2c", ESP_LOG_WARN);
 	esp_log_level_set("uart", ESP_LOG_WARN);
 	esp_log_level_set("sdcard", ESP_LOG_INFO);
-	esp_log_level_set("ds3231", ESP_LOG_VERBOSE);
-
-	esp_log_level_set("wlan", ESP_LOG_INFO);
-	esp_log_level_set("mqtt", ESP_LOG_INFO);
+	esp_log_level_set("ds3231", ESP_LOG_INFO);
 
 	esp_log_level_set("main", ESP_LOG_DEBUG);
+	esp_log_level_set("wlan", ESP_LOG_INFO);
+	esp_log_level_set("mqtt", ESP_LOG_INFO);
 	esp_log_level_set("http", ESP_LOG_VERBOSE);
 }
 
-// TODO: set number of SNTP servers in sdkconfig
+
 
 extern "C" void app_main() {
 	// Install drivers and set logging
