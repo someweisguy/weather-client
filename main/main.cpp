@@ -2,8 +2,14 @@
 
 static const char *TAG { "main" };
 static char *ssid, *wifi_pass, *mqtt_topic, *mqtt_broker, *timezone;
+static TaskHandle_t main_task;
 static SemaphoreHandle_t backlog_semaphore, sensor_sleep_semaphore;
+static esp_timer_handle_t timer;
 static Sensor* sensors[] { new BME280() };
+
+static void timer_callback(void *args) {
+	xTaskNotifyGive(main_task);
+}
 
 static void set_log_levels() {
 	esp_log_level_set("*", ESP_LOG_NONE);
@@ -108,11 +114,11 @@ extern "C" void app_main() {
 		sensor->setup();
 
 	// Calculate the next sensor ready time
-	TickType_t last_tick { xTaskGetTickCount() };
-	int offset_ms { -(SENSOR_READY_MS + 1000) };
-	time_t wait_ms { get_window_wait_ms(offset_ms) };
-	if (wait_ms > 5000) xSemaphoreGive(sensor_sleep_semaphore);
-	vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
+	char ms_str[10];
+	int64_t timer_wait_ms { set_window_wait_timer(timer, -(SENSOR_READY_MS + 1000)) };
+	if (timer_wait_ms > 5000) xSemaphoreGive(sensor_sleep_semaphore);
+	ESP_LOGD(TAG, "Next alarm is in %s", ms2str(ms_str, timer_wait_ms));
+	xTaskNotifyWait(0, 0, 0, portMAX_DELAY);
 
 	while (true) {
 		ESP_LOGI(TAG, "Readying sensors");
@@ -127,11 +133,9 @@ extern "C" void app_main() {
 		cJSON_AddItemToObject(json_root, "data", json_data=cJSON_CreateObject());
 
 		// Calculate next wake time
-		ESP_LOGV(TAG, "Calculating next wake time");
-		last_tick = xTaskGetTickCount();
-		offset_ms = 0;
-		wait_ms = get_window_wait_ms(offset_ms);
-		vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
+		timer_wait_ms = set_window_wait_timer(timer, 0);
+		ESP_LOGD(TAG, "Next alarm is in %s", ms2str(ms_str, timer_wait_ms));
+		xTaskNotifyWait(0, 0, 0, portMAX_DELAY);
 
 		// Get the weather data
 		ESP_LOGI(TAG, "Getting weather data");
@@ -151,7 +155,7 @@ extern "C" void app_main() {
 			ESP_LOGI(TAG, "Writing data to file");
 			FILE *fd { fopen(DATA_FILE_PATH, "a+") };
 			if (fd != nullptr) {
-				if (fputs(json_str, fd) < 0 || fputc('\n', fd) != '\n')
+				if (fputs(json_str, fd) == -1 || fputc('\n', fd) == -1)
 					ESP_LOGE(TAG, "Unable to write data to file (cannot write to file)");
 				else xSemaphoreGive(backlog_semaphore);
 				fclose(fd);
@@ -162,11 +166,9 @@ extern "C" void app_main() {
 		delete[] json_str;
 
 		// Calculate next wake time
-		ESP_LOGV(TAG, "Calculating next wake time");
-		last_tick = xTaskGetTickCount();
-		offset_ms = -(SENSOR_READY_MS + 1000);
-		wait_ms = get_window_wait_ms(offset_ms);
-		vTaskDelayUntil(&last_tick, wait_ms / portTICK_PERIOD_MS);
+		timer_wait_ms = set_window_wait_timer(timer, -(SENSOR_READY_MS + 1000));
+		ESP_LOGD(TAG, "Next alarm is in %s", ms2str(ms_str, timer_wait_ms));
+		xTaskNotifyWait(0, 0, 0, portMAX_DELAY);
 	}
 }
 
@@ -218,14 +220,25 @@ void initialize_required_services() {
 		abort();
 	}
 
+	// Get the handle for the main task
+	main_task = xTaskGetCurrentTaskHandle();
+
 	// Set main task to high priority
 	const int priority { 10 };
 	ESP_LOGV(TAG, "Setting main task to priority %i", priority);
-	vTaskPrioritySet(nullptr, priority);
+	vTaskPrioritySet(main_task, priority);
 	if (static_cast<int>(uxTaskPriorityGet(nullptr)) != priority) {
 		ESP_LOGE(TAG, "Unable to set main task to priority %i", priority);
 		abort();
 	}
+
+	// Configure the main timer
+	ESP_LOGV(TAG, "Configuring the main timer");
+	esp_timer_create_args_t timer_args;
+	timer_args.callback = &timer_callback;
+	timer_args.name = "main_timer";
+	esp_timer_create(&timer_args, &timer);
+
 }
 
 int vlogf(const char *format, va_list arg) {
@@ -260,28 +273,6 @@ int vlogf(const char *format, va_list arg) {
 
 	// Print to stdout
 	return fputs(message, stdout);
-}
-
-time_t get_window_wait_ms(const int modifier_ms) {
-	// Calculate next wake time
-	timeval tv;
-	get_system_time(&tv);
-	time_t window_delta_ms = (300 - tv.tv_sec % 300) * 1000
-			- (tv.tv_usec / 1000) + modifier_ms;
-	if (window_delta_ms < 0) {
-		ESP_LOGD(TAG, "Skipping next measurement window (not enough time)");
-		window_delta_ms += 5 * 60 * 1000; // 5 minutes
-	}
-
-	// Log results
-	time_t millis { window_delta_ms - modifier_ms };
-	const int mins { millis / (60 * 1000) };
-	millis %= 60 * 1000;
-	const int secs { millis / 1000 };
-	millis %= 1000;
-	ESP_LOGD(TAG, "Next measurement window is in %02i:%02i.%03li", mins,
-			secs, millis);
-	return window_delta_ms;
 }
 
 void synchronize_system_time_task(void *args) {
