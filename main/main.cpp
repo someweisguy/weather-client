@@ -178,11 +178,12 @@ void initialize_required_services() {
 	// Register shutdown handler
 	ESP_LOGV(TAG, "Registering shutdown handler");
 	auto shutdown_handler =  [] () {
-		 if (!mqtt_stop()) ESP_LOGE(TAG, "Unable to stop the MQTT client");
-		 if (!wlan_stop()) ESP_LOGE(TAG, "Unable to stop the WiFi driver");
-		 if (!uart_stop()) ESP_LOGE(TAG, "Unable to stop the UART bus");
-		 if (!i2c_stop()) ESP_LOGE(TAG, "Unable to stop the I2C bus");
-		 if (!sdcard_unmount()) ESP_LOGE(TAG, "Unable to unmount the filesystem");
+		ESP_LOGI(TAG, "Restarting...");
+		if (!mqtt_stop()) ESP_LOGE(TAG, "Unable to stop the MQTT client");
+		if (!wlan_stop()) ESP_LOGE(TAG, "Unable to stop the WiFi driver");
+		if (!uart_stop()) ESP_LOGE(TAG, "Unable to stop the UART bus");
+		if (!i2c_stop()) ESP_LOGE(TAG, "Unable to stop the I2C bus");
+		if (!sdcard_unmount()) ESP_LOGE(TAG, "Unable to unmount the filesystem");
 	};
 	esp_register_shutdown_handler(shutdown_handler);
 
