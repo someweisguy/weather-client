@@ -7,6 +7,7 @@
 
 #include "i2c.h"
 static const char *TAG { "i2c" };
+SemaphoreHandle_t i2c_semaphore;
 
 bool i2c_start() {
 	// Configure the i2c port
@@ -32,6 +33,11 @@ bool i2c_start() {
 		ESP_LOGE(TAG, "Unable to install the I2C port (%i)", install_ret);
 		return false;
 	}
+
+	// Create the i2c semaphore and unlock the thread
+	i2c_semaphore = xSemaphoreCreateBinary();
+	xSemaphoreGive(i2c_semaphore);
+
 	return true;
 }
 
@@ -42,6 +48,10 @@ bool i2c_stop() {
 		ESP_LOGE(TAG, "Unable to delete the I2C driver (%i)", delete_ret);
 		return false;
 	}
+
+	// Delete the i2c semaphore
+	vSemaphoreDelete(i2c_semaphore);
+
 	return true;
 }
 
@@ -49,6 +59,9 @@ bool i2c_read(const char address, const char reg, void* rd,
 		const size_t size, const time_t wait_ms) {
 	if (size == 0)
 		return true;
+
+	// Lock the thread
+	xSemaphoreTake(i2c_semaphore, portMAX_DELAY);
 
 	// Create a command handle
 	const i2c_cmd_handle_t cmd { i2c_cmd_link_create() };
@@ -136,6 +149,9 @@ bool i2c_read(const char address, const char reg, void* rd,
 			ret = true;
 		}
 	} while (false);
+
+	// Unlock the thread
+	xSemaphoreGive(i2c_semaphore);
 
 	// Delete the i2c command and return results
 	i2c_cmd_link_delete(cmd);
