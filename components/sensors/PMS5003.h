@@ -45,8 +45,8 @@ public:
 
 	bool setup() override {
 		ESP_LOGV(TAG, "Sending active mode command");
-		const char passive_cmd[7] { 0x42, 0x4d, 0xe1, 0x00, 0x01, 0x01, 0x71 };
-		if (uart_write(passive_cmd, 7) != CMD_SIZE) {
+		const char passive_cmd[CMD_SIZE] { 0x42, 0x4d, 0xe1, 0x00, 0x01, 0x01, 0x71 };
+		if (uart_write(passive_cmd, CMD_SIZE) != CMD_SIZE) {
 			ESP_LOGE(TAG, "Unable to send active mode command");
 			return false;
 		}
@@ -56,8 +56,8 @@ public:
 
 	bool wakeup() override {
 		ESP_LOGV(TAG, "Sending wake up command");
-		const char wakeup_cmd[7] { 0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74 };
-		if (uart_write(wakeup_cmd, 7) != CMD_SIZE) {
+		const char wakeup_cmd[CMD_SIZE] { 0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74 };
+		if (uart_write(wakeup_cmd, CMD_SIZE) != CMD_SIZE) {
 			ESP_LOGE(TAG, "Unable to send wake up command");
 			return false;
 		}
@@ -89,18 +89,18 @@ public:
 
 		// Copy the buffer - skip the first 4 and last 4 bytes
 		pms_data_t pms_data;
-		pms_data.pm1_0_std =  (buf[4] << 8) | buf[5];
-		pms_data.pm2_5_std =  (buf[6] << 8) | buf[7];
+		pms_data.pm1_0_std = (buf[4] << 8) | buf[5];
+		pms_data.pm2_5_std = (buf[6] << 8) | buf[7];
 		pms_data.pm10_0_std = (buf[8] << 8) | buf[9];
-		pms_data.pm1_0_atm =  (buf[10] << 8) | buf[11];
-		pms_data.pm2_5_atm =  (buf[12] << 8) | buf[13];
+		pms_data.pm1_0_atm = (buf[10] << 8) | buf[11];
+		pms_data.pm2_5_atm = (buf[12] << 8) | buf[13];
 		pms_data.pm10_0_atm = (buf[14] << 8) | buf[15];
-		pms_data.part_0_3 =   (buf[16] << 8) | buf[17];
-		pms_data.part_0_5 =   (buf[18] << 8) | buf[19];
-		pms_data.part_1_0 =   (buf[20] << 8) | buf[21];
-		pms_data.part_2_5 =   (buf[22] << 8) | buf[23];
-		pms_data.part_5_0 =   (buf[24] << 8) | buf[25];
-		pms_data.part_10_0 =  (buf[26] << 8) | buf[27];
+		pms_data.part_0_3 = (buf[16] << 8) | buf[17];
+		pms_data.part_0_5 = (buf[18] << 8) | buf[19];
+		pms_data.part_1_0 = (buf[20] << 8) | buf[21];
+		pms_data.part_2_5 = (buf[22] << 8) | buf[23];
+		pms_data.part_5_0 = (buf[24] << 8) | buf[25];
+		pms_data.part_10_0 = (buf[26] << 8) | buf[27];
 
 		// Add PM data to JSON array object
 		add_JSON_elem(json, "PM 1",  pms_data.pm1_0_std, pm1);
@@ -110,8 +110,7 @@ public:
 		// Intentionally omit PM atmospheric data because it is not clear what
 		//  the difference is between PM standard and PM atmospheric
 
-		// Add particle count data to JSON array object - multiply by 10 to get
-		//  units per Liter
+		// Add particle count to JSON object - multiply by 10 to get units per Liter
 		add_JSON_elem(json, "0.3 microns Particles", pms_data.part_0_3 * 10,
 				count_per_liter);
 		add_JSON_elem(json, "0.5 microns Particles", pms_data.part_0_5 * 10,
@@ -130,8 +129,8 @@ public:
 
 	bool sleep() override {
 		ESP_LOGV(TAG, "Sending sleep command");
-		const char sleep_cmd[7] { 0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73 };
-		if (uart_write(sleep_cmd, 7) != CMD_SIZE) {
+		const char sleep_cmd[CMD_SIZE] { 0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73 };
+		if (uart_write(sleep_cmd, CMD_SIZE) != CMD_SIZE) {
 			ESP_LOGE(TAG, "Unable to send sleep command");
 			return false;
 		}
