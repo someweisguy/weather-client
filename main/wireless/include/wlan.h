@@ -20,11 +20,12 @@
 #include "esp_wifi.h"
 #include "esp_sntp.h"
 
-#define START_BIT 		BIT0
-#define CONNECT_BIT 	BIT1
-#define DISCONNECT_BIT 	BIT2
-#define STOP_BIT 		BIT3
-#define SNTP_BIT 		BIT4
+#define INIT_BIT		BIT0
+#define START_BIT 		BIT1
+#define CONNECT_BIT 	BIT2
+#define DISCONNECT_BIT 	BIT3
+#define STOP_BIT 		BIT4
+#define SNTP_BIT 		BIT5
 
 
 void wlan_connect(const char *ssid, const char *pass);

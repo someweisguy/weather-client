@@ -27,12 +27,13 @@
 
 #define MQTT_MAX_RETRIES 5
 
-#define START_BIT 		BIT0
-#define CONNECT_BIT 	BIT1
-#define DISCONNECT_BIT	BIT2
-#define STOP_BIT 		BIT3
-#define PUBLISH_BIT 	BIT4
-#define FAIL_BIT 		BIT5
+#define INIT_BIT		BIT0
+#define START_BIT 		BIT1
+#define CONNECT_BIT 	BIT2
+#define DISCONNECT_BIT	BIT3
+#define STOP_BIT 		BIT4
+#define PUBLISH_BIT 	BIT5
+#define FAIL_BIT 		BIT6
 
 
 void mqtt_connect(const char* mqtt_broker);

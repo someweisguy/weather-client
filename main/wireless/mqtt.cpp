@@ -7,7 +7,7 @@
 
 #include "mqtt.h"
 static const char *TAG { "mqtt" };
-static EventGroupHandle_t mqtt_event_group { nullptr };
+static EventGroupHandle_t mqtt_event_group { xEventGroupCreate() };
 static esp_mqtt_client_handle_t client;
 
 static void event_handler(void *handler_args, esp_event_base_t base,
@@ -121,6 +121,10 @@ void mqtt_connect(const char* mqtt_broker) {
 			mqtt_stop();
 			return;
 		}
+
+		// Set the initialized bit
+		ESP_LOGV(TAG, "Setting the initialized bit");
+		xEventGroupSetBits(mqtt_event_group, INIT_BIT);
 	}
 
 	if (!mqtt_started()) {
@@ -177,21 +181,34 @@ bool mqtt_connect_and_block(const char *mqtt_broker,
 }
 
 bool mqtt_stop() {
-	// Delete the event group
-	vEventGroupDelete(mqtt_event_group);
-	mqtt_event_group = nullptr;
+	// Stop the MQTT client
+	if (mqtt_started()) {
+		ESP_LOGD(TAG, "Stopping the MQTT client");
+		esp_err_t stop_ret { esp_mqtt_client_stop(client) };
+		if (stop_ret != ESP_OK) {
+			ESP_LOGE(TAG, "Unable to stop MQTT client (%i)", stop_ret);
+			return false;
+		}
+	}
 
-	if (mqtt_started()) ESP_LOGD(TAG, "Freeing memory and stopping the MQTT service");
-	else ESP_LOGD(TAG, "Freeing memory");
+	// Destroy the MQTT client
+	ESP_LOGD(TAG, "Deinitializing the MQTT client");
 	esp_err_t destroy_ret { esp_mqtt_client_destroy(client) };
 	if (destroy_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to stop MQTT (%i)", destroy_ret);
+		ESP_LOGE(TAG, "Unable to deinitialize the MQTT client (%i)",
+				destroy_ret);
 		return false;
-	} return true;
+	}
+
+	// Clear the initialized bit
+	ESP_LOGV(TAG, "Clearing the initialized bit");
+	xEventGroupClearBits(mqtt_event_group, INIT_BIT);
+
+	return true;
 }
 
 bool mqtt_initialized() {
-	return mqtt_event_group != nullptr;
+	return xEventGroupGetBits(mqtt_event_group) & INIT_BIT;
 }
 
 bool mqtt_started() {

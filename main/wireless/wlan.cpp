@@ -7,7 +7,7 @@
 
 #include "wlan.h"
 static const char *TAG { "wlan" };
-static EventGroupHandle_t wifi_event_group { nullptr };
+static EventGroupHandle_t wifi_event_group { xEventGroupCreate() };
 
 static void event_handler(void *handler_args, esp_event_base_t base,
 		int event_id, void *event_data) {
@@ -37,7 +37,7 @@ static void event_handler(void *handler_args, esp_event_base_t base,
 
 			// Attempt to auto-reconnect
 			const esp_err_t connect_ret { esp_wifi_connect() };
-			if (connect_ret != ESP_OK)
+			if (connect_ret != ESP_OK && connect_ret != ESP_ERR_WIFI_NOT_STARTED)
 				ESP_LOGE(TAG, "An error occurred while trying to connect (%i)",
 						connect_ret);
 		}
@@ -125,6 +125,10 @@ void wlan_connect(const char *ssid, const char *pass) {
 			return;
 		}
 
+		// Set the initialized bit
+		ESP_LOGV(TAG, "Setting the initialized bit");
+		xEventGroupSetBits(wifi_event_group, INIT_BIT);
+
 		// Configure the SNTP service
 		ESP_LOGV(TAG, "Configuring SNTP service");
 		sntp_set_sync_mode(SNTP_SYNC_MODE_IMMED);
@@ -209,13 +213,10 @@ bool wlan_stop() {
 		} else {
 			// Wait for WiFi to stop
 			xEventGroupWaitBits(wifi_event_group, STOP_BIT, pdFALSE, pdFALSE,
-			portMAX_DELAY);
+					portMAX_DELAY);
 		}
 	}
 
-	// Delete the event group
-	vEventGroupDelete(wifi_event_group);
-	wifi_event_group = nullptr;
 
 	// Free the memory allocated for WiFi and return the results
 	ESP_LOGD(TAG, "Freeing memory");
@@ -224,11 +225,16 @@ bool wlan_stop() {
 		ESP_LOGE(TAG, "Unable to deinitialize WiFi (%i)", deinit_ret);
 		return false;
 	}
+
+	// Clear the initialized bit
+	ESP_LOGV(TAG, "Clearing the initialized bit");
+	xEventGroupClearBits(wifi_event_group, INIT_BIT);
+
 	return true;
 }
 
 bool wlan_initialized() {
-	return wifi_event_group != nullptr;
+	return xEventGroupGetBits(wifi_event_group) & INIT_BIT;
 }
 
 bool wlan_started() {
