@@ -207,7 +207,6 @@ public:
 			ESP_LOGE(TAG, "Unable send wakeup command");
 			return false;
 		}
-		// FIXME: Find out why this isn't actually waking up the sensor
 
 		return true;
 	}
