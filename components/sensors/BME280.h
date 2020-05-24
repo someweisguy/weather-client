@@ -14,15 +14,20 @@
 
 class BME280: public Sensor {
 private:
-
 	const char *TAG { "bme280" };
 	const char *celsius { "celsius" }, *pascals { "pascals" },
 			*relative_humidity_scale { "relative humidity" };
-	const uint8_t I2C_ADDRESS { 0x76 }, REG_CHIP_ID { 0xd0 },
-			REG_RESET { 0xe0 }, REG_CONTROLHUMID { 0xf2 }, REG_STATUS { 0xf3 },
-			REG_CTRL_MEAS { 0xf4 }, REG_CONFIG { 0xf5 },
-			REG_DATA_START { 0xf7 }, REG_TRIM_T1_TO_H1 { 0x88 },
-			REG_TRIM_H2_TO_H5 { 0xe1 };
+
+	const uint8_t I2C_ADDRESS 	{ 0x76 },
+			REG_CHIP_ID 		{ 0xd0 },
+			REG_RESET 			{ 0xe0 },
+			REG_CONTROLHUMID 	{ 0xf2 },
+			REG_STATUS 			{ 0xf3 },
+			REG_CTRL_MEAS 		{ 0xf4 },
+			REG_CONFIG 			{ 0xf5 },
+			REG_DATA_START 		{ 0xf7 },
+			REG_TRIM_T1_TO_H1 	{ 0x88 },
+			REG_TRIM_H2_TO_H5 	{ 0xe1 };
 
 	int32_t t_fine;
 	struct comp_val_t {
@@ -55,7 +60,6 @@ private:
 				* ((adc_T >> 4) - ((int32_t) dig.t1))) >> 12)
 				* ((int32_t) dig.t3)) >> 14;
 		const int32_t T = var1 + var2;
-
 		return T;
 	}
 
@@ -167,26 +171,22 @@ public:
 		}
 
 		// Set temperature and pressure sampling to x16 and sleep mode
-		ESP_LOGD(TAG, "Setting temperature and pressure sampling x16 and wakeup");
-		const char tpm_setting { 0xb0 };
+		ESP_LOGD(TAG, "Setting temperature and pressure sampling x16 and normal mode");
+		const char tpm_setting { 0xb7 };
 		if (!i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &tpm_setting, 1)) {
 			ESP_LOGE(TAG, "Unable to set temperature and pressuring sampling "
-					"x16 and wakeup");
+					"x16 and normal mode");
 			return false;
 		}
 
 		// Get compensation "dig" values
 		char dig_buf[32];
 		ESP_LOGV(TAG, "Getting data trim values");
-		const esp_err_t dig_1_ret { i2c_read(I2C_ADDRESS, REG_TRIM_T1_TO_H1,
-				dig_buf, 25) };
-		if (dig_1_ret != ESP_OK)
-			return dig_1_ret;
-		const esp_err_t dig_2_ret { i2c_read(I2C_ADDRESS, REG_TRIM_H2_TO_H5,
-				dig_buf + 25, 7) };
-		if (dig_2_ret != ESP_OK)
-			return dig_2_ret;
-
+		if (!i2c_read(I2C_ADDRESS, REG_TRIM_T1_TO_H1, dig_buf, 25)
+				|| !i2c_read(I2C_ADDRESS, REG_TRIM_H2_TO_H5, dig_buf + 25, 7)) {
+			ESP_LOGE(TAG, "Unable to read data trim values");
+			return false;
+		}
 		// Bulk copy T1 to H1
 		memcpy(&dig, dig_buf, 25);
 		// Copy H2 to H6
@@ -214,11 +214,16 @@ public:
 
 	bool get_data(cJSON *json) override {
 		// Store all the ADC values from the BME280 into a buffer
-		unsigned char buf[8];
+		char buf[8];
 		if (!i2c_read(I2C_ADDRESS, REG_DATA_START, buf, 8)) {
 			ESP_LOGE(TAG, "Unable to read ADC values from device");
 			return false;
 		}
+
+		// Log the hex received
+		char hex_buf[8*5];
+		strnhex(hex_buf, buf, 8);
+		ESP_LOGD(TAG, "Got hex: %s", hex_buf);
 
 		// Extract the temperature ADC values from the buffer
 		int32_t adc_T = buf[3];
@@ -232,6 +237,7 @@ public:
 			adc_T >>= 4;
 			t_fine = calculate_t_fine(adc_T);
 			const double temperature_C { compensate_temperature() / 100.0 };
+			ESP_LOGD(TAG, "Got temperature: %.2f C", temperature_C);
 			add_JSON_elem(json, "Temperature", temperature_C, celsius);
 		} else {
 			ESP_LOGE(TAG, "Unable to get data (invalid state)");
@@ -246,12 +252,13 @@ public:
 		}
 
 		// Calculate pressure in Pascals
-		if (adc_P != 0x800000) { // ensure pressure is turned on
+		if (adc_P != 0x800000) {
 			adc_P >>= 4;
 			const uint64_t pressure_Pa { compensate_pressure(adc_P) / 256 };
+			ESP_LOGD(TAG, "Got pressure: %llu Pa", pressure_Pa);
 			add_JSON_elem(json, "Barometric Pressure", pressure_Pa, pascals);
 		} else {
-			ESP_LOGW(TAG, "Unable to get Pressure data (invalid state)");
+			ESP_LOGW(TAG, "Unable to get pressure data (invalid state)");
 		}
 
 		// Extract the pressure ADC values from the buffer
@@ -260,6 +267,7 @@ public:
 		// Calculate relative humidity
 		if (adc_H != 0x8000) {
 			const double relative_humidity { compensate_humidity(adc_H) / 1024.0 };
+			ESP_LOGD(TAG, "Got humidity: %.2f %%RH", relative_humidity);
 			add_JSON_elem(json, "Relative Humidity", relative_humidity,
 					relative_humidity_scale);
 		} else {
