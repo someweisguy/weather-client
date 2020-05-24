@@ -120,10 +120,12 @@ extern "C" void app_main() {
 	char ms_str[10];
 	int64_t timer_wait_ms { set_window_wait_timer(timer, -(SENSOR_READY_MS + 1000)) };
 	if (timer_wait_ms > 5000) xSemaphoreGive(sensor_sleep_semaphore);
-	ESP_LOGD(TAG, "Next alarm is in %s", ms2str(ms_str, timer_wait_ms));
-	xTaskNotifyWait(0, 0, 0, portMAX_DELAY);
 
+	// Enter the task loop
 	while (true) {
+		ESP_LOGD(TAG, "Ready alarm will go off in %s", ms2str(ms_str, timer_wait_ms));
+		xTaskNotifyWait(0, 0, 0, portMAX_DELAY);
+
 		ESP_LOGI(TAG, "Readying sensors");
 		for (Sensor *sensor : sensors)
 			sensor->wakeup();
@@ -137,7 +139,7 @@ extern "C" void app_main() {
 
 		// Calculate next wake time
 		timer_wait_ms = set_window_wait_timer(timer, 0);
-		ESP_LOGD(TAG, "Next alarm is in %s", ms2str(ms_str, timer_wait_ms));
+		ESP_LOGD(TAG, "Measure alarm will go off in %s", ms2str(ms_str, timer_wait_ms));
 		xTaskNotifyWait(0, 0, 0, portMAX_DELAY);
 
 		// Get the weather data
@@ -170,8 +172,6 @@ extern "C" void app_main() {
 
 		// Calculate next wake time
 		timer_wait_ms = set_window_wait_timer(timer, -(SENSOR_READY_MS + 1000));
-		ESP_LOGD(TAG, "Next alarm is in %s", ms2str(ms_str, timer_wait_ms));
-		xTaskNotifyWait(0, 0, 0, portMAX_DELAY);
 	}
 }
 
