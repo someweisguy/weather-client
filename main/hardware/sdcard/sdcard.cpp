@@ -52,8 +52,8 @@ bool sdcard_mount(const char* mount_point) {
 		ESP_LOGE(TAG, "Unable to mount the filesystem (%i)", mount_ret);
 		return false;
 	} else if (host.max_freq_khz < 20000)
-		ESP_LOGW(TAG, "The SD card host max frequency was set to %ukHz",
-				host.max_freq_khz);
+		ESP_LOGW(TAG, "The SD card host max frequency was set to %d MHz",
+				host.max_freq_khz / 1000);
 
 	is_mounted = true;
 	return true;
