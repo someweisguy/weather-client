@@ -182,17 +182,11 @@ bool mqtt_connect_and_block(const char *mqtt_broker,
 
 bool mqtt_stop() {
 	// Stop the MQTT client
-	if (mqtt_started()) {
-		ESP_LOGD(TAG, "Stopping the MQTT client");
-		esp_err_t stop_ret { esp_mqtt_client_stop(client) };
-		if (stop_ret != ESP_OK) {
-			ESP_LOGE(TAG, "Unable to stop MQTT client (%i)", stop_ret);
-			return false;
-		}
-	}
+	ESP_LOGD(TAG, "Stopping the MQTT client");
+	esp_mqtt_client_stop(client); // fail silently
 
 	// Destroy the MQTT client
-	ESP_LOGD(TAG, "Deinitializing the MQTT client");
+	ESP_LOGV(TAG, "Deinitializing the MQTT client");
 	esp_err_t destroy_ret { esp_mqtt_client_destroy(client) };
 	if (destroy_ret != ESP_OK) {
 		ESP_LOGE(TAG, "Unable to deinitialize the MQTT client (%i)",
