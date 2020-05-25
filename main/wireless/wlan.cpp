@@ -219,10 +219,10 @@ bool wlan_stop() {
 
 
 	// Free the memory allocated for WiFi and return the results
-	ESP_LOGD(TAG, "Freeing memory");
+	ESP_LOGD(TAG, "Stopping the WiFi driver");
 	esp_err_t deinit_ret { esp_wifi_deinit() };
 	if (deinit_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to deinitialize WiFi (%i)", deinit_ret);
+		ESP_LOGE(TAG, "Unable to stop the WiFi driver (%i)", deinit_ret);
 		return false;
 	}
 
