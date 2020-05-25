@@ -13,6 +13,7 @@ static void set_log_levels() {
 	esp_log_level_set("i2c", ESP_LOG_INFO);
 	esp_log_level_set("sdcard", ESP_LOG_INFO);
 	esp_log_level_set("main", ESP_LOG_DEBUG);
+	// TODO: Set everything to warning
 }
 
 extern "C" void app_main() {
