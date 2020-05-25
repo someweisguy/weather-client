@@ -80,7 +80,7 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 			ESP_LOGW(TAG, "Config file is larger than expected (%li bytes)", size);
 		char file_str[size + 1];
 		fread(file_str, 1, size, fd);
-		// don't call fclose() - calling freopen() later
+		fclose(fd);
 		file_root = cJSON_Parse(file_str);
 	} else {
 		ESP_LOGE(TAG, "Unable to open the configuration file");
@@ -100,7 +100,7 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 		cJSON_AddItemToObject(file_root, "log", log=cJSON_CreateObject());
 	}
 
-	// Add each web JSON object to the file JSON object and set log level
+	// Add each web JSON object to the file JSON object
 	ESP_LOGV(TAG, "Attaching client data JSON to config file JSON");
 	cJSON_ArrayForEach(web_item, web_root) {
 		const char* name = web_item->string;
@@ -133,11 +133,11 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 						name);
 		}
 	}
-	cJSON_Delete(web_root); // done with web JSON
+	cJSON_Delete(web_root); // done with web JSON object
 
 	// Print the edited JSON object to file
 	ESP_LOGV(TAG, "Writing new JSON object to file");
-	fd = freopen(CONFIG_FILE_PATH, "w", fd);
+	fd = fopen(CONFIG_FILE_PATH, "w");
 	if (fd != nullptr) {
 		char* file_json_str = cJSON_Print(file_root);
 		if (fputs(file_json_str, fd) == EOF) {
@@ -153,18 +153,18 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 				ESP_LOGI(TAG, "Setting '%s' to log level ESP_LOG_%s", name, l[value]);
 				esp_log_level_set(name, static_cast<esp_log_level_t>(value));
 			}
+			httpd_resp_set_status(r, "204 No Content"); // success!
 		}
 		delete[] file_json_str;
-		fclose(fd);
 	} else {
 		ESP_LOGE(TAG, "Unable to write the new JSON object to file (cannot open file)");
 		httpd_resp_set_status(r, "500 Internal Server Error");
 	}
-	cJSON_Delete(file_root); // done with file JSON
+	cJSON_Delete(file_root); // done with file JSON object
+	fclose(fd);
 
 	// Send a response to the client
 	ESP_LOGV(TAG, "Responding to client");
-	httpd_resp_set_status(r, "204 No Content");
 	esp_err_t resp_ret { httpd_resp_send(r, "", 0) };
 	if (resp_ret != ESP_OK)
 		ESP_LOGE(TAG, "Unable to respond to client (%i)", resp_ret);
@@ -172,8 +172,45 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 }
 
 static esp_err_t http_get_log_level_handler(httpd_req_t *r) {
-	// TODO: get log JSON and send it to client
-	return ESP_OK;
+	// Read the file JSON object into memory
+	ESP_LOGV(TAG, "Reading the configuration file into memory");
+	cJSON *file_root;
+	FILE *fd { fopen(CONFIG_FILE_PATH, "r") };
+	if (fd != nullptr) {
+		const long size { fsize(fd) };
+		if (size > 1024)
+			ESP_LOGW(TAG, "Config file is larger than expected (%li bytes)", size);
+		char file_str[size + 1];
+		fread(file_str, 1, size, fd);
+		fclose(fd);
+		file_root = cJSON_Parse(file_str);
+	} else {
+		ESP_LOGE(TAG, "Unable to open the configuration file");
+		ESP_LOGV(TAG, "Responding to client");
+		httpd_resp_set_status(r, "500 Internal Server Error");
+		esp_err_t resp_ret { httpd_resp_send(r, "", 0) };
+		if (resp_ret != ESP_OK)
+			ESP_LOGE(TAG, "Unable to respond to the client (%i)", resp_ret);
+		return resp_ret;
+	}
+
+	// Get the JSON log item or create it if it doesn't exist
+	cJSON *log;
+	if ((log = cJSON_GetObjectItem(file_root, "log")) == nullptr) {
+		ESP_LOGV(TAG, "Creating a new JSON log object");
+		cJSON_AddItemToObject(file_root, "log", log=cJSON_CreateObject());
+	}
+
+	// Print the JSON log item and then clean up the file root
+	char *log_json_str { cJSON_Print(log) };
+	cJSON_Delete(file_root);
+
+	// Send a response to the client
+	esp_err_t resp_ret { httpd_resp_sendstr(r, log_json_str) };
+	if (resp_ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to respond to the client (%i)", resp_ret);
+	delete[] log_json_str;
+	return resp_ret;
 }
 
 static esp_err_t http_get_log_events_handler(httpd_req_t *r) {
