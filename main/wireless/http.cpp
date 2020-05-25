@@ -12,27 +12,27 @@ static httpd_handle_t server { nullptr };
 static esp_err_t http_restart_handler(httpd_req_t *r) {
 	ESP_LOGD(TAG, "Handling restart request");
 	ESP_LOGV(TAG, "Responding to client");
-	esp_err_t resp_ret { httpd_resp_sendstr(r, "OK") };
+	httpd_resp_set_status(r, "204 No Content");
+	esp_err_t resp_ret { httpd_resp_send(r, "", 0) };
 	if (resp_ret != ESP_OK) {
 		ESP_LOGE(TAG, "Unable to respond to client (%i)", resp_ret);
-		return ESP_FAIL;
+		return resp_ret;
 	}
 
 	/**
 	 * The ESP-IDF does not have an event loop for HTTP server events (though
 	 * it does have one for the http client) so what we do is we pretend to
 	 * give the server a session context, which means when the session closes,
-	 * it will call the function to free the context. Instead of freeing
-	 * context, what it will do is call the esp_restart(). This way, the server
-	 * waits for the response to be sent before it calls the restart function.
+	 * it will call a function to free the context. Instead of freeing context,
+	 * what it will do is call the esp_restart(). This way, the server waits
+	 * for the response to be sent before it calls the restart function.
 	 */
 	auto restart_callback = [] (void *ctx) {
 	    const auto restart_task = [] (void *args) { esp_restart(); };
-	    // Run the code in a separate task or http_stop() hangs
+	    // Call the restart from a separate task or http_stop() hangs
 	    xTaskCreate(restart_task, "restart", 2048, nullptr, 0, nullptr);
 	};
-
-	r->sess_ctx = &server; // give the session fake context to free
+	r->sess_ctx = reinterpret_cast<void*>(-1);
 	r->free_ctx = restart_callback;
 
 	return ESP_OK;
