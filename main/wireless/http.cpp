@@ -42,127 +42,133 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 	ESP_LOGD(TAG, "Handling set log level request");
 
 	// Read the content into a buffer
-	ESP_LOGV(TAG, "Reading data from client");
-	char wjson_str[r->content_len];
-	int read = httpd_req_recv(r, wjson_str, r->content_len);
-	if (read >= 0) wjson_str[read] = 0; // append null terminator
-	else ESP_LOGE(TAG, "Unable to read data from client (%i)", read);
-	ESP_LOGV(TAG, "Got %i bytes: %s", r->content_len, wjson_str);
+	ESP_LOGV(TAG, "Getting data from client");
+	char web_json_str[r->content_len];
+	int read = httpd_req_recv(r, web_json_str, r->content_len);
+	if (read >= 0) {
+		web_json_str[read] = 0; // add null terminator
+		ESP_LOGV(TAG, "Got %i bytes from client: %s", r->content_len, web_json_str);
+	} else {
+		ESP_LOGE(TAG, "Unable to get data from client (%i)", read);
+		httpd_resp_set_status(r, "400 Bad Request");
+		esp_err_t resp_ret { httpd_resp_send(r, "", 0) };
+		if (resp_ret != ESP_OK)
+			ESP_LOGE(TAG, "Unable to respond to client (%i)", resp_ret);
+		return resp_ret;
+	}
 
 	// Check if the content is a valid JSON object
 	ESP_LOGV(TAG, "Checking if client data is valid JSON");
-	cJSON *wroot { cJSON_Parse(wjson_str) };
-	if (cJSON_IsInvalid(wroot)) {
+	cJSON *web_root { cJSON_Parse(web_json_str) };
+	if (cJSON_IsInvalid(web_root)) {
 		ESP_LOGW(TAG, "Client data is invalid JSON");
 		ESP_LOGV(TAG, "Responding to client");
-		esp_err_t resp_ret { httpd_resp_sendstr(r, "FAIL") };
-		if (resp_ret != ESP_OK) {
-			ESP_LOGE(TAG, "Unable to respond to client (%i)", resp_ret);
-			return ESP_FAIL;
-		}
+		httpd_resp_set_status(r, "400 Bad Request");
+		esp_err_t resp_ret { httpd_resp_send(r, "", 0) };
+		if (resp_ret != ESP_OK)
+			ESP_LOGE(TAG, "Unable to respond to the client (%i)", resp_ret);
+		return resp_ret;
 	}
 
 	// Read the file JSON object into memory
-	ESP_LOGV(TAG, "Reading config file into memory");
-	cJSON *froot;
+	ESP_LOGV(TAG, "Reading the configuration file into memory");
+	cJSON *file_root;
 	FILE *fd { fopen(CONFIG_FILE_PATH, "r") };
 	if (fd != nullptr) {
-		// Read the JSON file into memory
-		ESP_LOGV(TAG, "Reading config file into memory");
 		const long size { fsize(fd) };
 		if (size > 1024)
 			ESP_LOGW(TAG, "Config file is larger than expected (%li bytes)", size);
 		char file_str[size + 1];
 		fread(file_str, 1, size, fd);
-		// don't call fclose()
-
-		// Parse the file JSON object
-		ESP_LOGV(TAG, "Parsing JSON file");
-		froot = cJSON_Parse(file_str);
+		// don't call fclose() - calling freopen() later
+		file_root = cJSON_Parse(file_str);
 	} else {
-		ESP_LOGE(TAG, "Unable to open config file");
+		ESP_LOGE(TAG, "Unable to open the configuration file");
 		ESP_LOGV(TAG, "Responding to client");
-		esp_err_t resp_ret { httpd_resp_sendstr(r, "FAIL") };
-		if (resp_ret != ESP_OK) {
-			ESP_LOGE(TAG, "Unable to respond to client (%i)", resp_ret);
-			return ESP_FAIL;
-		} else return ESP_OK;
+		httpd_resp_set_status(r, "500 Internal Server Error");
+		esp_err_t resp_ret { httpd_resp_send(r, "", 0) };
+		if (resp_ret != ESP_OK)
+			ESP_LOGE(TAG, "Unable to respond to the client (%i)", resp_ret);
+		cJSON_Delete(web_root);
+		return resp_ret;
 	}
 
 	// Get the JSON log item or create it if it doesn't exist
-	cJSON *log, *i;
-	if ((log = cJSON_GetObjectItem(froot, "log")) == nullptr) {
-		ESP_LOGV(TAG, "Creating a JSON log object");
-		cJSON_AddItemToObject(froot, "log", log=cJSON_CreateObject());
+	cJSON *log, *web_item;
+	if ((log = cJSON_GetObjectItem(file_root, "log")) == nullptr) {
+		ESP_LOGV(TAG, "Creating a new JSON log object");
+		cJSON_AddItemToObject(file_root, "log", log=cJSON_CreateObject());
 	}
 
 	// Add each web JSON object to the file JSON object and set log level
 	ESP_LOGV(TAG, "Attaching client data JSON to config file JSON");
-	cJSON_ArrayForEach(i, wroot) {
+	cJSON_ArrayForEach(web_item, web_root) {
+		const char* name = web_item->string;
+		const int value = web_item->valueint;
 
 		// Check if the element is a duplicate
-		cJSON *j;
+		cJSON *log_item;
 		bool is_duplicate { false };
-		int idx { 0 };
-		cJSON_ArrayForEach(j, log) {
-			if (strcmp(i->string, j->string) == 0) {
-				j->valueint = i->valueint;
+		int duplicate_index { 0 };
+		cJSON_ArrayForEach(log_item, log) {
+			const char *log_item_name { log_item->string };
+			if (strcmp(name, log_item_name) == 0) {
+				log_item->valueint = value;
 				is_duplicate = true;
 				break;
 			}
-			++idx;
+			++duplicate_index;
 		}
 
-		// Delete item if there log level not in bounds
-		if (is_duplicate && (i->valueint < 0 || i->valueint > 5)) {
-				ESP_LOGD(TAG, "Deleting '%s' from log configuration", i->string);
-				cJSON_DeleteItemFromArray(log, idx);
-				i->valueint = 0; // ESP_LOG_NONE
+		// Add or delete the item from the log file JSON object
+		if (is_duplicate && (value < 0 || value > 5)) {
+			ESP_LOGD(TAG, "Deleting '%s' from the log configuration file", name);
+			cJSON_DeleteItemFromArray(log, duplicate_index);
+			esp_log_level_set(name, ESP_LOG_NONE); // silence removed items
 		} else if (!is_duplicate) {
-			if (i->valueint >= 0 && i->valueint <= 5)
-				cJSON_AddItemReferenceToArray(log, i); // avoid nullptr
-			else {
-				ESP_LOGW(TAG, "Unable to delete log level for '%s' (no such entry)", i->string);
-				continue; // avoid nullptr
-			}
+			if (value >= 0 && value <= 5) {
+				if (strlen(name) > 0) cJSON_AddNumberToObject(log, name, value);
+			} else
+				ESP_LOGW(TAG, "Unable to delete entry for '%s' (no such entry)",
+						name);
 		}
-
-		// Set the log level
-		const char* key = i->string;
-		const int value = i->valueint;
-		const char *const s[6] { "NONE", "ERROR", "WARN", "INFO", "DEBUG", "VERBOSE" };
-		ESP_LOGI(TAG, "Setting '%s' to log level ESP_LOG_%s", key, s[value]);
-		esp_log_level_set(key, static_cast<esp_log_level_t>(value));
 	}
+	cJSON_Delete(web_root); // done with web JSON
 
 	// Print the edited JSON object to file
 	ESP_LOGV(TAG, "Writing new JSON object to file");
-	char* fjson_str = cJSON_Print(froot);
-
-	// Clear and write to the config file
-	ESP_LOGV(TAG, "Reopening config file");
 	fd = freopen(CONFIG_FILE_PATH, "w", fd);
 	if (fd != nullptr) {
-		fputs(fjson_str, fd);
+		char* file_json_str = cJSON_Print(file_root);
+		if (fputs(file_json_str, fd) == EOF) {
+			ESP_LOGE(TAG, "Unable to write the new JSON object to file (cannot write)");
+			httpd_resp_set_status(r, "500 Internal Server Error");
+		} else {
+			const char *const l[6] { "NONE", "ERROR", "WARN", "INFO", "DEBUG", "VERBOSE" };
+			cJSON *i;
+			cJSON_ArrayForEach(i, log) {
+				// Set the log level
+				const char* name = i->string;
+				const int value = i->valueint;
+				ESP_LOGI(TAG, "Setting '%s' to log level ESP_LOG_%s", name, l[value]);
+				esp_log_level_set(name, static_cast<esp_log_level_t>(value));
+			}
+		}
+		delete[] file_json_str;
 		fclose(fd);
 	} else {
-		ESP_LOGE(TAG, "Unable to write new JSON object to file");
+		ESP_LOGE(TAG, "Unable to write the new JSON object to file (cannot open file)");
+		httpd_resp_set_status(r, "500 Internal Server Error");
 	}
-
-	// Clean up
-	ESP_LOGV(TAG, "Cleaning up memory");
-	cJSON_Delete(wroot);
-	cJSON_Delete(froot);
-	delete[] fjson_str;
+	cJSON_Delete(file_root); // done with file JSON
 
 	// Send a response to the client
 	ESP_LOGV(TAG, "Responding to client");
-	esp_err_t resp_ret { httpd_resp_sendstr(r, "OK") };
-	if (resp_ret != ESP_OK) {
+	httpd_resp_set_status(r, "204 No Content");
+	esp_err_t resp_ret { httpd_resp_send(r, "", 0) };
+	if (resp_ret != ESP_OK)
 		ESP_LOGE(TAG, "Unable to respond to client (%i)", resp_ret);
-		return ESP_FAIL;
-	}
-	return ESP_OK;
+	return resp_ret;
 }
 
 static esp_err_t http_get_log_level_handler(httpd_req_t *r) {
