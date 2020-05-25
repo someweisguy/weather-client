@@ -41,9 +41,6 @@ static esp_err_t http_restart_handler(httpd_req_t *r) {
 static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 	ESP_LOGD(TAG, "Handling set log level request");
 
-	// FIXME: Corrupt heap when adding new entries
-	// FIXME: Null pointer (I think) when deleting nonexistent entries
-
 	// Read the content into a buffer
 	ESP_LOGV(TAG, "Reading data from client");
 	char wjson_str[r->content_len];
@@ -117,16 +114,17 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 		}
 
 		// Delete item if there log level not in bounds
-		if (is_duplicate) {
-			if (i->valueint < 0 || i->valueint > 5) {
+		if (is_duplicate && (i->valueint < 0 || i->valueint > 5)) {
 				ESP_LOGD(TAG, "Deleting '%s' from log configuration", i->string);
 				cJSON_DeleteItemFromArray(log, idx);
 				i->valueint = 0; // ESP_LOG_NONE
-			} else {
-				ESP_LOGD(TAG, "Overwriting '%s' in log configuration", i->string);
+		} else if (!is_duplicate) {
+			if (i->valueint >= 0 && i->valueint <= 5)
+				cJSON_AddItemReferenceToArray(log, i);
+			else {
+				ESP_LOGW(TAG, "Unable to delete log level for '%s' (no such entry)", i->string);
+				continue; // avoid nullptr reference
 			}
-		} else {
-			cJSON_AddItemToArray(log, i);
 		}
 
 		// Set the log level
@@ -147,12 +145,12 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 	if (fd != nullptr) {
 		fputs(fjson_str, fd);
 		fclose(fd);
-		vPortYield(); // stream write before freeing string
 	} else {
 		ESP_LOGE(TAG, "Unable to write new JSON object to file");
 	}
 
 	// Clean up
+	ESP_LOGV(TAG, "Cleaning up memory");
 	cJSON_Delete(wroot);
 	cJSON_Delete(froot);
 	delete[] fjson_str;
