@@ -7,25 +7,13 @@ static SemaphoreHandle_t backlog_semaphore, sensor_sleep_semaphore;
 static esp_timer_handle_t timer;
 static Sensor* sensors[] { new BME280() };
 
-static void timer_callback(void *args) {
-	xTaskNotifyGive(main_task_handle);
-}
-
 static void set_log_levels() {
 	esp_log_level_set("*", ESP_LOG_NONE);
-
-	esp_log_level_set("i2c", ESP_LOG_WARN);
-	esp_log_level_set("uart", ESP_LOG_WARN);
+	esp_log_level_set("uart", ESP_LOG_INFO);
+	esp_log_level_set("i2c", ESP_LOG_INFO);
 	esp_log_level_set("sdcard", ESP_LOG_INFO);
-	esp_log_level_set("ds3231", ESP_LOG_INFO);
-
 	esp_log_level_set("main", ESP_LOG_DEBUG);
-	esp_log_level_set("wlan", ESP_LOG_INFO);
-	esp_log_level_set("mqtt", ESP_LOG_INFO);
-	esp_log_level_set("http", ESP_LOG_VERBOSE);
 }
-
-
 
 extern "C" void app_main() {
 	// Install drivers and set logging
@@ -54,16 +42,51 @@ extern "C" void app_main() {
 
 		// Parse the JSON
 		ESP_LOGV(TAG, "Parsing JSON file");
-		cJSON *config { cJSON_Parse(file_str) };
-		ssid = strdup(cJSON_GetObjectItem(config, "ssid")->valuestring);
-		wifi_pass = strdup(cJSON_GetObjectItem(config, "pass")->valuestring);
-		mqtt_topic = strdup(cJSON_GetObjectItem(config, "topic")->valuestring);
-		mqtt_broker = strdup(cJSON_GetObjectItem(config, "mqtt")->valuestring);
-		timezone = strdup(cJSON_GetObjectItem(config, "tz")->valuestring);
-		cJSON_Delete(config);
+		cJSON *root { cJSON_Parse(file_str) }, *json;
+		if (cJSON_IsInvalid(root)) {
+			ESP_LOGE(TAG, "Unable to parse config file (invalid JSON)");
+			ESP_LOGE(TAG, "Denying service...");
+			vTaskDelay(portMAX_DELAY);
+		}
+
+		// TODO: Error checking for JSON object
+		ssid = strdup(cJSON_GetObjectItem(root, "ssid")->valuestring);
+		wifi_pass = strdup(cJSON_GetObjectItem(root, "pass")->valuestring);
+		mqtt_topic = strdup(cJSON_GetObjectItem(root, "topic")->valuestring);
+		mqtt_broker = strdup(cJSON_GetObjectItem(root, "mqtt")->valuestring);
+
+		// Get the time zone string if it's present
+		if (cJSON_IsString((json = cJSON_GetObjectItem(root, "tz")))) {
+			ESP_LOGD(TAG, "Setting the time zone");
+			timezone = strdup(json->valuestring);
+		}
+
+		// Set the log levels per the log JSON object
+		json = cJSON_GetObjectItem(root, "log");
+		if (cJSON_IsObject(json) && cJSON_GetArraySize(json) > 0) {
+			const char *const levels[6] { "NONE", "ERROR", "WARN", "INFO",
+				"DEBUG", "VERBOSE" };
+
+			// Iterate through each item in the JSON object
+			cJSON *elem;
+			cJSON_ArrayForEach(elem, json) {
+				char* key = elem->string;
+				int value = elem->valueint;
+				if (elem->valueint < 0 || elem->valueint > 5) {
+					ESP_LOGE(TAG, "Unable to get log level for '%s'",
+							elem->string);
+				} else {
+					ESP_LOGD(TAG, "Setting '%s' to ESP_LOG_%s", key,
+							levels[value]);
+					esp_log_level_set(key, static_cast<esp_log_level_t>(value));
+				}
+			}
+		}
+
+		cJSON_Delete(root);
 	} else {
 		ESP_LOGE(TAG, "Unable to load configuration file (cannot open file)");
-		ESP_LOGI(TAG, "Denying service...");
+		ESP_LOGE(TAG, "Denying service...");
 		vTaskDelay(portMAX_DELAY);
 	}
 
@@ -183,7 +206,8 @@ void initialize_required_services() {
 	ESP_LOGV(TAG, "Registering shutdown handler");
 	auto shutdown_handler =  [] () {
 		ESP_LOGI(TAG, "Restarting...");
-		//if (!http_stop()) ESP_LOGE(TAG, "Unable to stop the web server");
+		vTaskSuspend(main_task_handle);
+		if (!http_stop()) ESP_LOGE(TAG, "Unable to stop the web server");
 		if (!mqtt_stop()) ESP_LOGE(TAG, "Unable to stop the MQTT client");
 		if (!wlan_stop()) ESP_LOGE(TAG, "Unable to stop the WiFi driver");
 		if (!uart_stop()) ESP_LOGE(TAG, "Unable to stop the UART bus");
@@ -237,8 +261,11 @@ void initialize_required_services() {
 
 	// Configure the main timer
 	ESP_LOGV(TAG, "Configuring the main timer");
+	auto timer_callback = [] (void *args) {
+		xTaskNotifyGive(main_task_handle);
+	};
 	esp_timer_create_args_t timer_args;
-	timer_args.callback = &timer_callback;
+	timer_args.callback = timer_callback;
 	timer_args.name = "main_timer";
 	esp_timer_create(&timer_args, &timer);
 
@@ -255,6 +282,7 @@ int vlogf(const char *format, va_list arg) {
 	if (fd != nullptr) {
 		// Delete the log file if it gets too big
 		if (fsize(fd) > LOG_FILE_MAX_SIZE_BYTES) {
+			// TODO: replace with freopen(LOG_FILE_PATH, "w", fd) ?
 			fclose(fd);
 			remove(LOG_FILE_PATH);
 			fd = fopen(LOG_FILE_PATH, "a+");
