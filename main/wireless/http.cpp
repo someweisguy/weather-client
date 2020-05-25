@@ -41,6 +41,9 @@ static esp_err_t http_restart_handler(httpd_req_t *r) {
 static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 	ESP_LOGD(TAG, "Handling set log level request");
 
+	// FIXME: Corrupt heap when adding new entries
+	// FIXME: Null pointer (I think) when deleting nonexistent entries
+
 	// Read the content into a buffer
 	ESP_LOGV(TAG, "Reading data from client");
 	char wjson_str[r->content_len];
