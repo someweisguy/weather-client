@@ -120,10 +120,10 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 				i->valueint = 0; // ESP_LOG_NONE
 		} else if (!is_duplicate) {
 			if (i->valueint >= 0 && i->valueint <= 5)
-				cJSON_AddItemReferenceToArray(log, i);
+				cJSON_AddItemReferenceToArray(log, i); // avoid nullptr
 			else {
 				ESP_LOGW(TAG, "Unable to delete log level for '%s' (no such entry)", i->string);
-				continue; // avoid nullptr reference
+				continue; // avoid nullptr
 			}
 		}
 
