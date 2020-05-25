@@ -9,15 +9,20 @@
 static const char *TAG { "http" };
 static httpd_handle_t server { nullptr };
 
+static esp_err_t http_send_response(httpd_req_t *r, const char *hdr, const char *body) {
+	if (strlen(hdr) > 0)
+		httpd_resp_set_status(r, hdr);
+	ESP_LOGV(TAG, "Responding to client");
+	esp_err_t resp_ret { httpd_resp_sendstr(r, body) };
+	if (resp_ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to respond to client (%i)", resp_ret);
+	return resp_ret;
+}
+
 static esp_err_t http_restart_handler(httpd_req_t *r) {
 	ESP_LOGD(TAG, "Handling restart request");
 	ESP_LOGV(TAG, "Responding to client");
-	httpd_resp_set_status(r, "204 No Content");
-	esp_err_t resp_ret { httpd_resp_send(r, "", 0) };
-	if (resp_ret != ESP_OK) {
-		ESP_LOGE(TAG, "Unable to respond to client (%i)", resp_ret);
-		return resp_ret;
-	}
+	http_send_response(r, "204 No content", "");
 
 	/**
 	 * The ESP-IDF does not have an event loop for HTTP server events (though
@@ -49,25 +54,18 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 		web_json_str[read] = 0; // add null terminator
 		ESP_LOGV(TAG, "Got %i bytes from client: %s", r->content_len, web_json_str);
 	} else {
-		ESP_LOGE(TAG, "Unable to get data from client (%i)", read);
-		httpd_resp_set_status(r, "400 Bad Request");
-		esp_err_t resp_ret { httpd_resp_send(r, "", 0) };
-		if (resp_ret != ESP_OK)
-			ESP_LOGE(TAG, "Unable to respond to client (%i)", resp_ret);
-		return resp_ret;
+		const char* resp { "Unable to get data from client" };
+		ESP_LOGE(TAG, "%s", resp);
+		return http_send_response(r, "400 Bad Request", resp);
 	}
 
 	// Check if the content is a valid JSON object
 	ESP_LOGV(TAG, "Checking if client data is valid JSON");
 	cJSON *web_root { cJSON_Parse(web_json_str) };
 	if (cJSON_IsInvalid(web_root)) {
-		ESP_LOGW(TAG, "Client data is invalid JSON");
-		ESP_LOGV(TAG, "Responding to client");
-		httpd_resp_set_status(r, "400 Bad Request");
-		esp_err_t resp_ret { httpd_resp_send(r, "", 0) };
-		if (resp_ret != ESP_OK)
-			ESP_LOGE(TAG, "Unable to respond to the client (%i)", resp_ret);
-		return resp_ret;
+		const char* resp { "Client data is invalid JSON" };
+		ESP_LOGW(TAG, "%s", resp);
+		return http_send_response(r, "400 Bad Request", resp);
 	}
 
 	// Read the file JSON object into memory
@@ -83,14 +81,10 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 		fclose(fd);
 		file_root = cJSON_Parse(file_str);
 	} else {
-		ESP_LOGE(TAG, "Unable to open the configuration file");
-		ESP_LOGV(TAG, "Responding to client");
-		httpd_resp_set_status(r, "500 Internal Server Error");
-		esp_err_t resp_ret { httpd_resp_send(r, "", 0) };
-		if (resp_ret != ESP_OK)
-			ESP_LOGE(TAG, "Unable to respond to the client (%i)", resp_ret);
+		const char *resp { "Unable to open the configuration file" };
+		ESP_LOGE(TAG, "%s", resp);
 		cJSON_Delete(web_root);
-		return resp_ret;
+		return http_send_response(r, "500 Internal Server Error", resp);
 	}
 
 	// Get the JSON log item or create it if it doesn't exist
@@ -141,8 +135,11 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 	if (fd != nullptr) {
 		char* file_json_str = cJSON_Print(file_root);
 		if (fputs(file_json_str, fd) == EOF) {
-			ESP_LOGE(TAG, "Unable to write the new JSON object to file (cannot write)");
-			httpd_resp_set_status(r, "500 Internal Server Error");
+			const char* resp { "Unable to write the new JSON object to file (cannot write)" };
+			ESP_LOGE(TAG, "%s", resp);
+			delete[] file_json_str;
+			cJSON_Delete(file_root);
+			return http_send_response(r, "500 Internal Server Error", resp);
 		} else {
 			const char *const l[6] { "NONE", "ERROR", "WARN", "INFO", "DEBUG", "VERBOSE" };
 			cJSON *i;
@@ -153,22 +150,19 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 				ESP_LOGI(TAG, "Setting '%s' to log level ESP_LOG_%s", name, l[value]);
 				esp_log_level_set(name, static_cast<esp_log_level_t>(value));
 			}
-			httpd_resp_set_status(r, "204 No Content"); // success!
+			delete[] file_json_str;
 		}
-		delete[] file_json_str;
+		fclose(fd);
 	} else {
-		ESP_LOGE(TAG, "Unable to write the new JSON object to file (cannot open file)");
-		httpd_resp_set_status(r, "500 Internal Server Error");
+		const char *resp { "Unable to write the new JSON object to file (cannot open file)" };
+		ESP_LOGE(TAG, "%s", resp);
+		cJSON_Delete(file_root);
+		return httpd_resp_set_status(r, "500 Internal Server Error");
 	}
 	cJSON_Delete(file_root); // done with file JSON object
-	fclose(fd);
 
 	// Send a response to the client
-	ESP_LOGV(TAG, "Responding to client");
-	esp_err_t resp_ret { httpd_resp_send(r, "", 0) };
-	if (resp_ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to respond to client (%i)", resp_ret);
-	return resp_ret;
+	return http_send_response(r, "200 OK", "OK");
 }
 
 static esp_err_t http_get_log_level_handler(httpd_req_t *r) {
@@ -185,13 +179,9 @@ static esp_err_t http_get_log_level_handler(httpd_req_t *r) {
 		fclose(fd);
 		file_root = cJSON_Parse(file_str);
 	} else {
-		ESP_LOGE(TAG, "Unable to open the configuration file");
-		ESP_LOGV(TAG, "Responding to client");
-		httpd_resp_set_status(r, "500 Internal Server Error");
-		esp_err_t resp_ret { httpd_resp_send(r, "", 0) };
-		if (resp_ret != ESP_OK)
-			ESP_LOGE(TAG, "Unable to respond to the client (%i)", resp_ret);
-		return resp_ret;
+		const char *resp { "Unable to open the configuration file" };
+		ESP_LOGE(TAG, "%s", resp);
+		return http_send_response(r, "500 Internal Server Error", resp);
 	}
 
 	// Get the JSON log item or create it if it doesn't exist
@@ -206,16 +196,75 @@ static esp_err_t http_get_log_level_handler(httpd_req_t *r) {
 	cJSON_Delete(file_root);
 
 	// Send a response to the client
-	esp_err_t resp_ret { httpd_resp_sendstr(r, log_json_str) };
-	if (resp_ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to respond to the client (%i)", resp_ret);
+	esp_err_t ret { http_send_response(r, "200 OK", log_json_str) };
 	delete[] log_json_str;
-	return resp_ret;
+	return ret;
 }
 
 static esp_err_t http_get_log_events_handler(httpd_req_t *r) {
-	// TODO: send the log to the client
-	// Maybe in the post data, specify how many of the last lines you want?
+	// Read the content into a buffer
+	ESP_LOGV(TAG, "Getting data from client");
+	char web_json_str[r->content_len];
+	int read = httpd_req_recv(r, web_json_str, r->content_len);
+	if (read >= 0) {
+		web_json_str[read] = 0; // add null terminator
+		ESP_LOGV(TAG, "Got %i bytes from client: %s", r->content_len, web_json_str);
+	} else {
+		const char* resp { "Unable to get data from client" };
+		ESP_LOGE(TAG, "%s", resp);
+		return http_send_response(r, "400 Bad Request", resp);
+	}
+
+	// Check if the content is a valid JSON object
+	ESP_LOGV(TAG, "Checking if client data is valid JSON");
+	cJSON *web_root { cJSON_Parse(web_json_str) }, *size_json;
+	if (cJSON_IsInvalid(web_root)) {
+		const char *resp { "Client data is invalid JSON" };
+		ESP_LOGW(TAG, "%s", resp);
+		return http_send_response(r, "400 Bad Request", resp);
+	} else if ((size_json = cJSON_GetObjectItem(web_root, "size")) == nullptr) {
+		const char *resp { "Client data does not specify log size" };
+		ESP_LOGW(TAG, "%s", resp);
+		return http_send_response(r, "400 Bad Request", resp);
+	} else if (size_json->valueint < 1) {
+		const char *resp { "Client requested log size is less than 1 KB" };
+		ESP_LOGW(TAG, "%s", resp);
+		return http_send_response(r, "400 Bad Request", resp);
+	}
+
+	// Get the requested size and delete the web JSON object
+	const int size { size_json->valueint * 1024 }; // KB
+	cJSON_Delete(web_root);
+
+	FILE *fd { fopen(LOG_FILE_PATH, "r") };
+	if (fd != nullptr) {
+		// Go to the nearest newline from the specified file size
+		fseek(fd, -size, SEEK_END);
+		for (int c = fgetc(fd); c != '\n' && c != EOF; c = fgetc(fd));
+
+		// Allocate a max of 1KB of memory for chunking log file
+		size_t chunk_size = heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT);
+		if (chunk_size > 1024) chunk_size = 1024;
+		char *chunk = new char[chunk_size];
+
+		// Send the log file in chunks
+		while (!feof(fd)) {
+			const size_t read { fread(chunk, 1, chunk_size, fd) };
+			httpd_resp_send_chunk(r, chunk, read);
+		}
+		httpd_resp_send_chunk(r, chunk, 0);
+		fclose(fd);
+		delete[] chunk;
+	} else {
+		const char *resp { "Unable to open the log file" };
+		ESP_LOGE(TAG, "%s", resp);
+		return http_send_response(r, "500 Internal Server Error", resp);
+	}
+	return ESP_OK;
+}
+
+static esp_err_t http_set_timezone_handler(httpd_req_t *r) {
+	// TODO
 	return ESP_OK;
 }
 
@@ -271,6 +320,16 @@ bool http_start() {
 	ret = httpd_register_uri_handler(server, &get_events_uri);
 	if (ret != ESP_OK)
 		ESP_LOGE(TAG, "Unable to register get log events handler (%i)", ret);
+
+	// Register set timezone handler
+	ESP_LOGD(TAG, "Registering set timezone handler");
+	httpd_uri_t set_tz_uri;
+	set_tz_uri.method = HTTP_POST;
+	set_tz_uri.uri = "/tz";
+	set_tz_uri.handler = http_set_timezone_handler;
+	ret = httpd_register_uri_handler(server, &set_tz_uri);
+	if (ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to register set timezone handler (%i)", ret);
 
     return true;
 }
