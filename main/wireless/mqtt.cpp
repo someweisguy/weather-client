@@ -31,16 +31,6 @@ static void event_handler(void *handler_args, esp_event_base_t base,
 			ESP_LOGI(TAG, "Disconnected from MQTT broker");
 		xEventGroupSetBits(mqtt_event_group, DISCONNECT_BIT);
 		xEventGroupClearBits(mqtt_event_group, CONNECT_BIT);
-
-		// Stop MQTT if WiFi is not started
-		if (!wlan_started()) {
-			xEventGroupSetBits(mqtt_event_group, STOP_BIT);
-			xEventGroupClearBits(mqtt_event_group, START_BIT);
-			ESP_LOGE(TAG, "Unable to connect to MQTT broker (type: %i, conn: %i)",
-					mqtt_event->error_handle->error_type,
-					mqtt_event->error_handle->connect_return_code);
-			mqtt_stop();
-		}
 		break;
 
 	case MQTT_EVENT_ERROR:
