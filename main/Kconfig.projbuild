@@ -1,0 +1,27 @@
+menu "Resource Configuration"
+
+    config RES_SDCARD_MOUNT_POINT
+        string "SD card mount point"
+        default "/sdcard"
+        help
+            The mount point for the filesystem.
+
+    config RES_LOG_FILE_PATH
+        string "Log file path"
+        default "/events.log"
+        help
+            The file path for the log file.
+            
+    config RES_CONFIG_FILE_PATH
+        string "Configuration file path"
+        default "/config.json"
+        help
+            The file path for the configuration file.
+            
+    config RES_DATA_FILE_PATH
+        string "Data file path"
+        default "/data.txt"
+        help
+            The file path for the data file, if unable to transmit data to MQTT broker
+            
+endmenu

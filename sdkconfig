@@ -114,6 +114,15 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
+# Resource Configuration
+#
+CONFIG_RES_SDCARD_MOUNT_POINT="/sdcard"
+CONFIG_RES_LOG_FILE_PATH="/events.log"
+CONFIG_RES_CONFIG_FILE_PATH="/config.json"
+CONFIG_RES_DATA_FILE_PATH="/data.txt"
+# end of Resource Configuration
+
+#
 # Compiler options
 #
 # CONFIG_COMPILER_OPTIMIZATION_DEFAULT is not set
