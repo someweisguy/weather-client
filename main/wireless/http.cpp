@@ -237,11 +237,14 @@ static esp_err_t http_get_log_events_handler(httpd_req_t *r) {
 	const int size { size_json->valueint * 1024 }; // KB
 	cJSON_Delete(web_root);
 
+	ESP_LOGV(TAG, "Reading the log file from disk");
 	FILE *fd { fopen(LOG_FILE_PATH, "r") };
 	if (fd != nullptr) {
 		// Go to the nearest newline from the specified file size
-		fseek(fd, -size, SEEK_END);
-		for (int c = fgetc(fd); c != '\n' && c != EOF; c = fgetc(fd));
+		if (fsize(fd) < size) {
+			fseek(fd, -size, SEEK_END);
+			for (int c = fgetc(fd); c != '\n' && c != EOF; c = fgetc(fd));
+		}
 
 		// Allocate a max of 1KB of memory for chunking log file
 		size_t chunk_size = heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT);
@@ -249,11 +252,14 @@ static esp_err_t http_get_log_events_handler(httpd_req_t *r) {
 		char *chunk = new char[chunk_size];
 
 		// Send the log file in chunks
-		while (!feof(fd)) {
-			const size_t read { fread(chunk, 1, chunk_size, fd) };
-			httpd_resp_send_chunk(r, chunk, read);
-		}
+		ESP_LOGD(TAG, "Sending the log file");
+		size_t chunk_read;
+		do {
+			chunk_read = fread(chunk, 1, chunk_size, fd);
+			httpd_resp_send_chunk(r, chunk, chunk_read);
+		} while (chunk_read > 0);
 		httpd_resp_send_chunk(r, chunk, 0);
+		ESP_LOGD(TAG, "Log file sent");
 		fclose(fd);
 		delete[] chunk;
 	} else {
