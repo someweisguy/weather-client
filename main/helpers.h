@@ -124,8 +124,10 @@ char *ms2str(char* destination, int64_t millis);
  *
  * @return 			the size of the file in bytes
  */
-int fsize(FILE *fd);
+long fsize(FILE *fd);
 
-esp_err_t get_resource(cJSON *&root);
+esp_err_t get_config_resource(cJSON *&root);
+
+esp_err_t set_config_resource(cJSON *&root);
 
 #endif /* MAIN_HELPERS_H_ */

@@ -103,7 +103,7 @@ char *ms2str(char* destination, int64_t millis) {
 	return destination;
 }
 
-int fsize(FILE *fd) {
+long fsize(FILE *fd) {
 	fpos_t start;
 	fgetpos(fd, &start);
 	fseek(fd, 0, SEEK_END);
@@ -112,25 +112,72 @@ int fsize(FILE *fd) {
 	return size;
 }
 
-esp_err_t get_resource(cJSON *&root) {
-	esp_err_t ret;
+esp_err_t get_config_resource(cJSON *&root) {
+	// Open the config file and read the resource
+	esp_err_t ret { ESP_OK };
 	FILE *fd { fopen(CONFIG_FILE, "r") };
-	if (fd != nullptr) {
-		const long size { fsize(fd) };
-		if (size > CONFIG_MAX_SIZE) {
-			ret = ESP_ERR_INVALID_SIZE;
-		} else {
-			char file_str[size + 1];
-			fread(file_str, 1, size, fd);
-			root = cJSON_Parse(file_str);
-			if (cJSON_GetErrorPtr())
-				ret = ESP_ERR_INVALID_STATE;
-			else
-				ret = ESP_OK;
+	do {
+		// Check if the file was opened
+		if (fd == nullptr) {
+			ret = ESP_ERR_NOT_FOUND;
+			return ret;
 		}
-	} else {
-		return ESP_ERR_NOT_FOUND;
+
+		// Check if the file is sized correctly
+		const long file_size { fsize(fd) };
+		if (file_size > CONFIG_MAX_SIZE) {
+			ret = ESP_ERR_INVALID_SIZE;
+			// allow to continue
+		}
+
+		// Check if there is enough memory to read file
+		const size_t heap_block { heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT) };
+		if (file_size + 1 > heap_block) {
+			ret = ESP_ERR_NO_MEM;
+			break;
+		}
+
+		// Read the file into memory
+		char* file_str { new char[file_size + 1] };
+		if (fread(file_str, 1, file_size, fd) < file_size) {
+			ret = ESP_FAIL;
+			delete[] file_str;
+			break;
+		}
+
+		// Parse the string as a JSON object and check that it is valid
+		root = cJSON_Parse(file_str);
+		delete[] file_str;
+		if (cJSON_GetErrorPtr()) {
+			ret = ESP_ERR_INVALID_STATE;
+			break;
+		}
+	} while (false);
+
+	if (fclose(fd) == EOF)
+		ret = ESP_FAIL;
+
+	return ret;
+}
+
+esp_err_t set_config_resource(cJSON *&root) {
+	// Print the JSON object to a string
+	char *json_str { cJSON_Print(root) };
+	if (strlen(json_str) > CONFIG_MAX_SIZE) {
+		delete[] json_str;
+		return ESP_ERR_INVALID_SIZE;
 	}
-	fclose(fd);
+
+	// Open the config file and write the string
+	esp_err_t ret;
+	FILE *fd { fopen(CONFIG_FILE, "w") };
+	if (fd != nullptr) {
+		if (fputs(json_str, fd) == EOF)
+			ret = ESP_FAIL;
+		if (fclose(fd) == EOF)
+			ret = ESP_FAIL;
+	} else ret = ESP_ERR_NOT_FOUND;
+
+	delete[] json_str;
 	return ret;
 }
