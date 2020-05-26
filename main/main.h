@@ -35,15 +35,11 @@
 #define SENSOR_READY_MS 		30 * 1000 // 30 seconds
 #define LOG_FILE_MAX_SIZE_BYTES 100 * 1024 // 100 KB
 
-#define SDCARD_MOUNT_POINT  "/sdcard"
-#define LOG_FILE_PATH       SDCARD_MOUNT_POINT "/events.log"
-#define CONFIG_FILE_PATH    SDCARD_MOUNT_POINT "/config.json"
-#define DATA_FILE_PATH      SDCARD_MOUNT_POINT "/data.txt"
-
+#define MOUNT_POINT CONFIG_RES_SDCARD_MOUNT_POINT
+#define CONFIG_FILE MOUNT_POINT CONFIG_RES_CONFIG_FILE_PATH
+#define DATA_FILE   MOUNT_POINT CONFIG_RES_DATA_FILE_PATH
 
 void initialize_required_services();
-
-int vlogf(const char *format, va_list arg);
 
 void synchronize_system_time_task(void *args);
 void send_backlogged_data_task(void *args);
