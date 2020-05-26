@@ -365,6 +365,16 @@ static esp_err_t http_set_timezone_handler(httpd_req_t *r) {
 	return ESP_OK;
 }
 
+static esp_err_t http_get_mqtt_handler(httpd_req_t *r) {
+	// TODO
+	return ESP_OK;
+}
+
+static esp_err_t http_set_mqtt_handler(httpd_req_t *r) {
+	// TODO
+	return ESP_OK;
+}
+
 bool http_start() {
 	if (server != nullptr)
 		return true;
@@ -378,55 +388,83 @@ bool http_start() {
     	return false;
     }
 
+    esp_err_t ret;
+
+	// Register get log level handler
+	ESP_LOGD(TAG, "Registering get log level handler");
+	httpd_uri_t get_level_uri;
+	get_level_uri.method = HTTP_GET;
+	get_level_uri.uri = "/logging";
+	get_level_uri.handler = http_get_log_level_handler;
+	ret = httpd_register_uri_handler(server, &get_level_uri);
+	if (ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to register get log level handler (%i)", ret);
+
+	// Register set log level handler
+	ESP_LOGD(TAG, "Registering set log level handler");
+	httpd_uri_t set_level_uri;
+	set_level_uri.method = HTTP_PUT;
+	set_level_uri.uri = "/logging";
+	set_level_uri.handler = http_set_log_level_handler;
+	ret = httpd_register_uri_handler(server, &set_level_uri);
+	if (ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to register set log level handler (%i)", ret);
+
+	// Register get MQTT handler
+	ESP_LOGD(TAG, "Registering get MQTT handler");
+	httpd_uri_t get_mqtt_uri;
+	get_mqtt_uri.method = HTTP_GET;
+	get_mqtt_uri.uri = "/mqtt";
+	get_mqtt_uri.handler = http_get_mqtt_handler;
+	ret = httpd_register_uri_handler(server, &get_mqtt_uri);
+	if (ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to register get MQTT handler (%i)", ret);
+
+	// Register set MQTT handler
+	ESP_LOGD(TAG, "Registering set MQTT handler");
+	httpd_uri_t set_mqtt_uri;
+	set_mqtt_uri.method = HTTP_PUT;
+	set_mqtt_uri.uri = "/mqtt";
+	set_mqtt_uri.handler = http_set_mqtt_handler;
+	ret = httpd_register_uri_handler(server, &set_mqtt_uri);
+	if (ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to register set MQTT handler (%i)", ret);
+
+	// TODO: Register log head handler
+
+	// Register get log events handler
+	ESP_LOGD(TAG, "Registering get log events handler");
+	httpd_uri_t get_events_uri;
+	get_events_uri.method = HTTP_GET;
+	get_events_uri.uri = "/events";
+	get_events_uri.handler = http_get_log_events_handler;
+	ret = httpd_register_uri_handler(server, &get_events_uri);
+	if (ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to register get log events handler (%i)", ret);
+
+	// TODO: Register log events delete handler
+
+	// TODO: register timezone get handler
+
+	// Register set timezone handler
+	ESP_LOGD(TAG, "Registering set timezone handler");
+	httpd_uri_t set_tz_uri;
+	set_tz_uri.method = HTTP_PUT;
+	set_tz_uri.uri = "/tz";
+	set_tz_uri.handler = http_set_timezone_handler;
+	ret = httpd_register_uri_handler(server, &set_tz_uri);
+	if (ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to register set timezone handler (%i)", ret);
+
     // Register restart handler
     ESP_LOGD(TAG, "Registering restart handler");
 	httpd_uri_t restart_uri;
 	restart_uri.method = HTTP_POST;
 	restart_uri.uri = "/restart";
 	restart_uri.handler = http_restart_handler;
-	esp_err_t ret = httpd_register_uri_handler(server, &restart_uri);
+	ret = httpd_register_uri_handler(server, &restart_uri);
 	if (ret != ESP_OK)
 		ESP_LOGE(TAG, "Unable to register restart handler (%i)", ret);
-
-	// Register set log level handler
-	ESP_LOGD(TAG, "Registering set log level handler");
-	httpd_uri_t set_level_uri;
-	set_level_uri.method = HTTP_POST;
-	set_level_uri.uri = "/set_level";
-	set_level_uri.handler = http_set_log_level_handler;
-	ret = httpd_register_uri_handler(server, &set_level_uri);
-	if (ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to register set log level handler (%i)", ret);
-
-	// Register get log level handler
-	ESP_LOGD(TAG, "Registering get log level handler");
-	httpd_uri_t get_level_uri;
-	get_level_uri.method = HTTP_POST;
-	get_level_uri.uri = "/get_level";
-	get_level_uri.handler = http_get_log_level_handler;
-	ret = httpd_register_uri_handler(server, &get_level_uri);
-	if (ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to register get log level handler (%i)", ret);
-
-	// Register get log level handler
-	ESP_LOGD(TAG, "Registering get log events handler");
-	httpd_uri_t get_events_uri;
-	get_events_uri.method = HTTP_POST;
-	get_events_uri.uri = "/get_events";
-	get_events_uri.handler = http_get_log_events_handler;
-	ret = httpd_register_uri_handler(server, &get_events_uri);
-	if (ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to register get log events handler (%i)", ret);
-
-	// Register set timezone handler
-	ESP_LOGD(TAG, "Registering set timezone handler");
-	httpd_uri_t set_tz_uri;
-	set_tz_uri.method = HTTP_POST;
-	set_tz_uri.uri = "/tz";
-	set_tz_uri.handler = http_set_timezone_handler;
-	ret = httpd_register_uri_handler(server, &set_tz_uri);
-	if (ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to register set timezone handler (%i)", ret);
 
     return true;
 }
