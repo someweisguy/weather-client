@@ -241,7 +241,7 @@ static esp_err_t http_get_log_events_handler(httpd_req_t *r) {
 	FILE *fd { fopen(LOG_FILE_PATH, "r") };
 	if (fd != nullptr) {
 		// Go to the nearest newline from the specified file size
-		if (fsize(fd) < size) {
+		if (fsize(fd) > size) {
 			fseek(fd, -size, SEEK_END);
 			for (int c = fgetc(fd); c != '\n' && c != EOF; c = fgetc(fd));
 		}
