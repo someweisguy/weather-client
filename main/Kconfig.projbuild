@@ -11,12 +11,24 @@ menu "Resource Configuration"
         default "/events.log"
         help
             The file path for the log file.
+    
+    config RES_LOG_FILE_MAX_SIZE
+        int "Log file max size"
+        default 102400
+        help
+            The maximum log file size in bytes.
             
     config RES_CONFIG_FILE_PATH
         string "Configuration file path"
         default "/config.json"
         help
             The file path for the configuration file.
+            
+    config RES_CONFIG_FILE_MAX_SIZE
+        int "Configuration file max size"
+        default 1024
+        help
+            The maximum configuration file size in bytes.
             
     config RES_DATA_FILE_PATH
         string "Data file path"
