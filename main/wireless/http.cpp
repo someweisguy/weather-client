@@ -137,6 +137,7 @@ static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
 		if (fputs(file_json_str, fd) == EOF) {
 			const char* resp { "Unable to write the new JSON object to file (cannot write)" };
 			ESP_LOGE(TAG, "%s", resp);
+			fclose(fd);
 			delete[] file_json_str;
 			cJSON_Delete(file_root);
 			return http_send_response(r, "500 Internal Server Error", resp);
@@ -264,7 +265,97 @@ static esp_err_t http_get_log_events_handler(httpd_req_t *r) {
 }
 
 static esp_err_t http_set_timezone_handler(httpd_req_t *r) {
-	// TODO
+	ESP_LOGD(TAG, "Handling set timezone request");
+
+	// Read the content into a buffer
+	ESP_LOGV(TAG, "Getting data from client");
+	char web_json_str[r->content_len];
+	int read = httpd_req_recv(r, web_json_str, r->content_len);
+	if (read >= 0) {
+		web_json_str[read] = 0; // add null terminator
+		ESP_LOGV(TAG, "Got %i bytes from client: %s", r->content_len, web_json_str);
+	} else {
+		const char* resp { "Unable to get data from client" };
+		ESP_LOGE(TAG, "%s", resp);
+		return http_send_response(r, "400 Bad Request", resp);
+	}
+
+	// Check if the content is a valid JSON object
+	ESP_LOGV(TAG, "Checking if client data is valid JSON");
+	cJSON *web_root { cJSON_Parse(web_json_str) }, *web_tz;
+	if (cJSON_IsInvalid(web_root)) {
+		const char *resp { "Client data is invalid JSON" };
+		ESP_LOGW(TAG, "%s", resp);
+		return http_send_response(r, "400 Bad Request", resp);
+	} else if ((web_tz = cJSON_GetObjectItem(web_root, "tz")) == nullptr) {
+		const char *resp { "Client data does not specify tz info" };
+		ESP_LOGW(TAG, "%s", resp);
+		return http_send_response(r, "400 Bad Request", resp);
+	}
+
+	// Copy the web tz string into a buffer and delete the web JSON root
+	const size_t len { strlen(web_tz->valuestring) };
+	char tz_str[len + 1];
+	strcpy(tz_str, web_tz->valuestring);
+	cJSON_Delete(web_root);
+
+	// Read the file JSON object into memory
+	ESP_LOGV(TAG, "Reading the configuration file into memory");
+	cJSON *file_root;
+	FILE *fd { fopen(CONFIG_FILE_PATH, "r") };
+	if (fd != nullptr) {
+		const long size { fsize(fd) };
+		if (size > 1024)
+			ESP_LOGW(TAG, "Config file is larger than expected (%li bytes)", size);
+		char file_str[size + 1];
+		fread(file_str, 1, size, fd);
+		fclose(fd);
+		file_root = cJSON_Parse(file_str);
+	} else {
+		const char *resp { "Unable to open the configuration file" };
+		ESP_LOGE(TAG, "%s", resp);
+		cJSON_Delete(web_root);
+		return http_send_response(r, "500 Internal Server Error", resp);
+	}
+
+	// Get the JSON log item or create it if it doesn't exist
+	cJSON *file_tz = cJSON_CreateString(tz_str);
+	if (cJSON_GetObjectItem(file_root, "tz") == nullptr) {
+		ESP_LOGV(TAG, "Creating a new JSON tz object");
+		cJSON_AddItemToObject(file_root, "tz", file_tz);
+	} else {
+		cJSON_ReplaceItemInObject(file_root, "tz", file_tz);
+	}
+
+	// Print the edited JSON object to file
+	ESP_LOGV(TAG, "Writing new JSON object to file");
+	fd = fopen(CONFIG_FILE_PATH, "w");
+	if (fd != nullptr) {
+		char* file_json_str = cJSON_Print(file_root);
+		if (fputs(file_json_str, fd) == EOF) {
+			const char* resp { "Unable to write the new JSON object to file (cannot write)" };
+			ESP_LOGE(TAG, "%s", resp);
+			fclose(fd);
+			delete[] file_json_str;
+			cJSON_Delete(file_root);
+			return http_send_response(r, "500 Internal Server Error", resp);
+		} else {
+			setenv("TZ", tz_str, 1);
+			tzset();
+			delete[] file_json_str;
+		}
+		fclose(fd);
+	} else {
+		const char *resp { "Unable to write the new JSON object to file (cannot open file)" };
+		ESP_LOGE(TAG, "%s", resp);
+		cJSON_Delete(file_root);
+		return httpd_resp_set_status(r, "500 Internal Server Error");
+	}
+	cJSON_Delete(file_root); // done with file JSON object
+
+	// Send a response to the client
+	return http_send_response(r, "200 OK", "OK");
+
 	return ESP_OK;
 }
 
