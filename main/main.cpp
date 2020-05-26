@@ -5,15 +5,18 @@ static char *ssid, *wifi_pass, *mqtt_topic, *mqtt_broker, *timezone;
 static TaskHandle_t main_task_handle;
 static SemaphoreHandle_t backlog_semaphore, sensor_sleep_semaphore;
 static esp_timer_handle_t timer;
-static Sensor* sensors[] { new BME280() };
+static Sensor* sensors[] { new PMS5003(), new BME280() };
 
 static void set_log_levels() {
 	esp_log_level_set("*", ESP_LOG_NONE);
-	esp_log_level_set("uart", ESP_LOG_INFO);
-	esp_log_level_set("i2c", ESP_LOG_INFO);
+	esp_log_level_set("uart", ESP_LOG_WARN);
+	esp_log_level_set("i2c", ESP_LOG_WARN);
 	esp_log_level_set("sdcard", ESP_LOG_INFO);
+	esp_log_level_set("ds3231", ESP_LOG_INFO);
 	esp_log_level_set("main", ESP_LOG_DEBUG);
-	// TODO: Set everything to warning
+	esp_log_level_set("wlan", ESP_LOG_DEBUG);
+	esp_log_level_set("mqtt", ESP_LOG_DEBUG);
+	esp_log_level_set("http", ESP_LOG_INFO);
 }
 
 extern "C" void app_main() {
@@ -105,6 +108,7 @@ extern "C" void app_main() {
 
 	// Synchronize system time with time server
 	while (!time_is_synchronized) {
+		if (!wlan_started()) vTaskDelay(portMAX_DELAY); // supress log spamming
 		wlan_block_until_connected(5000); // block 5 seconds
 		if (wlan_connected() && sntp_synchronize_system_time(timezone)) {
 			time_is_synchronized = ds3231_set_time();
