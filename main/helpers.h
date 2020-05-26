@@ -13,8 +13,16 @@
 #include <cstring>
 #include <sys/time.h>
 
+#include "sdkconfig.h"
 #include "esp_system.h"
 #include "esp_event.h"
+#include "cJSON.h"
+
+#define MOUNT_POINT     CONFIG_RES_SDCARD_MOUNT_POINT
+#define CONFIG_FILE     MOUNT_POINT CONFIG_RES_CONFIG_FILE_PATH
+#define CONFIG_MAX_SIZE CONFIG_RES_CONFIG_FILE_MAX_SIZE
+#define LOG_FILE        MOUNT_POINT CONFIG_RES_LOG_FILE_PATH
+#define LOG_MAX_SIZE    CONFIG_RES_LOG_FILE_MAX_SIZE
 
 /**
  * A vprintf like function to be used for logging in the ESP Logging Library.
@@ -117,5 +125,7 @@ char *ms2str(char* destination, int64_t millis);
  * @return 			the size of the file in bytes
  */
 int fsize(FILE *fd);
+
+esp_err_t get_resource(cJSON *&root);
 
 #endif /* MAIN_HELPERS_H_ */

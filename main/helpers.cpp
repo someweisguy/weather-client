@@ -8,6 +8,41 @@
 
 #include "helpers.h"
 
+int vlogf(const char *format, va_list arg) {
+	// Get an appropriate sized buffer for the message
+	const int len { vsnprintf(nullptr, 0, format, arg) };
+	char message[len + 1];
+	vsprintf(message, format, arg);
+
+	// Open the file and delete it if it gets too big
+	FILE *fd { fopen(LOG_FILE, "a+") };
+	if (fd != nullptr) {
+		// Delete the log file if it gets too big
+		if (fsize(fd) > 100 * 1024) {
+			// TODO: replace with freopen(LOG_FILE_PATH, "w", fd) ?
+			fclose(fd);
+			remove(LOG_FILE);
+			fd = fopen(LOG_FILE, "a+");
+		}
+
+		// Print everything to file except ASCII color codes
+		bool in_esc { false };
+		for (int i = 0; i < len; ++i) {
+			if (in_esc) {
+				if (message[i] == 'm') in_esc = false;
+				else continue;
+			} else {
+				if (message[i] == '\033') in_esc = true;
+				else fputc(message[i], fd);
+			}
+		}
+		fclose(fd);
+	}
+
+	// Print to stdout
+	return fputs(message, stdout);
+}
+
 void set_system_time(const time_t epoch, const char* timezone_str) {
 	timeval tv;
 	tv.tv_sec = epoch;
@@ -75,4 +110,27 @@ int fsize(FILE *fd) {
 	const long size { ftell(fd) };
 	fsetpos(fd, &start);
 	return size;
+}
+
+esp_err_t get_resource(cJSON *&root) {
+	esp_err_t ret;
+	FILE *fd { fopen(CONFIG_FILE, "r") };
+	if (fd != nullptr) {
+		const long size { fsize(fd) };
+		if (size > CONFIG_MAX_SIZE) {
+			ret = ESP_ERR_INVALID_SIZE;
+		} else {
+			char file_str[size + 1];
+			fread(file_str, 1, size, fd);
+			root = cJSON_Parse(file_str);
+			if (cJSON_GetErrorPtr())
+				ret = ESP_ERR_INVALID_STATE;
+			else
+				ret = ESP_OK;
+		}
+	} else {
+		return ESP_ERR_NOT_FOUND;
+	}
+	fclose(fd);
+	return ret;
 }
