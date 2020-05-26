@@ -24,16 +24,17 @@ extern "C" void app_main() {
 	initialize_required_services();
 
 	// Mount the SD card - deny service until mounted
-	if (!sdcard_mount(SDCARD_MOUNT_POINT)) {
+	if (!sdcard_mount(MOUNT_POINT)) {
 		ESP_LOGW(TAG, "Insert SD card to continue...");
 		do {
 			vTaskDelay(2000 / portTICK_PERIOD_MS);
-		} while (!sdcard_mount(SDCARD_MOUNT_POINT));
+		} while (!sdcard_mount(MOUNT_POINT));
 	}
 
 	// Load the config file values into memory
+	// TODO: use helper functions
 	ESP_LOGD(TAG, "Loading config file values into memory");
-	FILE *fd { fopen(CONFIG_FILE_PATH, "r") };
+	FILE *fd { fopen(CONFIG_FILE, "r") };
 	if (fd != nullptr) {
 		// Read the JSON file into memory
 		ESP_LOGV(TAG, "Reading config file into memory");
@@ -185,7 +186,7 @@ extern "C" void app_main() {
 		if (!mqtt_publish(mqtt_topic, json_str)) {
 			// Write the data to file
 			ESP_LOGI(TAG, "Writing data to file");
-			FILE *fd { fopen(DATA_FILE_PATH, "a+") };
+			FILE *fd { fopen(DATA_FILE, "a+") };
 			if (fd != nullptr) {
 				if (fputs(json_str, fd) == -1 || fputc('\n', fd) == -1)
 					ESP_LOGE(TAG, "Unable to write data to file (cannot write to file)");
@@ -276,41 +277,6 @@ void initialize_required_services() {
 
 }
 
-int vlogf(const char *format, va_list arg) {
-	// Get an appropriate sized buffer for the message
-	const int len { vsnprintf(nullptr, 0, format, arg) };
-	char message[len + 1];
-	vsprintf(message, format, arg);
-
-	// Open the file and delete it if it gets too big
-	FILE *fd { fopen(LOG_FILE_PATH, "a+") };
-	if (fd != nullptr) {
-		// Delete the log file if it gets too big
-		if (fsize(fd) > LOG_FILE_MAX_SIZE_BYTES) {
-			// TODO: replace with freopen(LOG_FILE_PATH, "w", fd) ?
-			fclose(fd);
-			remove(LOG_FILE_PATH);
-			fd = fopen(LOG_FILE_PATH, "a+");
-		}
-
-		// Print everything to file except ASCII color codes
-		bool in_esc { false };
-		for (int i = 0; i < len; ++i) {
-			if (in_esc) {
-				if (message[i] == 'm') in_esc = false;
-				else continue;
-			} else {
-				if (message[i] == '\033') in_esc = true;
-				else fputc(message[i], fd);
-			}
-		}
-		fclose(fd);
-	}
-
-	// Print to stdout
-	return fputs(message, stdout);
-}
-
 void synchronize_system_time_task(void *args) {
 	// Check if we should skip the initial synchronization
 	bool time_is_synchronized { *static_cast<bool*>(args) };
@@ -345,7 +311,7 @@ void send_backlogged_data_task(void *args) {
 
 		// Open the file and read from it
 		ESP_LOGI(TAG, "Sending the backlogged data...");
-		FILE *fd { fopen(DATA_FILE_PATH, "r") };
+		FILE *fd { fopen(DATA_FILE, "r") };
 		if (fd != nullptr) {
 			fseek(fd, file_pos, SEEK_CUR); // goto last fail
 			while (!feof(fd)) {
@@ -375,7 +341,7 @@ void send_backlogged_data_task(void *args) {
 			if (feof(fd)) {
 				ESP_LOGI(TAG, "Backlogged data was sent");
 				fclose(fd);
-				remove(DATA_FILE_PATH);
+				remove(DATA_FILE);
 				file_pos = 0;
 				wait_ticks = portMAX_DELAY;
 			} else fclose(fd);
