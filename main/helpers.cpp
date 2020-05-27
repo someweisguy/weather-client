@@ -18,12 +18,8 @@ int vlogf(const char *format, va_list arg) {
 	FILE *fd { fopen(LOG_FILE, "a+") };
 	if (fd != nullptr) {
 		// Delete the log file if it gets too big
-		if (fsize(fd) > 100 * 1024) {
-			// TODO: replace with freopen(LOG_FILE_PATH, "w", fd) ?
-			fclose(fd);
-			remove(LOG_FILE);
-			fd = fopen(LOG_FILE, "a+");
-		}
+		if (fsize(fd) > 100 * 1024)
+			fd = freopen(LOG_FILE, "w", fd);
 
 		// Print everything to file except ASCII color codes
 		bool in_esc { false };
