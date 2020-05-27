@@ -160,7 +160,7 @@ esp_err_t get_config_resource(cJSON *&root) {
 	return ret;
 }
 
-esp_err_t set_config_resource(cJSON *&root) {
+esp_err_t set_config_resource(cJSON *root) {
 	// Print the JSON object to a string
 	char *json_str { cJSON_Print(root) };
 	if (strlen(json_str) > CONFIG_MAX_SIZE) {
@@ -169,7 +169,7 @@ esp_err_t set_config_resource(cJSON *&root) {
 	}
 
 	// Open the config file and write the string
-	esp_err_t ret;
+	esp_err_t ret { ESP_OK };
 	FILE *fd { fopen(CONFIG_FILE, "w") };
 	if (fd != nullptr) {
 		if (fputs(json_str, fd) == EOF)

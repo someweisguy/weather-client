@@ -128,6 +128,6 @@ long fsize(FILE *fd);
 
 esp_err_t get_config_resource(cJSON *&root);
 
-esp_err_t set_config_resource(cJSON *&root);
+esp_err_t set_config_resource(cJSON *root);
 
 #endif /* MAIN_HELPERS_H_ */
