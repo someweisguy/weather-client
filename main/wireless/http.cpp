@@ -9,9 +9,129 @@
 static const char *TAG { "http" };
 static httpd_handle_t server { nullptr };
 
-static esp_err_t http_send_response(httpd_req_t *r, const char *hdr, const char *body) {
-	if (strlen(hdr) > 0)
-		httpd_resp_set_status(r, hdr);
+static esp_err_t http_load_config(httpd_req_t *r, cJSON *&root, char *&response) {
+	// Read the file into memory
+	ESP_LOGV(TAG, "Reading the configuration file into memory");
+	const esp_err_t load_ret { get_config_resource(root) };
+	switch (load_ret) {
+	case ESP_OK:
+		return ESP_OK;
+
+	case ESP_ERR_NOT_FOUND:
+		httpd_resp_set_status(r, HTTPD_500);
+		response = strdup("Unable to open the configuration file");
+		ESP_LOGE(TAG, "%s", response);
+		return ESP_FAIL;
+
+	case ESP_ERR_INVALID_SIZE: {
+		const char* warn_fmt { "299 " USER_AGENT "/%s \"config file too big\"" };
+		const char* version { esp_get_idf_version() };
+		char warning[strlen(warn_fmt) + strlen(version) + 1];
+		sprintf(warning, warn_fmt, version);
+		httpd_resp_set_hdr(r, "Warning", warning);
+		response = strdup("Configuration file is larger than expected");
+		ESP_LOGW(TAG, "%s", response);
+		return ESP_OK; // OK
+	}
+
+	case ESP_ERR_NO_MEM:
+		httpd_resp_set_status(r, HTTPD_500);
+		response = strdup("Unable to allocate memory to read configuration file");
+		ESP_LOGE(TAG, "%s", response);
+		return ESP_FAIL;
+
+	case ESP_ERR_INVALID_STATE:
+		httpd_resp_set_status(r, HTTPD_500);
+		response = strdup("Configuration file is invalid JSON");
+		ESP_LOGE(TAG, "%s", response);
+		return ESP_FAIL;
+
+	case ESP_FAIL:
+		httpd_resp_set_status(r, HTTPD_500);
+		response = strdup("Unable to write to the configuration file");
+		ESP_LOGE(TAG, "%s", response);
+		return ESP_FAIL;
+
+	default:
+		httpd_resp_set_status(r, HTTPD_500);
+		response = strdup("An unexpected error occurred (check log)");
+		ESP_LOGE(TAG, "Unexpected error in load_config_json (%i)", load_ret);
+		return ESP_FAIL;
+	}
+}
+
+static esp_err_t http_write_config(httpd_req_t *r, cJSON *root, char *&response) {
+	// Write the JSON object into memory
+	ESP_LOGV(TAG, "Writing the configuration file into memory");
+	const esp_err_t write_ret { set_config_resource(root) };
+	switch (write_ret) {
+	case ESP_OK:
+		return ESP_OK;
+
+	case ESP_ERR_INVALID_SIZE:
+		httpd_resp_set_status(r, HTTPD_500);
+		response = strdup("Configuration file is too big");
+		ESP_LOGE(TAG, "%s", response);
+		return ESP_FAIL;
+
+	case ESP_FAIL:
+	case ESP_ERR_NOT_FOUND:
+		httpd_resp_set_status(r, HTTPD_500);
+		response = strdup("Unable to write to the configuration file");
+		ESP_LOGE(TAG, "%s", response);
+		ESP_LOGE(TAG, "Error code %i", write_ret);
+		return ESP_FAIL;
+
+	default:
+		httpd_resp_set_status(r, HTTPD_500);
+		response = strdup("An unexpected error occurred (check log)");
+		ESP_LOGE(TAG, "Unexpected error in load_config_json (%i)", write_ret);
+		return ESP_FAIL;
+	}
+}
+
+static int get_query(httpd_req_t *r, char *query_buffer) {
+	const size_t len { httpd_req_get_url_query_len(r) + 1};
+	if (len == 0) return 0;
+	if (query_buffer != nullptr) {
+		esp_err_t ret { httpd_req_get_url_query_str(r, query_buffer, len) };
+		if (ret != ESP_OK) return -1;
+	}
+	return len;
+}
+
+static char **get_query_keys(const char *query) {
+	// Count the number of keys and allocate memory
+	int num_keys { 1 };
+	for (int i = 0; query[i]; ++i)
+		if (query[i] == '&') ++num_keys;
+	char **keys = new char*[num_keys + 1];
+	keys[num_keys] = nullptr; // null terminator
+	ESP_LOGV(TAG, "Got %i keys", num_keys);
+
+	// Parse the query to extract all the keys
+	bool in_key { true };
+	for (int i = 0, s = 0, n = 0; query[i]; ++i) {
+		// Read the end of the key?
+		if (in_key && query[i] == '=') {
+			// Allocate memory and read the key
+			const int key_len { i - s };
+			keys[n] = new char[key_len + 1];
+			for (int j = 0; j < key_len; ++j)
+				keys[n][j] = query[s + j];
+			keys[n++][key_len] = 0;
+
+			in_key = false;
+		} else if (!in_key && query[i] == '&') {
+			s = i + 1;
+			in_key = true;
+		}
+	}
+
+	return keys;
+}
+
+static esp_err_t http_send_response(httpd_req_t *r, const char *body) {
 	ESP_LOGV(TAG, "Responding to client");
 	esp_err_t resp_ret { httpd_resp_sendstr(r, body) };
 	if (resp_ret != ESP_OK)
@@ -22,7 +142,7 @@ static esp_err_t http_send_response(httpd_req_t *r, const char *hdr, const char 
 static esp_err_t http_restart_handler(httpd_req_t *r) {
 	ESP_LOGD(TAG, "Handling restart request");
 	ESP_LOGV(TAG, "Responding to client");
-	http_send_response(r, "204 No content", "");
+	http_send_response(r, "");
 
 	/**
 	 * The ESP-IDF does not have an event loop for HTTP server events (though
@@ -43,230 +163,246 @@ static esp_err_t http_restart_handler(httpd_req_t *r) {
 	return ESP_OK;
 }
 
-static esp_err_t http_set_log_level_handler(httpd_req_t *r) {
-	ESP_LOGD(TAG, "Handling set log level request");
+static esp_err_t http_get_logging(httpd_req_t *r) {
+	ESP_LOGV(TAG, "Handling GET /logging");
 
-	// Read the content into a buffer
-	ESP_LOGV(TAG, "Getting data from client");
-	char web_json_str[r->content_len];
-	int read = httpd_req_recv(r, web_json_str, r->content_len);
-	if (read >= 0) {
-		web_json_str[read] = 0; // add null terminator
-		ESP_LOGV(TAG, "Got %i bytes from client: %s", r->content_len, web_json_str);
+	// Load the JSON root from file
+	cJSON *root; // free only on success
+	char *response; // free only on failure
+	esp_err_t ret { http_load_config(r, root, response) };
+	if (ret != ESP_OK) {
+		ret = http_send_response(r, response);
+		delete[] response;
+		return ret;
+	}
+
+	// Get the JSON log item
+	cJSON *log = cJSON_GetObjectItem(root, "log");
+	if (log == nullptr) {
+		httpd_resp_set_status(r, HTTPD_204);
+		ret = http_send_response(r, nullptr);
 	} else {
-		const char* resp { "Unable to get data from client" };
-		ESP_LOGE(TAG, "%s", resp);
-		return http_send_response(r, "400 Bad Request", resp);
+		// Get the content
+		const char *json_str { cJSON_PrintUnformatted(log) };
+
+		// Set the status code and type header
+		httpd_resp_set_status(r, HTTPD_200);
+		httpd_resp_set_type(r, "application/json");
+
+		// Send the response and free the content
+		ret = http_send_response(r, json_str);
+		delete[] json_str;
 	}
 
-	// Check if the content is a valid JSON object
-	ESP_LOGV(TAG, "Checking if client data is valid JSON");
-	cJSON *web_root { cJSON_Parse(web_json_str) };
-	if (cJSON_IsInvalid(web_root)) {
-		const char* resp { "Client data is invalid JSON" };
-		ESP_LOGW(TAG, "%s", resp);
-		return http_send_response(r, "400 Bad Request", resp);
-	}
-
-	// Read the file JSON object into memory
-	ESP_LOGV(TAG, "Reading the configuration file into memory");
-	cJSON *file_root;
-	FILE *fd { fopen(CONFIG_FILE_PATH, "r") };
-	if (fd != nullptr) {
-		const long size { fsize(fd) };
-		if (size > 1024)
-			ESP_LOGW(TAG, "Config file is larger than expected (%li bytes)", size);
-		char file_str[size + 1];
-		fread(file_str, 1, size, fd);
-		fclose(fd);
-		file_root = cJSON_Parse(file_str);
-	} else {
-		const char *resp { "Unable to open the configuration file" };
-		ESP_LOGE(TAG, "%s", resp);
-		cJSON_Delete(web_root);
-		return http_send_response(r, "500 Internal Server Error", resp);
-	}
-
-	// Get the JSON log item or create it if it doesn't exist
-	cJSON *log, *web_item;
-	if ((log = cJSON_GetObjectItem(file_root, "log")) == nullptr) {
-		ESP_LOGV(TAG, "Creating a new JSON log object");
-		cJSON_AddItemToObject(file_root, "log", log=cJSON_CreateObject());
-	}
-
-	// Add each web JSON object to the file JSON object
-	ESP_LOGV(TAG, "Attaching client data JSON to config file JSON");
-	cJSON_ArrayForEach(web_item, web_root) {
-		const char* name = web_item->string;
-		const int value = web_item->valueint;
-
-		// Check if the element is a duplicate
-		cJSON *log_item;
-		bool is_duplicate { false };
-		int duplicate_index { 0 };
-		cJSON_ArrayForEach(log_item, log) {
-			const char *log_item_name { log_item->string };
-			if (strcmp(name, log_item_name) == 0) {
-				log_item->valueint = value;
-				is_duplicate = true;
-				break;
-			}
-			++duplicate_index;
-		}
-
-		// Add or delete the item from the log file JSON object
-		if (is_duplicate && (value < 0 || value > 5)) {
-			ESP_LOGD(TAG, "Deleting '%s' from the log configuration file", name);
-			cJSON_DeleteItemFromArray(log, duplicate_index);
-			esp_log_level_set(name, ESP_LOG_NONE); // silence removed items
-		} else if (!is_duplicate) {
-			if (value >= 0 && value <= 5) {
-				if (strlen(name) > 0) cJSON_AddNumberToObject(log, name, value);
-			} else
-				ESP_LOGW(TAG, "Unable to delete entry for '%s' (no such entry)",
-						name);
-		}
-	}
-	cJSON_Delete(web_root); // done with web JSON object
-
-	// Print the edited JSON object to file
-	ESP_LOGV(TAG, "Writing new JSON object to file");
-	fd = fopen(CONFIG_FILE_PATH, "w");
-	if (fd != nullptr) {
-		char* file_json_str = cJSON_Print(file_root);
-		if (fputs(file_json_str, fd) == EOF) {
-			const char* resp { "Unable to write the new JSON object to file (cannot write)" };
-			ESP_LOGE(TAG, "%s", resp);
-			fclose(fd);
-			delete[] file_json_str;
-			cJSON_Delete(file_root);
-			return http_send_response(r, "500 Internal Server Error", resp);
-		} else {
-			const char *const l[6] { "NONE", "ERROR", "WARN", "INFO", "DEBUG", "VERBOSE" };
-			cJSON *i;
-			cJSON_ArrayForEach(i, log) {
-				// Set the log level
-				const char* name = i->string;
-				const int value = i->valueint;
-				ESP_LOGI(TAG, "Setting '%s' to log level ESP_LOG_%s", name, l[value]);
-				esp_log_level_set(name, static_cast<esp_log_level_t>(value));
-			}
-			delete[] file_json_str;
-		}
-		fclose(fd);
-	} else {
-		const char *resp { "Unable to write the new JSON object to file (cannot open file)" };
-		ESP_LOGE(TAG, "%s", resp);
-		cJSON_Delete(file_root);
-		return httpd_resp_set_status(r, "500 Internal Server Error");
-	}
-	cJSON_Delete(file_root); // done with file JSON object
-
-	// Send a response to the client
-	return http_send_response(r, "200 OK", "OK");
-}
-
-static esp_err_t http_get_log_level_handler(httpd_req_t *r) {
-	// Read the file JSON object into memory
-	ESP_LOGV(TAG, "Reading the configuration file into memory");
-	cJSON *file_root;
-	FILE *fd { fopen(CONFIG_FILE_PATH, "r") };
-	if (fd != nullptr) {
-		const long size { fsize(fd) };
-		if (size > 1024)
-			ESP_LOGW(TAG, "Config file is larger than expected (%li bytes)", size);
-		char file_str[size + 1];
-		fread(file_str, 1, size, fd);
-		fclose(fd);
-		file_root = cJSON_Parse(file_str);
-	} else {
-		const char *resp { "Unable to open the configuration file" };
-		ESP_LOGE(TAG, "%s", resp);
-		return http_send_response(r, "500 Internal Server Error", resp);
-	}
-
-	// Get the JSON log item or create it if it doesn't exist
-	cJSON *log;
-	if ((log = cJSON_GetObjectItem(file_root, "log")) == nullptr) {
-		ESP_LOGV(TAG, "Creating a new JSON log object");
-		cJSON_AddItemToObject(file_root, "log", log=cJSON_CreateObject());
-	}
-
-	// Print the JSON log item and then clean up the file root
-	char *log_json_str { cJSON_Print(log) };
-	cJSON_Delete(file_root);
-
-	// Send a response to the client
-	esp_err_t ret { http_send_response(r, "200 OK", log_json_str) };
-	delete[] log_json_str;
+	cJSON_Delete(root);
 	return ret;
 }
 
-static esp_err_t http_get_log_events_handler(httpd_req_t *r) {
-	// Read the content into a buffer
-	ESP_LOGV(TAG, "Getting data from client");
-	char web_json_str[r->content_len];
-	int read = httpd_req_recv(r, web_json_str, r->content_len);
-	if (read >= 0) {
-		web_json_str[read] = 0; // add null terminator
-		ESP_LOGV(TAG, "Got %i bytes from client: %s", r->content_len, web_json_str);
-	} else {
-		const char* resp { "Unable to get data from client" };
-		ESP_LOGE(TAG, "%s", resp);
-		return http_send_response(r, "400 Bad Request", resp);
+static esp_err_t http_put_logging(httpd_req_t *r) {
+	ESP_LOGD(TAG, "Handling PUT /logging");
+
+	// Load the JSON root from file
+	cJSON *root; // free only on success
+	char *response; // free only on failure
+	esp_err_t ret { http_load_config(r, root, response) };
+	if (ret != ESP_OK) {
+		ret = http_send_response(r, response);
+		delete[] response;
+		return ret;
 	}
 
-	// Check if the content is a valid JSON object
-	ESP_LOGV(TAG, "Checking if client data is valid JSON");
-	cJSON *web_root { cJSON_Parse(web_json_str) }, *size_json;
-	if (cJSON_IsInvalid(web_root)) {
-		const char *resp { "Client data is invalid JSON" };
-		ESP_LOGW(TAG, "%s", resp);
-		return http_send_response(r, "400 Bad Request", resp);
-	} else if ((size_json = cJSON_GetObjectItem(web_root, "size")) == nullptr) {
-		const char *resp { "Client data does not specify log size" };
-		ESP_LOGW(TAG, "%s", resp);
-		return http_send_response(r, "400 Bad Request", resp);
-	} else if (size_json->valueint < 1) {
-		const char *resp { "Client requested log size is less than 1 KB" };
-		ESP_LOGW(TAG, "%s", resp);
-		return http_send_response(r, "400 Bad Request", resp);
+	// Get the URL query from the client
+	int query_len { get_query(r, nullptr) };
+	char query[query_len + 1];
+	get_query(r, query);
+
+	// Get the queries keys and the number of keys
+	int num_keys { 0 };
+	char **keys { get_query_keys(query) };
+	while (keys[num_keys]) ++num_keys;
+
+	// Get or create the JSON log object
+	cJSON *log { cJSON_GetObjectItem(root, "log") };
+	if (log == nullptr) {
+		ESP_LOGV(TAG, "Creating a new JSON log object");
+		cJSON_AddItemToObject(root, "log", log=cJSON_CreateObject());
 	}
 
-	// Get the requested size and delete the web JSON object
-	const int size { size_json->valueint * 1024 }; // KB
-	cJSON_Delete(web_root);
+	// Iterate the keys and add each key value to the JSON log object
+	cJSON *deleted { nullptr };
+	char **warnings { new char*[num_keys] }; // must be heap
+	for (int i = 0; keys[i] != nullptr; ++i) {
+		char *key { keys[i] };
 
-	ESP_LOGV(TAG, "Reading the log file from disk");
-	FILE *fd { fopen(LOG_FILE_PATH, "r") };
-	if (fd != nullptr) {
-		// Go to the nearest newline from the specified file size
-		if (fsize(fd) > size) {
-			fseek(fd, -size, SEEK_END);
-			for (int c = fgetc(fd); c != '\n' && c != EOF; c = fgetc(fd));
+		// Get the key value
+		char val_buf[3];
+		int level { 6 }; // assume error
+		ret = httpd_query_key_value(query, key, val_buf, 3);
+		if (ret == ESP_OK) sscanf(val_buf, "%i", &level);
+
+		// Add HTTP header warning on failure to parse value
+		if (ret != ESP_OK || level > 5) {
+			ESP_LOGW(TAG, "Unable parse key '%s' (%i)", key, ret);
+			const char* warn_fmt { "299 " USER_AGENT "/%s \"can't parse %s\"" };
+			const char* version { esp_get_idf_version() };
+			warnings[i] = new char [strlen(warn_fmt) + strlen(version) + strlen(key) + 1];
+			sprintf(warnings[i], warn_fmt, version, key);
+			ESP_LOGV(TAG, "Sending warning: %s", warnings[i]);
+			httpd_resp_set_hdr(r, "Warning", warnings[i]);
+			continue;
 		}
 
-		// Allocate a max of 1KB of memory for chunking log file
-		size_t chunk_size = heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT);
-		if (chunk_size > 1024) chunk_size = 1024;
-		char *chunk = new char[chunk_size];
-
-		// Send the log file in chunks
-		ESP_LOGD(TAG, "Sending the log file");
-		size_t chunk_read;
-		do {
-			chunk_read = fread(chunk, 1, chunk_size, fd);
-			httpd_resp_send_chunk(r, chunk, chunk_read);
-		} while (chunk_read > 0);
-		httpd_resp_send_chunk(r, chunk, 0);
-		ESP_LOGD(TAG, "Log file sent");
-		fclose(fd);
-		delete[] chunk;
-	} else {
-		const char *resp { "Unable to open the log file" };
-		ESP_LOGE(TAG, "%s", resp);
-		return http_send_response(r, "500 Internal Server Error", resp);
+		// Add the key and value pair to the JSON log object
+		cJSON *item { cJSON_GetObjectItem(log, key) };
+		if (level >= 0) {
+			if (item == nullptr) {
+				ESP_LOGV(TAG, "Creating new item '%s'", key);
+				httpd_resp_set_status(r, HTTPD_201);
+				cJSON_AddItemToObject(log, key, cJSON_CreateNumber(level));
+			} else {
+				httpd_resp_set_status(r, HTTPD_200);
+				ESP_LOGV(TAG, "Found existing item '%s'", key);
+				item->valueint = level;
+			}
+		} else {
+			if (item == nullptr) {
+				httpd_resp_set_status(r, HTTPD_204);
+				// Silently set the log level to ESP_LOG_NONE
+				esp_log_level_set(key, ESP_LOG_NONE);
+			} else {
+				httpd_resp_set_status(r, HTTPD_200);
+				ESP_LOGV(TAG, "Deleting existing item '%s'", key);
+				cJSON *det { cJSON_DetachItemFromObject(log, key) };
+				if (deleted == nullptr) deleted = cJSON_CreateArray();
+				cJSON_AddItemToArray(deleted, det);
+			}
+		}
 	}
+
+	// Write the JSON root object back to disk
+	ret = http_write_config(r, root, response);
+	if (ret != ESP_OK) {
+		ret = http_send_response(r, response);
+		delete[] response;
+		cJSON_Delete(root);
+		delete[] keys;
+		delete[] warnings;
+		return ret;
+	}
+
+	// Iterate the JSON log object and set log levels - just the new items
+	for (int i = 0; keys[i] != nullptr; ++i) {
+		char *key { keys[i] };
+		const char *l[6] { "NONE", "ERROR", "WARN", "INFO", "DEBUG", "VERBOSE" };
+		cJSON *item { cJSON_GetObjectItem(log, key) };
+		if (item != nullptr) {
+			const int level { item->valueint };
+			ESP_LOGI(TAG, "Setting '%s' to ESP_LOG_%s", key, l[level]);
+			esp_log_level_set(key, static_cast<esp_log_level_t>(level));
+		}
+	}
+
+	// Iterate through the deleted items and set them to log none
+	cJSON *item;
+	cJSON_ArrayForEach(item, deleted) {
+		ESP_LOGI(TAG, "Setting '%s' to ESP_LOG_NONE", item->string);
+		esp_log_level_set(item->string, ESP_LOG_NONE);
+	}
+	cJSON_Delete(deleted);
+
+	// Cleanup and send response
+	delete[] keys;
+	delete[] warnings;
+	cJSON_Delete(root);
+	return http_send_response(r, "");
+}
+
+static esp_err_t http_head_events(httpd_req_t *r) {
+	// Open the log file
+	FILE *fd { fopen(LOG_FILE, "r") };
+	if (fd == nullptr) {
+		httpd_resp_set_status(r, HTTPD_500);
+		esp_err_t ret { http_send_response(r, "") };
+		return ret;
+	}
+
+	// Get the file size
+	long file_size { fsize(fd) };
+	fclose(fd);
+
+	// Create a custom HTTP header
+	const char *hdr_fmt {
+		"HTTP/1.1 200 OK\r\n"
+		"Content-Length: %ld\r\n"
+		"Content-Type: text/plain\r\n"
+		};
+	const int size_len { snprintf(nullptr, 0, "%li", file_size) };
+	const size_t buf_len { strlen(hdr_fmt) + size_len };
+	char hdr[buf_len + 1];
+	sprintf(hdr, hdr_fmt, file_size);
+
+	// Send the header using the raw HTTP send function
+	ESP_LOGV(TAG, "Responding to client");
+	esp_err_t resp_ret { httpd_send(r, hdr, buf_len) };
+	if (resp_ret < 0)
+		ESP_LOGE(TAG, "Unable to respond to client (%i)", resp_ret);
+	return resp_ret;
+}
+
+static esp_err_t http_get_events(httpd_req_t *r) {
+
+	// Open the log file
+	FILE *fd { fopen(LOG_FILE, "r") };
+	if (fd == nullptr) {
+		httpd_resp_set_status(r, HTTPD_500);
+		esp_err_t ret { http_send_response(r, "") };
+		return ret;
+	}
+
+	// Get the URL query from the client
+	int query_len { get_query(r, nullptr) };
+	char query[query_len + 1];
+	get_query(r, query);
+
+	// Get the queries keys and the number of keys
+	int num_keys { 0 };
+	char **keys { get_query_keys(query) };
+	while (keys[num_keys]) ++num_keys;
+	// TODO: parse keys - including the requested size
+	delete[] keys;
+
+	// Ensure that we aren't sending more data than the file contains
+	const long csize { fsize(fd) }, rsize { LONG_MAX };
+	const long send_size { csize > rsize ? rsize : csize };
+
+	// TODO: Seek by lines?
+	// Seek to the closest newline to the requested size
+	if (send_size != -1) {
+		fseek(fd, -send_size, SEEK_END);
+		for (int c = fgetc(fd); c != '\n' && c != EOF; c = fgetc(fd));
+	}
+
+	// Allocate the smallest chunk size possible
+	const size_t heap { heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT) };
+	size_t chunk_size { MAX_CHUNK_SIZE > heap ? heap : MAX_CHUNK_SIZE };
+	chunk_size = chunk_size > send_size ? send_size : chunk_size;
+	char *chunk { new char[chunk_size] };
+
+	// Send the log file in chunks
+	httpd_resp_set_type(r, "text/plain");
+	const int size_len { snprintf(nullptr, 0, "%li", send_size) };
+	char content_len[size_len];
+	snprintf(content_len, size_len, "%li", send_size);
+	httpd_resp_set_hdr(r, "Content-Length", content_len);
+	size_t chunk_read;
+	do {
+		chunk_read = fread(chunk, 1, chunk_size, fd);
+		httpd_resp_send_chunk(r, chunk, chunk_read);
+	} while (chunk_read > 0);
+	httpd_resp_send_chunk(r, chunk, 0);
+	delete[] chunk;
+	fclose(fd);
+
 	return ESP_OK;
 }
 
@@ -283,7 +419,7 @@ static esp_err_t http_set_timezone_handler(httpd_req_t *r) {
 	} else {
 		const char* resp { "Unable to get data from client" };
 		ESP_LOGE(TAG, "%s", resp);
-		return http_send_response(r, "400 Bad Request", resp);
+		return http_send_response(r, resp);
 	}
 
 	// Check if the content is a valid JSON object
@@ -292,11 +428,11 @@ static esp_err_t http_set_timezone_handler(httpd_req_t *r) {
 	if (cJSON_IsInvalid(web_root)) {
 		const char *resp { "Client data is invalid JSON" };
 		ESP_LOGW(TAG, "%s", resp);
-		return http_send_response(r, "400 Bad Request", resp);
+		return http_send_response(r, resp);
 	} else if ((web_tz = cJSON_GetObjectItem(web_root, "tz")) == nullptr) {
 		const char *resp { "Client data does not specify tz info" };
 		ESP_LOGW(TAG, "%s", resp);
-		return http_send_response(r, "400 Bad Request", resp);
+		return http_send_response(r, resp);
 	}
 
 	// Copy the web tz string into a buffer and delete the web JSON root
@@ -308,7 +444,7 @@ static esp_err_t http_set_timezone_handler(httpd_req_t *r) {
 	// Read the file JSON object into memory
 	ESP_LOGV(TAG, "Reading the configuration file into memory");
 	cJSON *file_root;
-	FILE *fd { fopen(CONFIG_FILE_PATH, "r") };
+	FILE *fd { fopen(CONFIG_FILE, "r") };
 	if (fd != nullptr) {
 		const long size { fsize(fd) };
 		if (size > 1024)
@@ -321,7 +457,7 @@ static esp_err_t http_set_timezone_handler(httpd_req_t *r) {
 		const char *resp { "Unable to open the configuration file" };
 		ESP_LOGE(TAG, "%s", resp);
 		cJSON_Delete(web_root);
-		return http_send_response(r, "500 Internal Server Error", resp);
+		return http_send_response(r, resp);
 	}
 
 	// Get the JSON log item or create it if it doesn't exist
@@ -335,7 +471,7 @@ static esp_err_t http_set_timezone_handler(httpd_req_t *r) {
 
 	// Print the edited JSON object to file
 	ESP_LOGV(TAG, "Writing new JSON object to file");
-	fd = fopen(CONFIG_FILE_PATH, "w");
+	fd = fopen(CONFIG_FILE, "w");
 	if (fd != nullptr) {
 		char* file_json_str = cJSON_Print(file_root);
 		if (fputs(file_json_str, fd) == EOF) {
@@ -344,7 +480,7 @@ static esp_err_t http_set_timezone_handler(httpd_req_t *r) {
 			fclose(fd);
 			delete[] file_json_str;
 			cJSON_Delete(file_root);
-			return http_send_response(r, "500 Internal Server Error", resp);
+			return http_send_response(r, resp);
 		} else {
 			setenv("TZ", tz_str, 1);
 			tzset();
@@ -360,7 +496,7 @@ static esp_err_t http_set_timezone_handler(httpd_req_t *r) {
 	cJSON_Delete(file_root); // done with file JSON object
 
 	// Send a response to the client
-	return http_send_response(r, "200 OK", "OK");
+	return http_send_response(r,"OK");
 
 	return ESP_OK;
 }
@@ -382,36 +518,56 @@ bool http_start() {
 	// Configure and start the web server
 	ESP_LOGD(TAG, "Starting the web server");
     const httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    const esp_err_t start_ret { httpd_start(&server, &config) };
-    if (start_ret != ESP_OK) {
+    esp_err_t ret { httpd_start(&server, &config) };
+    if (ret != ESP_OK) {
     	ESP_LOGE(TAG, "Unable to start the web server");
     	return false;
     }
 
-    esp_err_t ret;
-
 	// Register get log level handler
-	ESP_LOGD(TAG, "Registering get log level handler");
-	httpd_uri_t get_level_uri;
-	get_level_uri.method = HTTP_GET;
-	get_level_uri.uri = "/logging";
-	get_level_uri.handler = http_get_log_level_handler;
-	ret = httpd_register_uri_handler(server, &get_level_uri);
+	ESP_LOGV(TAG, "Registering GET /logging handler");
+	httpd_uri_t get_logging_uri;
+	get_logging_uri.method = HTTP_GET;
+	get_logging_uri.uri = "/logging";
+	get_logging_uri.handler = http_get_logging;
+	ret = httpd_register_uri_handler(server, &get_logging_uri);
 	if (ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to register get log level handler (%i)", ret);
+		ESP_LOGE(TAG, "Unable to register GET /logging handler (%i)", ret);
 
 	// Register set log level handler
-	ESP_LOGD(TAG, "Registering set log level handler");
-	httpd_uri_t set_level_uri;
-	set_level_uri.method = HTTP_PUT;
-	set_level_uri.uri = "/logging";
-	set_level_uri.handler = http_set_log_level_handler;
-	ret = httpd_register_uri_handler(server, &set_level_uri);
+	ESP_LOGV(TAG, "Registering PUT /logging handler");
+	httpd_uri_t put_logging_uri;
+	put_logging_uri.method = HTTP_PUT;
+	put_logging_uri.uri = "/logging";
+	put_logging_uri.handler = http_put_logging;
+	ret = httpd_register_uri_handler(server, &put_logging_uri);
 	if (ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to register set log level handler (%i)", ret);
+		ESP_LOGE(TAG, "Unable to register PUT /logging handler (%i)", ret);
+
+	// Register get events handler
+	ESP_LOGV(TAG, "Registering GET /events handler");
+	httpd_uri_t get_events_uri;
+	get_events_uri.method = HTTP_GET;
+	get_events_uri.uri = "/events";
+	get_events_uri.handler = http_get_events;
+	ret = httpd_register_uri_handler(server, &get_events_uri);
+	if (ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to register GET /events handler (%i)", ret);
+
+	// Register head events handler
+	ESP_LOGV(TAG, "Registering HEAD /events handler");
+	httpd_uri_t head_events_uri;
+	head_events_uri.method = HTTP_HEAD;
+	head_events_uri.uri = "/events";
+	head_events_uri.handler = http_head_events;
+	ret = httpd_register_uri_handler(server, &head_events_uri);
+	if (ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to register HEAD /events handler (%i)", ret);
+
+	// TODO: Register log events delete handler
 
 	// Register get MQTT handler
-	ESP_LOGD(TAG, "Registering get MQTT handler");
+	ESP_LOGV(TAG, "Registering get MQTT handler");
 	httpd_uri_t get_mqtt_uri;
 	get_mqtt_uri.method = HTTP_GET;
 	get_mqtt_uri.uri = "/mqtt";
@@ -421,7 +577,7 @@ bool http_start() {
 		ESP_LOGE(TAG, "Unable to register get MQTT handler (%i)", ret);
 
 	// Register set MQTT handler
-	ESP_LOGD(TAG, "Registering set MQTT handler");
+	ESP_LOGV(TAG, "Registering set MQTT handler");
 	httpd_uri_t set_mqtt_uri;
 	set_mqtt_uri.method = HTTP_PUT;
 	set_mqtt_uri.uri = "/mqtt";
@@ -430,24 +586,13 @@ bool http_start() {
 	if (ret != ESP_OK)
 		ESP_LOGE(TAG, "Unable to register set MQTT handler (%i)", ret);
 
-	// TODO: Register log head handler
 
-	// Register get log events handler
-	ESP_LOGD(TAG, "Registering get log events handler");
-	httpd_uri_t get_events_uri;
-	get_events_uri.method = HTTP_GET;
-	get_events_uri.uri = "/events";
-	get_events_uri.handler = http_get_log_events_handler;
-	ret = httpd_register_uri_handler(server, &get_events_uri);
-	if (ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to register get log events handler (%i)", ret);
 
-	// TODO: Register log events delete handler
 
 	// TODO: register timezone get handler
 
 	// Register set timezone handler
-	ESP_LOGD(TAG, "Registering set timezone handler");
+	ESP_LOGV(TAG, "Registering set timezone handler");
 	httpd_uri_t set_tz_uri;
 	set_tz_uri.method = HTTP_PUT;
 	set_tz_uri.uri = "/tz";
@@ -457,7 +602,7 @@ bool http_start() {
 		ESP_LOGE(TAG, "Unable to register set timezone handler (%i)", ret);
 
     // Register restart handler
-    ESP_LOGD(TAG, "Registering restart handler");
+    ESP_LOGV(TAG, "Registering restart handler");
 	httpd_uri_t restart_uri;
 	restart_uri.method = HTTP_POST;
 	restart_uri.uri = "/restart";
