@@ -24,7 +24,7 @@ static esp_err_t http_load_config(httpd_req_t *r, cJSON *&root, char *&response)
 		return ESP_FAIL;
 
 	case ESP_ERR_INVALID_SIZE: {
-		const char* warn_fmt { "299 " USER_AGENT "/%s \"config file too big\"" };
+		const char* warn_fmt { "299 " USER_AGENT "%s \"config file too big\"" };
 		const char* version { esp_get_idf_version() };
 		char warning[strlen(warn_fmt) + strlen(version) + 1];
 		sprintf(warning, warn_fmt, version);
@@ -245,7 +245,7 @@ static esp_err_t http_put_logging(httpd_req_t *r) {
 		// Add HTTP header warning on failure to parse value
 		if (ret != ESP_OK || level > 5) {
 			ESP_LOGW(TAG, "Unable parse key '%s' (%i)", key, ret);
-			const char* warn_fmt { "299 " USER_AGENT "/%s \"can't parse %s\"" };
+			const char* warn_fmt { "299 " USER_AGENT "%s \"parse error: %s\"" };
 			const char* version { esp_get_idf_version() };
 			warnings[i] = new char [strlen(warn_fmt) + strlen(version) + strlen(key) + 1];
 			sprintf(warnings[i], warn_fmt, version, key);
