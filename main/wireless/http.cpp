@@ -409,8 +409,30 @@ static esp_err_t http_get_events(httpd_req_t *r) {
 }
 
 static esp_err_t http_get_tz(httpd_req_t *r) {
-	// TODO
-	return ESP_OK;
+	ESP_LOGV(TAG, "Handling GET /tz request");
+
+	// Load the JSON root from file
+	cJSON *root; // free only on success
+	char *response; // free only on failure
+	esp_err_t ret { http_load_config(r, root, response) };
+	if (ret != ESP_OK) {
+		ret = http_send_response(r, response);
+		delete[] response;
+		return ret;
+	}
+
+	// Get the tz JSON object if it exists
+	cJSON *tz { cJSON_GetObjectItem(root, "tz") };
+	if (tz == nullptr) {
+		httpd_resp_set_status(r, HTTPD_204);
+		ret = http_send_response(r, "");
+	} else {
+		httpd_resp_set_status(r, HTTPD_200);
+		ret = http_send_response(r, tz->valuestring);
+	}
+
+	cJSON_Delete(root);
+	return ret;
 }
 
 static esp_err_t http_put_tz(httpd_req_t *r) {
@@ -596,6 +618,14 @@ bool http_start() {
 		ESP_LOGE(TAG, "Unable to register set MQTT handler (%i)", ret);
 
 	// TODO: register timezone get handler
+	ESP_LOGV(TAG, "Registering GET /tz handler");
+	httpd_uri_t get_tz_uri;
+	get_tz_uri.method = HTTP_GET;
+	get_tz_uri.uri = "/tz";
+	get_tz_uri.handler = http_get_tz;
+	ret = httpd_register_uri_handler(server, &get_tz_uri);
+	if (ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to register GETT /tz handler (%i)", ret);
 
 	// Register set timezone handler
 	ESP_LOGV(TAG, "Registering PUT /tz handler");
