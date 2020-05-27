@@ -144,6 +144,8 @@ static esp_err_t http_restart_handler(httpd_req_t *r) {
 	ESP_LOGV(TAG, "Responding to client");
 	http_send_response(r, "");
 
+	// TODO: send HTTP accepted
+
 	/**
 	 * The ESP-IDF does not have an event loop for HTTP server events (though
 	 * it does have one for the http client) so what we do is we pretend to
@@ -406,7 +408,12 @@ static esp_err_t http_get_events(httpd_req_t *r) {
 	return ESP_OK;
 }
 
-static esp_err_t http_set_timezone_handler(httpd_req_t *r) {
+static esp_err_t http_get_tz(httpd_req_t *r) {
+	// TODO
+	return ESP_OK;
+}
+
+static esp_err_t http_put_tz(httpd_req_t *r) {
 	ESP_LOGD(TAG, "Handling set timezone request");
 
 	// Read the content into a buffer
@@ -524,7 +531,7 @@ bool http_start() {
     	return false;
     }
 
-	// Register get log level handler
+	// Register get logging handler
 	ESP_LOGV(TAG, "Registering GET /logging handler");
 	httpd_uri_t get_logging_uri;
 	get_logging_uri.method = HTTP_GET;
@@ -534,7 +541,7 @@ bool http_start() {
 	if (ret != ESP_OK)
 		ESP_LOGE(TAG, "Unable to register GET /logging handler (%i)", ret);
 
-	// Register set log level handler
+	// Register set logging handler
 	ESP_LOGV(TAG, "Registering PUT /logging handler");
 	httpd_uri_t put_logging_uri;
 	put_logging_uri.method = HTTP_PUT;
@@ -543,6 +550,8 @@ bool http_start() {
 	ret = httpd_register_uri_handler(server, &put_logging_uri);
 	if (ret != ESP_OK)
 		ESP_LOGE(TAG, "Unable to register PUT /logging handler (%i)", ret);
+
+	// TODO: register delete logging handler
 
 	// Register get events handler
 	ESP_LOGV(TAG, "Registering GET /events handler");
@@ -586,20 +595,17 @@ bool http_start() {
 	if (ret != ESP_OK)
 		ESP_LOGE(TAG, "Unable to register set MQTT handler (%i)", ret);
 
-
-
-
 	// TODO: register timezone get handler
 
 	// Register set timezone handler
-	ESP_LOGV(TAG, "Registering set timezone handler");
-	httpd_uri_t set_tz_uri;
-	set_tz_uri.method = HTTP_PUT;
-	set_tz_uri.uri = "/tz";
-	set_tz_uri.handler = http_set_timezone_handler;
-	ret = httpd_register_uri_handler(server, &set_tz_uri);
+	ESP_LOGV(TAG, "Registering PUT /tz handler");
+	httpd_uri_t put_tz_uri;
+	put_tz_uri.method = HTTP_PUT;
+	put_tz_uri.uri = "/tz";
+	put_tz_uri.handler = http_put_tz;
+	ret = httpd_register_uri_handler(server, &put_tz_uri);
 	if (ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to register set timezone handler (%i)", ret);
+		ESP_LOGE(TAG, "Unable to register PUT /tz handler (%i)", ret);
 
     // Register restart handler
     ESP_LOGV(TAG, "Registering restart handler");
