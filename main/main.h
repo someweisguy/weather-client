@@ -32,7 +32,7 @@
 #include "BME280.h"
 #include "PMS5003.h"
 
-#define SENSOR_READY_MS 		30 * 1000 // 30 seconds
+#define SENSOR_READY_MS 		(30 + 2) * 1000 // 32 seconds
 #define LOG_FILE_MAX_SIZE_BYTES 100 * 1024 // 100 KB
 
 #define MOUNT_POINT CONFIG_RES_SDCARD_MOUNT_POINT
