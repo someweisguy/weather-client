@@ -16,7 +16,7 @@ static void set_log_levels() {
 	esp_log_level_set("main", ESP_LOG_DEBUG);
 	esp_log_level_set("wlan", ESP_LOG_DEBUG);
 	esp_log_level_set("mqtt", ESP_LOG_DEBUG);
-	esp_log_level_set("http", ESP_LOG_INFO);
+	esp_log_level_set("http", ESP_LOG_DEBUG);
 }
 
 extern "C" void app_main() {
@@ -32,68 +32,50 @@ extern "C" void app_main() {
 	}
 
 	// Load the config file values into memory
-	// TODO: use helper functions
-	ESP_LOGD(TAG, "Loading config file values into memory");
-	FILE *fd { fopen(CONFIG_FILE, "r") };
-	if (fd != nullptr) {
-		// Read the JSON file into memory
-		ESP_LOGV(TAG, "Reading config file into memory");
-		const long size { fsize(fd) };
-		if (size > 1024)
-			ESP_LOGW(TAG, "Config file is larger than expected (%li bytes)", size);
-		char file_str[size + 1];
-		fread(file_str, 1, size, fd);
-		fclose(fd);
-
-		// Parse the JSON
-		ESP_LOGV(TAG, "Parsing JSON file");
-		cJSON *root { cJSON_Parse(file_str) }, *json;
-		if (cJSON_IsInvalid(root)) {
-			ESP_LOGE(TAG, "Unable to parse config file (invalid JSON)");
-			ESP_LOGE(TAG, "Denying service...");
-			vTaskDelay(portMAX_DELAY);
-		}
-
-		// TODO: Error checking for JSON object
-		ssid = strdup(cJSON_GetObjectItem(root, "ssid")->valuestring);
-		wifi_pass = strdup(cJSON_GetObjectItem(root, "pass")->valuestring);
-		mqtt_topic = strdup(cJSON_GetObjectItem(root, "topic")->valuestring);
-		mqtt_broker = strdup(cJSON_GetObjectItem(root, "mqtt")->valuestring);
-
-		// Get the time zone string if it's present
-		if (cJSON_IsString((json = cJSON_GetObjectItem(root, "tz")))) {
-			ESP_LOGD(TAG, "Setting the time zone");
-			timezone = strdup(json->valuestring);
-		}
-
-		// Set the log levels per the log JSON object
-		json = cJSON_GetObjectItem(root, "log");
-		if (cJSON_IsObject(json) && cJSON_GetArraySize(json) > 0) {
-			const char *const levels[6] { "NONE", "ERROR", "WARN", "INFO",
-				"DEBUG", "VERBOSE" };
-
-			// Iterate through each item in the JSON object
-			cJSON *elem;
-			cJSON_ArrayForEach(elem, json) {
-				char* key = elem->string;
-				int value = elem->valueint;
-				if (elem->valueint < 0 || elem->valueint > 5) {
-					ESP_LOGE(TAG, "Unable to get log level for '%s'",
-							elem->string);
-				} else {
-					ESP_LOGD(TAG, "Setting '%s' to ESP_LOG_%s", key,
-							levels[value]);
-					esp_log_level_set(key, static_cast<esp_log_level_t>(value));
-				}
-			}
-		}
-
-		cJSON_Delete(root);
-	} else {
-		ESP_LOGE(TAG, "Unable to load configuration file (cannot open file)");
+	ESP_LOGD(TAG, "Loading configuration file values into memory");
+	cJSON *root, *json;
+	esp_err_t ret { get_config_resource(root) };
+	if (ret == ESP_ERR_INVALID_SIZE) {
+		ESP_LOGW(TAG, "Configuration file is larger than expected");
+	} else if (ret != ESP_OK) {
+		ESP_LOGE(TAG, "Unable to load configuration file JSON");
 		ESP_LOGE(TAG, "Denying service...");
 		vTaskDelay(portMAX_DELAY);
 	}
+
+	// Get configuration settings
+	ssid = strdup(cJSON_GetObjectItem(root, "ssid")->valuestring);
+	wifi_pass = strdup(cJSON_GetObjectItem(root, "pass")->valuestring);
+	mqtt_topic = strdup(cJSON_GetObjectItem(root, "topic")->valuestring);
+	mqtt_broker = strdup(cJSON_GetObjectItem(root, "mqtt")->valuestring);
+
+	// Get the time zone string if it's present
+	if (cJSON_IsString((json = cJSON_GetObjectItem(root, "tz")))) {
+		ESP_LOGD(TAG, "Setting the time zone");
+		timezone = strdup(json->valuestring);
+	}
+
+	// Set the log levels per the log JSON object
+	json = cJSON_GetObjectItem(root, "log");
+	if (cJSON_IsObject(json) && cJSON_GetArraySize(json) > 0) {
+		const char *const l[6] { "NONE", "ERROR", "WARN", "INFO", "DEBUG",
+			"VERBOSE" };
+
+		// Iterate through each item in the JSON object
+		cJSON *elem;
+		cJSON_ArrayForEach(elem, json) {
+			char* key = elem->string;
+			int value = elem->valueint;
+			if (elem->valueint < 0 || elem->valueint > 5) {
+				ESP_LOGE(TAG, "Unable to get log level for '%s'",
+						elem->string);
+			} else {
+				ESP_LOGD(TAG, "Setting '%s' to ESP_LOG_%s", key, l[value]);
+				esp_log_level_set(key, static_cast<esp_log_level_t>(value));
+			}
+		}
+	}
+	cJSON_Delete(root);
 
 	// Set the system time if possible
 	bool time_is_synchronized { false }, sntp_synchronized { false };
