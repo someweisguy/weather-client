@@ -45,8 +45,8 @@ public:
 
 	bool setup() override {
 		ESP_LOGV(TAG, "Sending active mode command");
-		const char passive_cmd[CMD_SIZE] { 0x42, 0x4d, 0xe1, 0x00, 0x01, 0x01, 0x71 };
-		if (uart_write(passive_cmd, CMD_SIZE) != CMD_SIZE) {
+		const char active_cmd[CMD_SIZE] { 0x42, 0x4d, 0xe1, 0x00, 0x01, 0x01, 0x71 };
+		if (uart_write(active_cmd, CMD_SIZE, 1000) != CMD_SIZE) {
 			ESP_LOGE(TAG, "Unable to send active mode command");
 			return false;
 		}
@@ -57,7 +57,7 @@ public:
 	bool wakeup() override {
 		ESP_LOGV(TAG, "Sending wake up command");
 		const char wakeup_cmd[CMD_SIZE] { 0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74 };
-		if (uart_write(wakeup_cmd, CMD_SIZE) != CMD_SIZE) {
+		if (uart_write(wakeup_cmd, CMD_SIZE, 1000) != CMD_SIZE) {
 			ESP_LOGE(TAG, "Unable to send wake up command");
 			return false;
 		}
@@ -67,23 +67,26 @@ public:
 
 	bool get_data(cJSON *json) override {
 		uint16_t computed_checksum { 0 }, received_checksum;
-		uint8_t retries { 0 };
-		char buf[32];
-		do {
-			ESP_LOGV(TAG, "Reading data");
-			if (uart_read(buf, 32) != 32) {
-				ESP_LOGE(TAG, "Unable to read data");
-				return false;
-			}
+		uint8_t buf[32];
 
-			// Compute and check checksum
-			ESP_LOGV(TAG, "Computing and comparing checksum");
-			for (int i = 0; i < 30; ++i)
-				computed_checksum += buf[i];
-			received_checksum = static_cast<uint16_t>((buf[30] << 8) + buf[31]);
-		} while (computed_checksum != received_checksum && ++retries <= 5);
+		ESP_LOGV(TAG, "Reading data");
+		if (uart_read(buf, 32, 1000) != 32) {
+			ESP_LOGE(TAG, "Unable to read data");
+			return false;
+		}
+
+		// Compute and check checksum
+		ESP_LOGV(TAG, "Computing and comparing checksum");
+		for (int i = 0; i < 30; ++i)
+			computed_checksum += buf[i];
+		received_checksum = static_cast<uint16_t>((buf[30] << 8)) | buf[31];
+
 		if (computed_checksum != received_checksum) {
-			ESP_LOGE(TAG, "Unable to verify checksum");
+			const char got_high { buf[30] }, got_low { buf[31] },
+				expect_high { static_cast<char>(computed_checksum >> 8) },
+				expect_low { static_cast<char>(computed_checksum) };
+			ESP_LOGE(TAG, "Unable to verify checksum (expected: 0x%02X%02X, got: 0x%02X%02X)",
+					expect_high, expect_low, got_high, got_low);
 			return false;
 		}
 
@@ -130,7 +133,7 @@ public:
 	bool sleep() override {
 		ESP_LOGV(TAG, "Sending sleep command");
 		const char sleep_cmd[CMD_SIZE] { 0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73 };
-		if (uart_write(sleep_cmd, CMD_SIZE) != CMD_SIZE) {
+		if (uart_write(sleep_cmd, CMD_SIZE, 1000) != CMD_SIZE) {
 			ESP_LOGE(TAG, "Unable to send sleep command");
 			return false;
 		}
