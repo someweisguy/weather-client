@@ -358,23 +358,10 @@ static esp_err_t http_get_events(httpd_req_t *r) {
 		return ret;
 	}
 
-	// Get the URL query from the client
-	int query_len { get_query(r, nullptr) };
-	char query[query_len + 1];
-	get_query(r, query);
-
-	// Get the queries keys and the number of keys
-	int num_keys { 0 };
-	char **keys { get_query_keys(query) };
-	while (keys[num_keys]) ++num_keys;
-	// TODO: parse keys - including the requested size
-	delete[] keys;
-
 	// Ensure that we aren't sending more data than the file contains
 	const long csize { fsize(fd) }, rsize { LONG_MAX };
 	const long send_size { csize > rsize ? rsize : csize };
 
-	// TODO: Seek by lines?
 	// Seek to the closest newline to the requested size
 	if (send_size != -1) {
 		fseek(fd, -send_size, SEEK_END);
