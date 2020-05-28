@@ -231,7 +231,7 @@ static esp_err_t http_put_logging(httpd_req_t *r) {
 	cJSON *deleted { nullptr };
 	char **warnings { new char*[num_keys] }; // must be heap
 	for (int i = 0; keys[i] != nullptr; ++i) {
-		char *key { keys[i] };
+		const char *key { keys[i] };
 
 		// Get the key value
 		char val_buf[3];
@@ -261,7 +261,7 @@ static esp_err_t http_put_logging(httpd_req_t *r) {
 			} else {
 				httpd_resp_set_status(r, HTTPD_200);
 				ESP_LOGV(TAG, "Found existing item '%s'", key);
-				item->valueint = level;
+				cJSON_ReplaceItemInObject(log, key, cJSON_CreateNumber(level));
 			}
 		} else {
 			if (item == nullptr) {
@@ -434,20 +434,22 @@ static esp_err_t http_get_tz(httpd_req_t *r) {
 static esp_err_t http_put_tz(httpd_req_t *r) {
 	ESP_LOGV(TAG, "Handling PUT /tz request");
 
-	// Get the URL query from the client
-	int query_len { get_query(r, nullptr) };
-	char query[query_len + 1], key[query_len];
-	esp_err_t ret { httpd_query_key_value(query, "tz", key, query_len - 1) };
-	ESP_LOGV(TAG, "Got key: %s", key);
-	if (ret != ESP_OK) {
-		httpd_resp_set_status(r, HTTPD_400);
-		return http_send_response(r, "Must specify TZ in URL");
+	// Get the client content
+	char key[r->content_len + 1];
+	const int read { httpd_req_recv(r, key, r->content_len) };
+	key[r->content_len] = 0; // null terminator
+	if (read <= 0) {
+		if (read == HTTPD_SOCK_ERR_TIMEOUT)
+			httpd_resp_set_status(r, HTTPD_408);
+		else
+			httpd_resp_set_status(r, HTTPD_400);
+		return http_send_response(r, "Unable to receive client data");
 	}
 
 	// Load the JSON root from file
 	cJSON *root; // free only on success
 	char *response; // free only on failure
-	ret = http_load_config(r, root, response);
+	esp_err_t ret { http_load_config(r, root, response) };
 	if (ret != ESP_OK) {
 		ret = http_send_response(r, response);
 		delete[] response;
@@ -461,7 +463,7 @@ static esp_err_t http_put_tz(httpd_req_t *r) {
 		tz = cJSON_CreateString(key);
 		cJSON_AddItemToObject(root, "tz", tz);
 	} else {
-		tz->valuestring = key;
+		cJSON_ReplaceItemInObject(root, "tz", cJSON_CreateString(key));
 	}
 
 	// Write the JSON root object back to disk
