@@ -127,7 +127,7 @@ extern "C" void app_main() {
 
 	// Calculate the next sensor ready time
 	char ms_str[10];
-	int64_t timer_wait_ms { set_window_wait_timer(timer, -(SENSOR_READY_MS + 1000)) };
+	int64_t timer_wait_ms { set_window_wait_timer(timer, SENSOR_READY_MS) };
 	if (timer_wait_ms > 5000) xSemaphoreGive(sensor_sleep_semaphore);
 
 	// Enter the task loop
@@ -181,7 +181,7 @@ extern "C" void app_main() {
 		delete[] json_str;
 
 		// Calculate next wake time
-		timer_wait_ms = set_window_wait_timer(timer, -(SENSOR_READY_MS + 1000));
+		timer_wait_ms = set_window_wait_timer(timer, SENSOR_READY_MS);
 	}
 }
 
