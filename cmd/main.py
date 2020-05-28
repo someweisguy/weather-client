@@ -1,23 +1,23 @@
 import requests
 import csv
 from typing import Optional
-import sys
 
 
 def get_tz(city: Optional[str] = None) -> str:
-    """Returns the POSIX TZ string for the specified city."""
+    """Returns the POSIX TZ string for the specified city. If no city is specified, returns the POSIX TZ string for
+    the current location."""
     if city is None:
-        from sys import platform
+        import sys
         # Get the timezone city, e.g. 'America/New_York'
-        if platform == 'linux' or platform == 'linux2':
+        if sys.platform == 'linux' or sys.platform == 'linux2':
             with open('etc/timezone', 'r') as file:
                 city = file.read()
-        elif platform == 'win32' or platform == 'darwin':
-            req = requests.get('https://ipinfo.io/json')
-            if req.ok:
-                city = req.json()['timezone']
         else:
-            raise NotImplementedError
+            get_ip_info = requests.get('https://ipinfo.io/json')
+            if get_ip_info.ok:
+                city = get_ip_info.json()['timezone']
+            else:
+                raise ConnectionError('unable to get IP info')
 
     # Lookup the POSIX timezone string
     with open('zones.csv') as file:
@@ -26,19 +26,21 @@ def get_tz(city: Optional[str] = None) -> str:
             if timezone == city:
                 return tz
         else:
-            raise FileNotFoundError
+            raise KeyError
 
 
 def get_city(tz: str) -> str:
     """Returns the city for the specified POSIX TZ string."""
     # Lookup the POSIX timezone string
+    if tz is None:
+        raise TypeError
     with open('zones.csv') as file:
         zones = csv.reader(file)
         for timezone, posix in zones:
             if posix == tz:
                 return timezone
         else:
-            raise FileNotFoundError
+            raise KeyError
 
 
 PRODUCTION = '192.168.0.21'
