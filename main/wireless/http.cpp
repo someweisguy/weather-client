@@ -139,12 +139,8 @@ static esp_err_t http_send_response(httpd_req_t *r, const char *body) {
 	return resp_ret;
 }
 
-static esp_err_t http_restart_handler(httpd_req_t *r) {
-	ESP_LOGD(TAG, "Handling restart request");
-	ESP_LOGV(TAG, "Responding to client");
-	http_send_response(r, "");
-
-	// TODO: send HTTP accepted
+static esp_err_t http_post_restart(httpd_req_t *r) {
+	ESP_LOGD(TAG, "Handling POST /restart");
 
 	/**
 	 * The ESP-IDF does not have an event loop for HTTP server events (though
@@ -162,7 +158,8 @@ static esp_err_t http_restart_handler(httpd_req_t *r) {
 	r->sess_ctx = reinterpret_cast<void*>(-1);
 	r->free_ctx = restart_callback;
 
-	return ESP_OK;
+	httpd_resp_set_status(r, HTTPD_202);
+	return http_send_response(r, "");
 }
 
 static esp_err_t http_get_logging(httpd_req_t *r) {
@@ -408,6 +405,18 @@ static esp_err_t http_get_events(httpd_req_t *r) {
 	return ESP_OK;
 }
 
+static esp_err_t http_delete_events(httpd_req_t *r) {
+	ESP_LOGV(TAG, "Handling DELETE /events");
+
+	if (remove(LOG_FILE) == 0) {
+		httpd_resp_set_status(r, HTTPD_200);
+		return http_send_response(r, "");
+	} else {
+		httpd_resp_set_status(r, HTTPD_500);
+		return http_send_response(r, "");
+	}
+}
+
 static esp_err_t http_get_tz(httpd_req_t *r) {
 	ESP_LOGV(TAG, "Handling GET /tz request");
 
@@ -436,108 +445,219 @@ static esp_err_t http_get_tz(httpd_req_t *r) {
 }
 
 static esp_err_t http_put_tz(httpd_req_t *r) {
-	ESP_LOGD(TAG, "Handling set timezone request");
+	ESP_LOGV(TAG, "Handling PUT /tz request");
 
-	// Read the content into a buffer
-	ESP_LOGV(TAG, "Getting data from client");
-	char web_json_str[r->content_len];
-	int read = httpd_req_recv(r, web_json_str, r->content_len);
-	if (read >= 0) {
-		web_json_str[read] = 0; // add null terminator
-		ESP_LOGV(TAG, "Got %i bytes from client: %s", r->content_len, web_json_str);
-	} else {
-		const char* resp { "Unable to get data from client" };
-		ESP_LOGE(TAG, "%s", resp);
-		return http_send_response(r, resp);
+	// Get the URL query from the client
+	int query_len { get_query(r, nullptr) };
+	char query[query_len + 1], key[query_len];
+	esp_err_t ret { httpd_query_key_value(query, "tz", key, query_len - 1) };
+	ESP_LOGV(TAG, "Got key: %s", key);
+	if (ret != ESP_OK) {
+		httpd_resp_set_status(r, HTTPD_400);
+		return http_send_response(r, "Must specify TZ in URL");
 	}
 
-	// Check if the content is a valid JSON object
-	ESP_LOGV(TAG, "Checking if client data is valid JSON");
-	cJSON *web_root { cJSON_Parse(web_json_str) }, *web_tz;
-	if (cJSON_IsInvalid(web_root)) {
-		const char *resp { "Client data is invalid JSON" };
-		ESP_LOGW(TAG, "%s", resp);
-		return http_send_response(r, resp);
-	} else if ((web_tz = cJSON_GetObjectItem(web_root, "tz")) == nullptr) {
-		const char *resp { "Client data does not specify tz info" };
-		ESP_LOGW(TAG, "%s", resp);
-		return http_send_response(r, resp);
+	// Load the JSON root from file
+	cJSON *root; // free only on success
+	char *response; // free only on failure
+	ret = http_load_config(r, root, response);
+	if (ret != ESP_OK) {
+		ret = http_send_response(r, response);
+		delete[] response;
+		return ret;
 	}
 
-	// Copy the web tz string into a buffer and delete the web JSON root
-	const size_t len { strlen(web_tz->valuestring) };
-	char tz_str[len + 1];
-	strcpy(tz_str, web_tz->valuestring);
-	cJSON_Delete(web_root);
-
-	// Read the file JSON object into memory
-	ESP_LOGV(TAG, "Reading the configuration file into memory");
-	cJSON *file_root;
-	FILE *fd { fopen(CONFIG_FILE, "r") };
-	if (fd != nullptr) {
-		const long size { fsize(fd) };
-		if (size > 1024)
-			ESP_LOGW(TAG, "Config file is larger than expected (%li bytes)", size);
-		char file_str[size + 1];
-		fread(file_str, 1, size, fd);
-		fclose(fd);
-		file_root = cJSON_Parse(file_str);
-	} else {
-		const char *resp { "Unable to open the configuration file" };
-		ESP_LOGE(TAG, "%s", resp);
-		cJSON_Delete(web_root);
-		return http_send_response(r, resp);
-	}
-
-	// Get the JSON log item or create it if it doesn't exist
-	cJSON *file_tz = cJSON_CreateString(tz_str);
-	if (cJSON_GetObjectItem(file_root, "tz") == nullptr) {
+	// Get or create the JSON tz object
+	cJSON *tz { cJSON_GetObjectItem(root, "tz") };
+	if (tz == nullptr) {
 		ESP_LOGV(TAG, "Creating a new JSON tz object");
-		cJSON_AddItemToObject(file_root, "tz", file_tz);
+		tz = cJSON_CreateString(key);
+		cJSON_AddItemToObject(root, "tz", tz);
 	} else {
-		cJSON_ReplaceItemInObject(file_root, "tz", file_tz);
+		tz->valuestring = key;
 	}
 
-	// Print the edited JSON object to file
-	ESP_LOGV(TAG, "Writing new JSON object to file");
-	fd = fopen(CONFIG_FILE, "w");
-	if (fd != nullptr) {
-		char* file_json_str = cJSON_Print(file_root);
-		if (fputs(file_json_str, fd) == EOF) {
-			const char* resp { "Unable to write the new JSON object to file (cannot write)" };
-			ESP_LOGE(TAG, "%s", resp);
-			fclose(fd);
-			delete[] file_json_str;
-			cJSON_Delete(file_root);
-			return http_send_response(r, resp);
-		} else {
-			setenv("TZ", tz_str, 1);
-			tzset();
-			delete[] file_json_str;
-		}
-		fclose(fd);
-	} else {
-		const char *resp { "Unable to write the new JSON object to file (cannot open file)" };
-		ESP_LOGE(TAG, "%s", resp);
-		cJSON_Delete(file_root);
-		return httpd_resp_set_status(r, "500 Internal Server Error");
+	// Write the JSON root object back to disk
+	ret = http_write_config(r, root, response);
+	if (ret != ESP_OK) {
+		ret = http_send_response(r, response);
+		delete[] response;
+		cJSON_Delete(root);
+		return ret;
 	}
-	cJSON_Delete(file_root); // done with file JSON object
+
+	// Set the tz environment variable
+	setenv("TZ", key, 1);
+	tzset();
 
 	// Send a response to the client
-	return http_send_response(r,"OK");
-
-	return ESP_OK;
+	cJSON_Delete(root);
+	httpd_resp_set_status(r, HTTPD_200);
+	return http_send_response(r, "");
 }
 
-static esp_err_t http_get_mqtt_handler(httpd_req_t *r) {
-	// TODO
-	return ESP_OK;
+static esp_err_t http_get_mqtt(httpd_req_t *r) {
+	ESP_LOGV(TAG, "Handling GET /mqtt request");
+
+	// Load the JSON root from file
+	cJSON *root; // free only on success
+	char *response; // free only on failure
+	esp_err_t ret { http_load_config(r, root, response) };
+	if (ret != ESP_OK) {
+		ret = http_send_response(r, response);
+		delete[] response;
+		return ret;
+	}
+
+	// Get the tz JSON object if it exists
+	cJSON *tz { cJSON_GetObjectItem(root, "mqtt") };
+	if (tz == nullptr) {
+		httpd_resp_set_status(r, HTTPD_204);
+		ret = http_send_response(r, "");
+	} else {
+		httpd_resp_set_status(r, HTTPD_200);
+		ret = http_send_response(r, tz->valuestring);
+	}
+
+	cJSON_Delete(root);
+	return ret;
 }
 
-static esp_err_t http_set_mqtt_handler(httpd_req_t *r) {
-	// TODO
-	return ESP_OK;
+static esp_err_t http_put_mqtt(httpd_req_t *r) {
+	ESP_LOGV(TAG, "Handling PUT /mqtt request");
+
+	// Get the client content
+	char key[r->content_len + 1];
+	const int read { httpd_req_recv(r, key, r->content_len) };
+	key[r->content_len] = 0; // null terminator
+	if (read <= 0) {
+		if (read == HTTPD_SOCK_ERR_TIMEOUT)
+			httpd_resp_set_status(r, HTTPD_408);
+		else
+			httpd_resp_set_status(r, HTTPD_400);
+		return http_send_response(r, "Unable to receive client data");
+	}
+
+	// Load the JSON root from file
+	cJSON *root; // free only on success
+	char *response; // free only on failure
+	esp_err_t ret { http_load_config(r, root, response) };
+	if (ret != ESP_OK) {
+		ret = http_send_response(r, response);
+		delete[] response;
+		return ret;
+	}
+
+	// Get or create the JSON tz object
+	cJSON *mqtt { cJSON_GetObjectItem(root, "mqtt") };
+	if (mqtt == nullptr) {
+		ESP_LOGV(TAG, "Creating a new JSON mqtt object");
+		mqtt = cJSON_CreateString(key);
+		cJSON_AddItemToObject(root, "mqtt", mqtt);
+	} else {
+		cJSON_ReplaceItemInObject(root, "mqtt", cJSON_CreateString(key));
+	}
+
+	// Write the JSON root object back to disk
+	ret = http_write_config(r, root, response);
+	if (ret != ESP_OK) {
+		ret = http_send_response(r, response);
+		delete[] response;
+		cJSON_Delete(root);
+		return ret;
+	}
+
+	// Send a response to the client
+	cJSON_Delete(root);
+	if (r->sess_ctx) {
+		httpd_resp_set_status(r, HTTPD_200);
+		return http_send_response(r, "");
+	} else {
+		httpd_resp_set_status(r, HTTPD_202);
+		return http_send_response(r, "Restart device for changes to take effect");
+	}
+}
+
+static esp_err_t http_get_topic(httpd_req_t *r) {
+	ESP_LOGV(TAG, "Handling GET /topic request");
+
+	// Load the JSON root from file
+	cJSON *root; // free only on success
+	char *response; // free only on failure
+	esp_err_t ret { http_load_config(r, root, response) };
+	if (ret != ESP_OK) {
+		ret = http_send_response(r, response);
+		delete[] response;
+		return ret;
+	}
+
+	// Get the tz JSON object if it exists
+	cJSON *tz { cJSON_GetObjectItem(root, "topic") };
+	if (tz == nullptr) {
+		httpd_resp_set_status(r, HTTPD_204);
+		ret = http_send_response(r, "");
+	} else {
+		httpd_resp_set_status(r, HTTPD_200);
+		ret = http_send_response(r, tz->valuestring);
+	}
+
+	cJSON_Delete(root);
+	return ret;
+}
+
+static esp_err_t http_put_topic(httpd_req_t *r) {
+	ESP_LOGV(TAG, "Handling PUT /topic request");
+
+	// Get the client content
+	char key[r->content_len + 1];
+	const int read { httpd_req_recv(r, key, r->content_len) };
+	key[r->content_len] = 0; // null terminator
+	if (read <= 0) {
+		if (read == HTTPD_SOCK_ERR_TIMEOUT)
+			httpd_resp_set_status(r, HTTPD_408);
+		else
+			httpd_resp_set_status(r, HTTPD_400);
+		return http_send_response(r, "Unable to receive client data");
+	}
+
+	// Load the JSON root from file
+	cJSON *root; // free only on success
+	char *response; // free only on failure
+	esp_err_t ret { http_load_config(r, root, response) };
+	if (ret != ESP_OK) {
+		ret = http_send_response(r, response);
+		delete[] response;
+		return ret;
+	}
+
+	// Get or create the JSON tz object
+	cJSON *mqtt { cJSON_GetObjectItem(root, "topic") };
+	if (mqtt == nullptr) {
+		ESP_LOGV(TAG, "Creating a new JSON topic object");
+		mqtt = cJSON_CreateString(key);
+		cJSON_AddItemToObject(root, "topic", mqtt);
+	} else {
+		cJSON_ReplaceItemInObject(root, "topic", cJSON_CreateString(key));
+	}
+
+	// Write the JSON root object back to disk
+	ret = http_write_config(r, root, response);
+	if (ret != ESP_OK) {
+		ret = http_send_response(r, response);
+		delete[] response;
+		cJSON_Delete(root);
+		return ret;
+	}
+
+	// Send a response to the client
+	cJSON_Delete(root);
+	if (r->sess_ctx) {
+		httpd_resp_set_status(r, HTTPD_200);
+		return http_send_response(r, "");
+	} else {
+		httpd_resp_set_status(r, HTTPD_202);
+		return http_send_response(r, "Restart device for changes to take effect");
+	}
 }
 
 bool http_start() {
@@ -546,7 +666,8 @@ bool http_start() {
 
 	// Configure and start the web server
 	ESP_LOGD(TAG, "Starting the web server");
-    const httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.max_uri_handlers = 12;
     esp_err_t ret { httpd_start(&server, &config) };
     if (ret != ESP_OK) {
     	ESP_LOGE(TAG, "Unable to start the web server");
@@ -563,7 +684,7 @@ bool http_start() {
 	if (ret != ESP_OK)
 		ESP_LOGE(TAG, "Unable to register GET /logging handler (%i)", ret);
 
-	// Register set logging handler
+	// Register put logging handler
 	ESP_LOGV(TAG, "Registering PUT /logging handler");
 	httpd_uri_t put_logging_uri;
 	put_logging_uri.method = HTTP_PUT;
@@ -572,8 +693,6 @@ bool http_start() {
 	ret = httpd_register_uri_handler(server, &put_logging_uri);
 	if (ret != ESP_OK)
 		ESP_LOGE(TAG, "Unable to register PUT /logging handler (%i)", ret);
-
-	// TODO: register delete logging handler
 
 	// Register get events handler
 	ESP_LOGV(TAG, "Registering GET /events handler");
@@ -595,29 +714,57 @@ bool http_start() {
 	if (ret != ESP_OK)
 		ESP_LOGE(TAG, "Unable to register HEAD /events handler (%i)", ret);
 
-	// TODO: Register log events delete handler
+	// Register delete events handler
+	ESP_LOGV(TAG, "Registering DELETE /events handler");
+	httpd_uri_t delete_events_uri;
+	delete_events_uri.method = HTTP_DELETE;
+	delete_events_uri.uri = "/events";
+	delete_events_uri.handler = http_delete_events;
+	ret = httpd_register_uri_handler(server, &delete_events_uri);
+	if (ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to register DELETE /events handler (%i)", ret);
 
 	// Register get MQTT handler
-	ESP_LOGV(TAG, "Registering get MQTT handler");
+	ESP_LOGV(TAG, "Registering GET /mqtt handler");
 	httpd_uri_t get_mqtt_uri;
 	get_mqtt_uri.method = HTTP_GET;
 	get_mqtt_uri.uri = "/mqtt";
-	get_mqtt_uri.handler = http_get_mqtt_handler;
+	get_mqtt_uri.handler = http_get_mqtt;
 	ret = httpd_register_uri_handler(server, &get_mqtt_uri);
 	if (ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to register get MQTT handler (%i)", ret);
+		ESP_LOGE(TAG, "Unable to register GET /mqtt handler (%i)", ret);
 
-	// Register set MQTT handler
-	ESP_LOGV(TAG, "Registering set MQTT handler");
-	httpd_uri_t set_mqtt_uri;
-	set_mqtt_uri.method = HTTP_PUT;
-	set_mqtt_uri.uri = "/mqtt";
-	set_mqtt_uri.handler = http_set_mqtt_handler;
-	ret = httpd_register_uri_handler(server, &set_mqtt_uri);
+	// Register put MQTT handler
+	ESP_LOGV(TAG, "Registering PUT /mqtt handler");
+	httpd_uri_t put_mqtt_uri;
+	put_mqtt_uri.method = HTTP_PUT;
+	put_mqtt_uri.uri = "/mqtt";
+	put_mqtt_uri.handler = http_put_mqtt;
+	ret = httpd_register_uri_handler(server, &put_mqtt_uri);
 	if (ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to register set MQTT handler (%i)", ret);
+		ESP_LOGE(TAG, "Unable to register PUT /mqtt handler (%i)", ret);
 
-	// TODO: register timezone get handler
+	// Register get topic handler
+	ESP_LOGV(TAG, "Registering GET /topic handler");
+	httpd_uri_t get_topic_uri;
+	get_topic_uri.method = HTTP_GET;
+	get_topic_uri.uri = "/topic";
+	get_topic_uri.handler = http_get_topic;
+	ret = httpd_register_uri_handler(server, &get_topic_uri);
+	if (ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to register GET /topic handler (%i)", ret);
+
+	// Register put MQTT handler
+	ESP_LOGV(TAG, "Registering PUT /topic handler");
+	httpd_uri_t put_topic_uri;
+	put_topic_uri.method = HTTP_PUT;
+	put_topic_uri.uri = "/topic";
+	put_topic_uri.handler = http_put_topic;
+	ret = httpd_register_uri_handler(server, &put_topic_uri);
+	if (ret != ESP_OK)
+		ESP_LOGE(TAG, "Unable to register PUT /topic handler (%i)", ret);
+
+	// Register get TZ handler
 	ESP_LOGV(TAG, "Registering GET /tz handler");
 	httpd_uri_t get_tz_uri;
 	get_tz_uri.method = HTTP_GET;
@@ -625,9 +772,9 @@ bool http_start() {
 	get_tz_uri.handler = http_get_tz;
 	ret = httpd_register_uri_handler(server, &get_tz_uri);
 	if (ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to register GETT /tz handler (%i)", ret);
+		ESP_LOGE(TAG, "Unable to register GET /tz handler (%i)", ret);
 
-	// Register set timezone handler
+	// Register put TZ handler
 	ESP_LOGV(TAG, "Registering PUT /tz handler");
 	httpd_uri_t put_tz_uri;
 	put_tz_uri.method = HTTP_PUT;
@@ -637,15 +784,15 @@ bool http_start() {
 	if (ret != ESP_OK)
 		ESP_LOGE(TAG, "Unable to register PUT /tz handler (%i)", ret);
 
-    // Register restart handler
-    ESP_LOGV(TAG, "Registering restart handler");
+    // Register post restart handler
+    ESP_LOGV(TAG, "Registering POST /restart handler");
 	httpd_uri_t restart_uri;
 	restart_uri.method = HTTP_POST;
 	restart_uri.uri = "/restart";
-	restart_uri.handler = http_restart_handler;
+	restart_uri.handler = http_post_restart;
 	ret = httpd_register_uri_handler(server, &restart_uri);
 	if (ret != ESP_OK)
-		ESP_LOGE(TAG, "Unable to register restart handler (%i)", ret);
+		ESP_LOGE(TAG, "Unable to register POST /restart handler (%i)", ret);
 
     return true;
 }

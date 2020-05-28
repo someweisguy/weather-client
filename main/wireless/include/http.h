@@ -21,6 +21,7 @@
 #define MAX_CHUNK_SIZE 2048
 #define USER_AGENT	   CONFIG_LWIP_LOCAL_HOSTNAME "/0.1"
 #define HTTPD_201      "201 Created"
+#define HTTPD_202	   "202 Accepted"
 
 bool http_start();
 bool http_stop();
