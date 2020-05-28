@@ -70,23 +70,6 @@ time_t get_system_time(struct timeval *tv = nullptr);
 int64_t set_window_wait_timer(esp_timer_handle_t &timer, const int mod_ms);
 
 /**
- * Create a hexadecimal representation of the source string and store it in the
- * destination string. The hexadecimal string is separated into 8 bit segments
- * with a space. For example, the source string 'Hello world!' returns
- * '0x48 0x65 0x6C 0x6C 0x6F 0x20 0x77 0x6F 0x72 0x6C 0x64'.
- *
- * @note you should allocate strlen(source) * 5 bytes for the destination string
- * (this includes the null terminator since there is no space after the last
- * hex value)
- *
- * @param destination	the destination string
- * @param source		the source string
- *
- * @return 				a pointer to the destination string
- */
-char *strhex(char *destination, const char *source);
-
-/**
  * Create a hexadecimal representation of the source string of size num and
  * store it in the destination string. The hexadecimal string is separated into
  * 8 bit segments with a space. For example, the source string 'Hello world!'

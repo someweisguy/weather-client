@@ -67,18 +67,13 @@ int64_t set_window_wait_timer(esp_timer_handle_t &timer, const int ms) {
 	int64_t window_delta_us;
 	get_system_time(&tv);
 	vTaskSuspendAll(); // critical section
-	window_delta_us = (300 - tv.tv_sec % 300) * 1e+6 - tv.tv_usec + ms * 1000;
+	window_delta_us = (300 - tv.tv_sec % 300) * 1e+6 - tv.tv_usec - ms * 1000;
 	if (window_delta_us < 0) // skip window
 		window_delta_us += 5 * 60 * 1e+6; // 5 minutes
 	esp_timer_start_once(timer, window_delta_us);
 	xTaskResumeAll(); // end critical section
 
 	return window_delta_us / 1000; // millis
-}
-
-char *strhex(char *destination, const char *source) {
-	const unsigned int len { strlen(source) };
-	return strnhex(destination, source, len);
 }
 
 char *strnhex(char *destination, const char *source, size_t num) {
