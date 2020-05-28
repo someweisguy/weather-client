@@ -63,13 +63,13 @@ bool uart_stop() {
 	return true;
 }
 
-int uart_write(const char *data_wr, const size_t size, const time_t wait_millis) {
+int uart_write(const char *data_wr, const uint32_t size, const time_t wait_millis) {
 	if (size == 0)
 		return 0;
 
 	// Send the data on the UART bus
 	char hex_wr[size * 5];
-	ESP_LOGD(TAG, "Writing data to UART: [ %s ]", strhex(hex_wr, data_wr));
+	ESP_LOGD(TAG, "Writing data to UART: [ %s ]", strnhex(hex_wr, data_wr, size));
 	const int written { uart_write_bytes(UART_PORT, (char*) data_wr, size) };
 
 	// Check number of bytes written
@@ -96,28 +96,43 @@ int uart_write(const char *data_wr, const size_t size, const time_t wait_millis)
 	return written;
 }
 
-int uart_read(char *data_rd, const size_t size, const time_t wait_millis) {
+int uart_read(void *data_rd, const uint32_t size, const time_t wait_millis) {
 	if (size == 0)
 		return 0;
 
 	// Get the amount of ticks to wait
-	const TickType_t ticks { wait_millis == 0 ? portMAX_DELAY :
+	TickType_t ticks { wait_millis == 0 ? portMAX_DELAY :
 			wait_millis / portTICK_PERIOD_MS };
+	const TickType_t start_tick { xTaskGetTickCount() };
 
-	// Wait until bytes are read or timeouts
+	// Wait for the UART bus to be flushed so that we read only new data
+	esp_err_t ret { uart_flush_input(UART_PORT) };
+	if (ret != ESP_OK) {
+		ESP_LOGE(TAG, "Unable to flush UART input (%i)", ret);
+		return -1;
+	}
+	ret = uart_wait_tx_done(UART_PORT, ticks);
+	if (ret != ESP_OK) {
+		ESP_LOGE(TAG, "Unable to read data from UART (flush timed out)");
+		return -1;
+	}
+
+	// Wait until bytes are read or timeouts - subtract wait time from time already waited
 	ESP_LOGD(TAG, "Reading %u bytes from UART", size);
-	const int read { uart_read_bytes(UART_PORT,
-			reinterpret_cast<uint8_t*>(data_rd), size, ticks) };
+	const int read { uart_read_bytes(UART_PORT, reinterpret_cast<uint8_t*>(data_rd),
+			size, ticks - (xTaskGetTickCount() - start_tick)) };
 
 	// Log errors or bytes received
 	if (read == -1) {
 		ESP_LOGE(TAG, "Unable to read data from UART (error)");
 	} else if (read != size) {
-		ESP_LOGE(TAG, "Unable to read data from UART (expected %u bytes "
-				"but got %u)", size, read);
+		ESP_LOGE(TAG, "Unable to read data from UART (expected: %u bytes, got: %u)",
+				size, read);
 	} else {
 		char hex_rd[read * 5];
-		ESP_LOGV(TAG, "Received data from UART: [ %s ]", strhex(hex_rd, data_rd));
+		const char* data_str { reinterpret_cast<char*>(data_rd) };
+		ESP_LOGV(TAG, "Received %i bytes from UART: [ %s ]", read,
+				strnhex(hex_rd, data_str, read));
 	}
 
 	// Return the number of bytes read

@@ -44,7 +44,7 @@ bool uart_stop();
  *
  * @return the number of bytes written or -1 on failure
  */
-int uart_write(const char *wr, const size_t size, const time_t wait_ms = 0);
+int uart_write(const char *wr, const uint32_t size, const time_t wait_ms = 0);
 
 /**
  * Read from the UART bus.
@@ -55,6 +55,6 @@ int uart_write(const char *wr, const size_t size, const time_t wait_ms = 0);
  *
  * @return the number of bytes read or -1 on failure
  */
-int uart_read(char *rd, const size_t size, const time_t wait_ms = 0);
+int uart_read(void *rd, const uint32_t size, const time_t wait_ms = 0);
 
 #endif /* MAIN_SERIAL_UART_H_ */
