@@ -163,7 +163,7 @@ if __name__ == "__main__":
             elif args.get_size:
                 r = s.get(f'http://{args.target}/events')
                 if not r.ok:
-                    raise ConnectionError(r.text)
+                    ConnectionError(r.text)
                 else:
                     print(r.headers['Content-Length'])
             if args.delete_events:
@@ -211,7 +211,7 @@ if __name__ == "__main__":
                 if not r.ok:
                     raise ConnectionError(r.text)
                 else:
-                    print(f'Timezone is: {get_tz(r.text)}')
+                    print(f'Timezone is: {get_city(r.text)}')
             if args.tz_list is True:
                 with open('zones.csv') as file:
                     zones = csv.reader(file)
