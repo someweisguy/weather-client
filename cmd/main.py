@@ -1,13 +1,13 @@
-import requests
-import csv
-from typing import Optional, Dict
 import argparse
-import json
+import csv
+from typing import Optional
+
+import requests
 
 
 def get_tz(city: Optional[str] = None) -> str:
-    """Returns the POSIX TZ string for the specified city. If no city is specified, returns the POSIX TZ string for
-    the current location."""
+    """Returns the POSIX TZ string for the specified city. If no city is specified, returns the
+    POSIX TZ string for the current location."""
     if city is None:
         import sys
         # Get the timezone city, e.g. 'America/New_York'
@@ -43,18 +43,6 @@ def get_city(tz: str) -> str:
                 return timezone
         else:
             raise KeyError
-
-
-PRODUCTION = '192.168.0.21'
-TEST = '192.168.0.105'
-
-DELETE, NONE, ERROR, WARN, INFO, DEBUG, VERBOSE = list(range(-1, 6))
-
-# get events, head events, delete events
-# get mqtt, put mqtt
-# get topic, put topic
-# DONE get tz, put tz
-# post restart
 
 
 class UpdateLoggingDict(argparse.Action):
@@ -230,73 +218,3 @@ if __name__ == "__main__":
                     print('Known timezones:')
                     for timezone, posix in zones:
                         print(f'    {timezone}')
-
-
-    """
-    with requests.Session() as s:
-        ip = PRODUCTION
-
-        # r = requests.head(f'http://{ip}/events', params={'main': -1, 'hello': 2})
-        #r = requests.get(f'http://{ip}/tz')
-
-        r = s.post(f'http://{ip}/restart')
-        if not r.ok:
-            print(r.text)
-
-        #r = s.get(f'http://{ip}/tz')
-        #if r.ok:
-        #    print(get_city(r.text))
-
-        r = s.put(f'http://{ip}/logging', params={'uart': WARN})
-        if not r.ok:
-            print(r.text)
-
-        r = s.get(f'http://{ip}/logging')
-        if not r.ok:
-            print(r.text)
-        else:
-            print(r.json())
-
-        r = s.delete(f'http://{ip}/events')
-        if not r.ok:
-            print(r.text)
-            
-            
-            r = s.put(f'http://{ip}/tz', data=get_tz())
-            if not r.ok:
-                print(r.text)
-
-            r = s.get(f'http://{ip}/tz')
-            print(get_city(r.text))
-
-            r = s.put(f'http://{ip}/topic', data='test/test')
-            if not r.ok:
-                print(r.text)
-
-            r = s.get(f'http://{ip}/topic')
-            print(r.text)
-
-            r = s.put(f'http://{ip}/mqtt', data='mqtt://192.168.1.2')
-            if not r.ok:
-                print(r.text)
-
-            r = s.get(f'http://{ip}/mqtt')
-            print(r.text)
-            
-
-            #r = s.get(f'http://{ip}/events')
-            #if r.ok:
-            #    print(r.text)
-
-            #print(r.raw.version)
-            #print(r.status_code)
-            #print(r.headers)
-            #print(r.content)
-
-            #r = s.get(f'http://{ip}/topic')  # , data='mqtt://192.168.0.2')
-            #print(r.raw.version)
-            #print(r.status_code)
-            #rint(r.headers)
-            #print(r.content)"""
-
-

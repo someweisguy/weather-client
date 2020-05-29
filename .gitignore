@@ -1,3 +1,4 @@
 /build
 scratch
 /sdkconfig.old
+/cmd/target
