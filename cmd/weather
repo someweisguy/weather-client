@@ -1,3 +1,4 @@
+#!/usr/local/bin/python3.8
 import argparse
 import csv
 from typing import Optional
@@ -5,21 +6,24 @@ from typing import Optional
 import requests
 
 
+def get_locale():
+    import sys
+    # Get the timezone city, e.g. 'America/New_York'
+    if sys.platform == 'linux' or sys.platform == 'linux2':
+        with open('/etc/timezone', 'r') as file:
+            return file.read().strip()
+    else:
+        get_ip_info = requests.get('https://ipinfo.io/json')
+        if get_ip_info.ok:
+            return get_ip_info.json()['timezone']
+        else:
+            raise ConnectionError('unable to get IP info')
+
 def get_tz(city: Optional[str] = None) -> str:
     """Returns the POSIX TZ string for the specified city. If no city is specified, returns the
     POSIX TZ string for the current location."""
     if city is None:
-        import sys
-        # Get the timezone city, e.g. 'America/New_York'
-        if sys.platform == 'linux' or sys.platform == 'linux2':
-            with open('/etc/timezone', 'r') as file:
-                city = file.read().strip()
-        else:
-            get_ip_info = requests.get('https://ipinfo.io/json')
-            if get_ip_info.ok:
-                city = get_ip_info.json()['timezone']
-            else:
-                raise ConnectionError('unable to get IP info')
+        city = get_locale()
 
     # Lookup the POSIX timezone string
     with open('zones.csv') as file:
@@ -206,6 +210,8 @@ if __name__ == "__main__":
                 r = s.put(f'http://{args.target}/tz', data=get_tz(args.tz_set))
                 if not r.ok:
                     raise ConnectionError(r.text)
+                elif args.tz_set is None:
+                    print(f'Set timezone to: {get_locale()}')
             if args.tz_get is True:
                 r = s.get(f'http://{args.target}/tz')
                 if not r.ok:
