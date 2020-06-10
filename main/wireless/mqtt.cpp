@@ -40,8 +40,8 @@ static void event_handler(void *handler_args, esp_event_base_t base,
 			ESP_LOGE(TAG, "An unexpected error occurred (type: %i, conn: %i)",
 					mqtt_event->error_handle->error_type,
 					mqtt_event->error_handle->connect_return_code);
-			xEventGroupSetBits(mqtt_event_group, FAIL_BIT);
 		}
+		xEventGroupSetBits(mqtt_event_group, FAIL_BIT);
 
 		break;
 

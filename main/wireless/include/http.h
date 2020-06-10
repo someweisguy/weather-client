@@ -26,4 +26,6 @@
 bool http_start();
 bool http_stop();
 
+// TODO: Attach function call to event - call MQTT start on WiFi connect
+
 #endif /* MAIN_WIRELESS_INCLUDE_HTTP_H_ */
