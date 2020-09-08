@@ -1,11 +1,3 @@
-/*
- *
- * uart.cpp
- *
- *  Created on: Mar 28, 2020
- *      Author: Mitch
- */
-
 #include "uart.h"
 static const char *TAG { "uart" };
 

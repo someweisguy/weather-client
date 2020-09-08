@@ -1,10 +1,3 @@
-/*
- * i2c.cpp
- *
- *  Created on: Apr 4, 2020
- *      Author: Mitch
- */
-
 #include "i2c.h"
 static const char *TAG { "i2c" };
 SemaphoreHandle_t i2c_semaphore;
