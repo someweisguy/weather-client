@@ -1,0 +1,9 @@
+idf_component_register(
+    SRCS 
+        "wlan.c"
+        "uploader.c"
+    INCLUDE_DIRS 
+        "include"
+    PRIV_REQUIRES
+        json
+)

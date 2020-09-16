@@ -1,4 +1,3 @@
-.vscode/*
-build/*
-sdkconfig
+.vscode
+build
 sdkconfig.old

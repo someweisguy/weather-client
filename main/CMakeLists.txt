@@ -1,12 +1,6 @@
 idf_component_register(
         SRCS
                 "main.c"
-                #"serial/uart.c"
-                "serial/i2c.c"
-                "network/wlan.c"
-                "network/uploader.c"
         INCLUDE_DIRS 
-                "." 
-                "serial/include"
-                "network/include"
+                "."
 )
