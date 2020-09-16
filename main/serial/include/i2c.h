@@ -1,11 +1,7 @@
 #ifndef MAIN_SERIAL_I2C_H_
 #define MAIN_SERIAL_I2C_H_
 
-#define LOG_LOCAL_LEVEL ESP_LOG_WARN
-
 #include "esp_system.h"
-#include "esp_log.h"
-#include "driver/i2c.h"
 
 esp_err_t i2c_start();
 

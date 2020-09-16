@@ -1,11 +1,11 @@
-#include "wireless.h"
+#include "wlan.h"
 
 #include <string.h>
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "uploader.h"
 
-static const char *TAG = "wireless";
+static const char *TAG = "wlan";
 static volatile uint8_t retries = 0;
 
 static void event_handler(void *handler_args, esp_event_base_t base,

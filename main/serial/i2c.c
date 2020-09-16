@@ -1,4 +1,5 @@
 #include "i2c.h"
+#include "driver/i2c.h"
 
 #define I2C_PORT I2C_NUM_1
 #define PIN_NUM_SDA 23 // Adafruit Feather 32 Default
