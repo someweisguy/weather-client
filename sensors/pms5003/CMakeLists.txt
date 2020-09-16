@@ -1,9 +1,9 @@
 idf_component_register(
     SRCS 
-        "max17043.c"
+        "pms5003.c"
     INCLUDE_DIRS 
         "."
     REQUIRES 
     PRIV_REQUIRES
-        
+        serial
 )
