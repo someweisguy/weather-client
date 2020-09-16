@@ -1,20 +1,11 @@
-/*
- * i2c.h
- *
- *  Created on: Apr 4, 2020
- *      Author: Mitch
- */
-
 #ifndef MAIN_SERIAL_I2C_H_
 #define MAIN_SERIAL_I2C_H_
 
 #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
 
-#include <cstdint>
 #include "esp_system.h"
 #include "esp_log.h"
 #include "driver/i2c.h"
-#include "helpers.h"
 
 #define I2C_PORT 	I2C_NUM_1
 #define PIN_NUM_SDA 23 // Adafruit Feather 32 Default
@@ -46,7 +37,7 @@ bool i2c_stop();
  * @return true on read success
  */
 bool i2c_read(const char address, const char reg, void* rd,
-		const size_t size, const time_t wait_ms = 0);
+		const size_t size, const time_t wait_ms);
 
 /**
  * Write to the I2C bus.
@@ -58,7 +49,7 @@ bool i2c_read(const char address, const char reg, void* rd,
  * @param wait_ms		the amount of time in milliseconds to wait before timing out
  */
 bool i2c_write(const char address, const char reg, const void* wr,
-		const size_t size, const time_t wait_ms = 0);
+		const size_t size, const time_t wait_ms);
 
 
 #endif /* MAIN_SERIAL_I2C_H_ */
