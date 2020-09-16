@@ -50,7 +50,7 @@ static void event_handler(void *handler_args, esp_event_base_t base,
 
 esp_err_t wifi_start()
 {
-    // init network interface, default event loop, and wifi sta
+    // init network interface and wifi sta
     esp_netif_init();
     esp_netif_create_default_wifi_sta();
 
