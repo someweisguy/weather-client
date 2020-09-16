@@ -5,5 +5,5 @@ idf_component_register(
         "."
     REQUIRES 
     PRIV_REQUIRES
-        
+        serial
 )
