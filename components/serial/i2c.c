@@ -1,6 +1,9 @@
 #include "i2c.h"
 #include "driver/i2c.h"
 
+#define READ 1
+#define WRITE 0
+
 #define I2C_PORT I2C_NUM_1
 #define PIN_NUM_SDA 23 // Adafruit Feather 32 Default
 #define PIN_NUM_SCL 22 // Adafruit Feather 32 Default
@@ -19,12 +22,21 @@ static esp_err_t i2c_master_command(char addr, char reg, void *buf, size_t size,
 	i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, true);
 	i2c_master_write_byte(cmd, reg, true);
 
-	// queue the message payload
-	i2c_master_start(cmd);
-	i2c_master_write_byte(cmd, (addr << 1) | READ_BIT, true);
-	if (size > 1)
-		i2c_master_read(cmd, buf, size - 1, I2C_MASTER_ACK);
-	i2c_master_read_byte(cmd, buf + size - 1, I2C_MASTER_NACK);
+	if (READ_BIT)
+	{
+		// read from the i2c slave
+		i2c_master_start(cmd);
+		i2c_master_write_byte(cmd, (addr << 1) | READ_BIT, true);
+		if (size > 1)
+			i2c_master_read(cmd, buf, size - 1, I2C_MASTER_ACK);
+		i2c_master_read_byte(cmd, buf + size - 1, I2C_MASTER_NACK);
+	}
+	else
+	{
+		// write to the i2c slave
+		i2c_master_write(cmd, buf, size, true);
+	}
+
 	i2c_master_stop(cmd);
 
 	// Get the amount of ticks to wait
@@ -38,14 +50,14 @@ static esp_err_t i2c_master_command(char addr, char reg, void *buf, size_t size,
 esp_err_t i2c_start()
 {
 	const i2c_config_t i2c_config = {
-		.mode = I2C_MODE_MASTER,		// set to master mode
+		.mode = I2C_MODE_MASTER, // set to master mode
 		.master = {
-			.clk_speed = 100000			// standard i2c speed
+			.clk_speed = 100000 // standard i2c speed
 		},
 		.sda_io_num = PIN_NUM_SDA,
 		.scl_io_num = PIN_NUM_SCL,
-		.sda_pullup_en = false,			// enable built-in pullup
-		.scl_pullup_en = false,			// enable built-in pullup
+		.sda_pullup_en = false, // enable built-in pullup
+		.scl_pullup_en = false, // enable built-in pullup
 	};
 	esp_err_t err = i2c_param_config(I2C_PORT, &i2c_config);
 	if (err)
@@ -61,10 +73,10 @@ esp_err_t i2c_stop()
 
 esp_err_t i2c_read(char addr, char reg, void *buf, size_t size, time_t wait_ms)
 {
-	return i2c_master_command(addr, reg, buf, size, wait_ms, 1);
+	return i2c_master_command(addr, reg, buf, size, wait_ms, READ);
 }
 
-esp_err_t i2c_write(char addr, char reg, void *buf, size_t size, time_t wait_ms)
+esp_err_t i2c_write(char addr, char reg, const void *buf, size_t size, time_t wait_ms)
 {
-	return i2c_master_command(addr, reg, buf, size, wait_ms, 0);
+	return i2c_master_command(addr, reg, (void *)buf, size, wait_ms, WRITE);
 }
