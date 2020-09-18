@@ -34,8 +34,8 @@
 typedef struct
 {
     int64_t pressure;
-    double temperature;
-    double humidity;
+    float temperature;
+    float humidity;
 } bme280_data_t;
 
 typedef struct

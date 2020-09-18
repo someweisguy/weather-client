@@ -145,7 +145,7 @@ esp_err_t bme280_set_config(const bme280_config_t *config)
     if (err)
         return err;
 
-    // Writes must be made in this order in order to ensure that they'll take
+    // Writes must be made in this order
     err = i2c_write(I2C_ADDRESS, REG_CONFIG, &(config->config.val), 1, DEFAULT_WAIT_TIME);
     if (err)
         return err;
