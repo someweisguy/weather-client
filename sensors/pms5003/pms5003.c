@@ -8,7 +8,7 @@
 #define PIN_NUM_SET 21
 #define PIN_NUM_RST 19
 
-static int64_t up_time = -1;
+static int64_t power_on_tick = -1;
 
 esp_err_t pms5003_start()
 {
@@ -34,9 +34,9 @@ esp_err_t pms5003_set_power(uint32_t level)
     if (!err)
     {
         if (level == 1)
-            up_time = esp_timer_get_time();
+            power_on_tick = esp_timer_get_time();
         else
-            up_time = -1;
+            power_on_tick = -1;
     }
     return err;
 }
@@ -44,7 +44,7 @@ esp_err_t pms5003_set_power(uint32_t level)
 esp_err_t pms5003_get_data(pms5003_data_t *data)
 {
     data->checksum_ok = false; // assume data is bad
-    data->up_time = up_time;
+    data->power_on_tick = power_on_tick;
 
     // allocate a buffer and read the data in
     uint8_t buffer[32];

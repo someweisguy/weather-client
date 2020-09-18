@@ -26,7 +26,7 @@ typedef struct pms5003_data
       uint16_t um10_0;
     } countPer0_1L;
     bool checksum_ok;
-    int64_t up_time;
+    int64_t power_on_tick;
 } pms5003_data_t;
 
 esp_err_t pms5003_start();
