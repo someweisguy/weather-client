@@ -2,7 +2,6 @@
 #include "driver/uart.h"
 
 #define UART_PORT UART_NUM_1
-#define BUF_SIZE 1024
 #define PIN_NUM_TX 17 // Adafruit Feather 32 Default
 #define PIN_NUM_RX 16 // Adafruit Feather 32 Default
 
@@ -19,7 +18,7 @@ esp_err_t uart_start()
 	};
 	uart_param_config(UART_PORT, &uart_config);
 	uart_set_pin(UART_PORT, PIN_NUM_TX, PIN_NUM_RX, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-	return uart_driver_install(UART_PORT, BUF_SIZE * 2, BUF_SIZE * 2, 10, NULL, 0);
+	return uart_driver_install(UART_PORT, 255, 0, 10, NULL, 0);
 }
 
 esp_err_t uart_stop()
