@@ -4,6 +4,8 @@
 
 #define MAX17043_QUICKSTART_COMMAND 0x4000
 
+#define MAX17043_DEFAULT_CONFIG { .config = { .val = 0x971c }, .mode = 0 }
+
 typedef struct
 {
     float millivolts;
