@@ -10,7 +10,7 @@
 
 static int64_t power_on_tick = -1;
 
-esp_err_t pms5003_start()
+esp_err_t pms5003_reset()
 {
     // reset the gpio
     gpio_reset_pin(PIN_NUM_SET);

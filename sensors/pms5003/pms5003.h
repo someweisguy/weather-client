@@ -29,7 +29,7 @@ typedef struct pms5003_data
     int64_t power_on_tick;
 } pms5003_data_t;
 
-esp_err_t pms5003_start();
+esp_err_t pms5003_reset();
 
 esp_err_t pms5003_set_power(uint32_t level);
 
