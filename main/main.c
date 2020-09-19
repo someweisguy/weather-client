@@ -26,8 +26,8 @@ void app_main(void)
     uart_start();
 
     // init sensors
-    max17043_start();
-    pms5003_start();
+    
+    
 
     // init non-volatile storage
     esp_err_t err = nvs_flash_init();
@@ -44,54 +44,40 @@ void app_main(void)
     gpio_reset_pin(GPIO_NUM_13);
     gpio_set_direction(GPIO_NUM_13, GPIO_MODE_INPUT_OUTPUT);
 
+    pms5003_reset();
     pms5003_set_power(1);
 
-    esp_err_t bme_err = bme280_reset();
-    if (bme_err)
-        ESP_LOGE(TAG, "BME soft reset error %x", bme_err);
-    bme280_config_t weather_monitoring_config = {
-        .config = {
-            .spi3w_en = 0, 
-            .t_sb = 0, 
-            .filter = 0
-        }, 
-        .ctrl_meas = {
-            .mode = 1, 
-            .osrs_p = 1, 
-            .osrs_t = 1
-        }, 
-        .ctrl_hum = {
-            .osrs_h = 1
-        }
-    };
-    bme_err = bme280_set_config(&weather_monitoring_config);
-    if (bme_err)
-        ESP_LOGE(TAG, "BME set config error %x", bme_err);
-
-    bme280_get_config(&weather_monitoring_config);
-    printf("received config: %02x, ctrl_meas: %02x, ctrl_hum: %02x\n",
-           weather_monitoring_config.config.val, weather_monitoring_config.ctrl_meas.val,
-           weather_monitoring_config.ctrl_hum.val);
+    max17043_reset();
+    max17043_config_t max_config;
+    max17043_get_config(&max_config);
+    printf("max17043 config: %04x, mode: %04x\n", max_config.config.val, 
+        max_config.mode);
+    
+    bme280_reset();
+    bme280_config_t bme_config = BME280_WEATHER_MONITORING;
+    bme280_set_config(&bme_config);
+  
 
     while (1)
     {
         bme280_data_t bme_data;
         bme280_force_measurement();
         bme280_get_data(&bme_data);
-        printf("It's %.2f C, with %.2f%%RH, and %lld Pa pressure\n", bme_data.temperature,
+        printf("It's %.2f F, with %.2f%%RH, and %lld Pa pressure\n", bme_data.temperature * 9.0/5.0 + 32,
                bme_data.humidity, bme_data.pressure);
 
         pms5003_data_t pms_data;
         esp_err_t pms_err = pms5003_get_data(&pms_data);
         printf("PM2.5 at %d (checksum ", pms_data.concAtm.pm2_5);
-        if (pms_err == ESP_OK)
+        if (pms_data.checksum_ok)
             printf("OK)\n");
         else
             printf("FAIL)\n");
 
-        printf("Battery at %.2f%% (%.1fmV)\n",
-               max17043_get_battery_percentage(),
-               max17043_get_battery_millivolts());
+        max17043_data_t max_data;
+        max17043_get_data(&max_data);
+        printf("Battery at %.2f%% (%.1fmV)\n", max_data.battery_life, 
+            max_data.millivolts);
 
         gpio_set_level(GPIO_NUM_13, !gpio_get_level(GPIO_NUM_13));
 
