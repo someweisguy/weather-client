@@ -17,6 +17,7 @@
 
 static const char *TAG = "main";
 
+
 void app_main(void)
 {
     // create default event loop
@@ -25,7 +26,7 @@ void app_main(void)
     // start serial communications
     i2c_start();
     uart_start();
-    i2s_start();
+    i2s_init();
 
     // init sensors
     pms5003_reset();
@@ -46,8 +47,11 @@ void app_main(void)
 
     wifi_start();
 
+    uint32_t buf[64];
+
     while (1)
     {
+        /*
         bme280_data_t bme_data;
         bme280_force_measurement();
         bme280_get_data(&bme_data);
@@ -63,7 +67,24 @@ void app_main(void)
         max17043_get_data(&max_data);
         printf("Battery at %.2f%% (%.1fmV)\n", max_data.battery_life, 
             max_data.millivolts);
+        */
 
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
+       //xTaskCreate()
+
+        err = i2s_master_read(buf, 8, 1000);
+        if (err)
+            printf("i2s read error %x", err);
+        else
+        {   
+            for (int i = 0 ; i < 8; ++i)
+            {
+                printf("%x ", buf[i]);
+            }
+            printf("\n");
+        }
+
+
+        //vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
+
