@@ -6,6 +6,7 @@
 #include "max17043.h"
 #include "pms5003.h"
 #include "bme280.h"
+#include "sph0645.h"
 
 #include "i2c.h"
 #include "uart.h"
@@ -14,6 +15,8 @@
 #include "wlan.h"
 
 #include "driver/gpio.h"
+
+
 
 static const char *TAG = "main";
 
@@ -47,7 +50,6 @@ void app_main(void)
 
     wifi_start();
 
-    uint32_t buf[64];
 
     while (1)
     {
@@ -69,22 +71,11 @@ void app_main(void)
             max_data.millivolts);
         */
 
-       //xTaskCreate()
 
-        err = i2s_master_read(buf, 8, 1000);
-        if (err)
-            printf("i2s read error %x", err);
-        else
-        {   
-            for (int i = 0 ; i < 8; ++i)
-            {
-                printf("%x ", buf[i]);
-            }
-            printf("\n");
-        }
+       stub();
 
 
-        //vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
     }
 }
 
