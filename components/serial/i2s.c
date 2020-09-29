@@ -15,7 +15,7 @@ esp_err_t i2s_init(void)
         .mode = I2S_MODE_MASTER | I2S_MODE_RX,
         .sample_rate = 44100,
         .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,
-        .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
+        .channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT, //I2S_CHANNEL_FMT_RIGHT_LEFT,
         .communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB,
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
         .dma_buf_count = 8,
@@ -45,13 +45,3 @@ esp_err_t i2s_end(void)
     return i2s_driver_uninstall(I2S_NUM);
 }
 
-esp_err_t i2s_master_read(void *buf, size_t size, time_t wait_ms)
-{
-    size_t bytes_read;
-    const TickType_t ticks = wait_ms == 0 ? wait_ms / portTICK_PERIOD_MS : portMAX_DELAY;
-    esp_err_t err = i2s_read(I2S_NUM, buf, size, &bytes_read, ticks);
-    if (bytes_read != size)
-        return ESP_ERR_INVALID_SIZE;
-    else
-        return err;
-}
