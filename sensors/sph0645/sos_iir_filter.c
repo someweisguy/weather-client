@@ -24,7 +24,7 @@ typedef struct
 
 static SOS_Delay_State *mic_w = NULL, *c_weighting_w = NULL;
 
-static int sos_filter_f32(float *input, float *output, int len, const SOS_Coefficients *coeffs, SOS_Delay_State *w);
+extern int sos_filter_f32(float *input, float *output, int len, const SOS_Coefficients *coeffs, SOS_Delay_State *w);
 __asm__(
     //
     // ESP32 implementation of IIR Second-Order Section filter
@@ -65,7 +65,7 @@ __asm__(
     "  movi.n   a2, 0         \n" // return 0;
     "  retw.n                 \n");
 
-static float sos_filter_sum_sqr_f32(float *input, float *output, int len, const SOS_Coefficients *coeffs, SOS_Delay_State *w, float gain);
+extern float sos_filter_sum_sqr_f32(float *input, float *output, int len, const SOS_Coefficients *coeffs, SOS_Delay_State *w, float gain);
 __asm__(
     //
     // ESP32 implementation of IIR Second-Order section filter with applied gain.
