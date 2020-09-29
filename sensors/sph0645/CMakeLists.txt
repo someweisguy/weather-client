@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS 
         "sph0645.c"
+        "sos_iir_filter.c"
     INCLUDE_DIRS 
         "."
     REQUIRES 
