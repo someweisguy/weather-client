@@ -112,19 +112,19 @@ __asm__(
     "  retw.n                 \n" //
 );
 
-static inline float filter(float *input, float *output, size_t len, const int num_sos, const float gain, const SOS_Coefficients **sos, SOS_Delay_State **w)
+static inline float filter(float *input, float *output, size_t len, const int num_sos, const float gain, const SOS_Coefficients *sos, SOS_Delay_State *w)
 {
     float *source = input;
 
     // Apply all but last Second-Order-Section
     for (int i = 0; i < (num_sos - 1); i++)
     {
-        sos_filter_f32(source, output, len, sos[i], w[i]);
+        sos_filter_f32(source, output, len, &sos[i], &w[i]);
         source = output;
     }
 
     // Apply last SOS with gain and return the sum of squares of all samples
-    return sos_filter_sum_sqr_f32(source, output, len, sos[num_sos - 1], w[num_sos - 1], gain);
+    return sos_filter_sum_sqr_f32(source, output, len, &sos[num_sos - 1], &w[num_sos - 1], gain);
 }
 
 float equalize(float *input, float *output, size_t len)
@@ -135,7 +135,7 @@ float equalize(float *input, float *output, size_t len)
     // A ~= [1.0, -1.993853, 0.993863]
     // With additional DC blocking component
     const float gain = 1.00123377961525;
-    const SOS_Coefficients sos[] = {
+    SOS_Coefficients sos[] = {
         {-1.0, 0.0, +0.9992, 0}, // DC blocker, a1 = -0.9992
         {-1.988897663539382, +0.988928479008099, +1.993853376183491, -0.993862821429572}};
     const int num_sos = sizeof(sos) / sizeof(SOS_Coefficients);
@@ -145,18 +145,7 @@ float equalize(float *input, float *output, size_t len)
         // lazy initialization
         mic_w = calloc(num_sos, sizeof(SOS_Delay_State));
     }
-
-    float *source = input;
-
-    // Apply all but last Second-Order-Section
-    for (int i = 0; i < (num_sos - 1); i++)
-    {
-        sos_filter_f32(source, output, len, &(sos[i]), &(mic_w[i]));
-        source = output;
-    }
-
-    // Apply last SOS with gain and return the sum of squares of all samples
-    return sos_filter_sum_sqr_f32(source, output, len, &sos[num_sos - 1], &mic_w[num_sos - 1], gain);
+    return filter(input, output, len, num_sos, gain, sos, mic_w);
 }
 
 float weight_dBC(float *input, float *output, size_t len)
@@ -178,15 +167,5 @@ float weight_dBC(float *input, float *output, size_t len)
         c_weighting_w = calloc(num_sos, sizeof(SOS_Delay_State));
     }
 
-    float *source = input;
-
-    // Apply all but last Second-Order-Section
-    for (int i = 0; i < (num_sos - 1); i++)
-    {
-        sos_filter_f32(source, output, len, &sos[i], &c_weighting_w[i]);
-        source = output;
-    }
-
-    // Apply last SOS with gain and return the sum of squares of all samples
-    return sos_filter_sum_sqr_f32(source, output, len, &sos[num_sos - 1], &c_weighting_w[num_sos - 1], gain);
+    return filter(input, output, len, num_sos, gain, sos, c_weighting_w);
 }
