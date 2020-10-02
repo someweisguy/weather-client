@@ -169,3 +169,42 @@ float weight_dBC(float *input, float *output, size_t len)
 
     return filter(input, output, len, num_sos, gain, sos, c_weighting_w);
 }
+
+float weight_dBA(float *input, float *output, size_t len)
+{
+    // A-weighting IIR Filter, Fs = 48KHz
+    // (By Dr. Matt L., Source: https://dsp.stackexchange.com/a/36122)
+    // B = [0.169994948147430, 0.280415310498794, -1.120574766348363, 0.131562559965936, 0.974153561246036, -0.282740857326553, -0.152810756202003]
+    // A = [1.0, -2.12979364760736134, 0.42996125885751674, 1.62132698199721426, -0.96669962900852902, 0.00121015844426781, 0.04400300696788968]
+    const float gain = 0.169994948147430;
+    const SOS_Coefficients sos[] = {
+        {-2.00026996133106, +1.00027056142719, -1.060868438509278, -0.163987445885926},
+        {+4.35912384203144, +3.09120265783884, +1.208419926363593, -0.273166998428332},
+        {-0.70930303489759, -0.29071868393580, +1.982242159753048, -0.982298594928989}};
+    const int num_sos = sizeof(sos) / sizeof(SOS_Coefficients);
+
+    if (c_weighting_w == NULL)
+    {
+        // lazy initialization
+        c_weighting_w = calloc(num_sos, sizeof(SOS_Delay_State));
+    }
+
+    return filter(input, output, len, num_sos, gain, sos, c_weighting_w);
+}
+
+float weight_none(float *input, float *output, size_t len)
+{
+    float sum_sqr = 0;
+    float s;
+    for (int i = 0; i < len; i++)
+    {
+        s = input[i];
+        sum_sqr += s * s;
+    }
+    if (input != output)
+    {
+        for (int i = 0; i < len; i++)
+            output[i] = input[i];
+    }
+    return sum_sqr;
+}

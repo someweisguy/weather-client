@@ -33,7 +33,13 @@ static void mic_reader_task(void *arg)
 {
     const size_t num_samples = SAMPLE_RATE / 1000 * task_config.sample_length;               // Number of samples needed for the configured sample length.
     const double mic_ref_ampl = pow10(MIC_SENSITIVITY / 20.0) * ((1 << (MIC_BITS - 1)) - 1); // Microphone i2s output at 94dB SPL.
-
+    float (*weighing)(float*, float*, size_t);
+    if (task_config.weighting == SPH0645_WEIGHTING_C)
+        weighing = weight_dBC;
+    else if (task_config.weighting == SPH0645_WEIGHTING_A)
+        weighing = weight_dBA;
+    else
+        weighing = weight_none;
 
     uint64_t acc_samples = 0;
     double acc_sum_sqr = 0;
@@ -58,7 +64,7 @@ static void mic_reader_task(void *arg)
 
         // Apply equalization and get C-weighted sum of squares
         const float sum_sqr_z = equalize(samples, samples, num_samples);
-        const float sum_sqr_c = weight_dBC(samples, samples, num_samples);
+        const float sum_sqr_c = weighing(samples, samples, num_samples);
 
         // Discard first round of data because of uninitialized delay state
         if (delay_state_uninitialized)
@@ -82,7 +88,7 @@ static void mic_reader_task(void *arg)
         acc_samples += num_samples;
 
         // When we gather enough samples, calculate the RMS C-weighted value
-        if (acc_samples >= SAMPLE_RATE * task_config.sample_period)
+        if (acc_samples >= SAMPLE_RATE * task_config.sample_period / 1000.0)
         {
             vTaskSuspendAll(); // enter critical section, interrupts enabled
 
