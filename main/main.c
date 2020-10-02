@@ -58,6 +58,7 @@ void app_main(void)
 
     while (1)
     {
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
         /*
         bme280_data_t bme_data;
         bme280_force_measurement();
@@ -80,6 +81,5 @@ void app_main(void)
         printf("Min: %.3f dBC, Max: %.3f dBC, Avg: %.3f dBC (%lld samples)\n",
                data.min, data.max, data.avg, data.samples);
 
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
