@@ -64,10 +64,8 @@ esp_err_t wifi_start()
 
     // get wifi credentials from uploader or nvs
     wifi_config_t wifi_config = {};
-    if (uploader_get_config(&wifi_config, 100) == ESP_OK)
-    {
+    if (uploader_get_config(&wifi_config, 100 / portTICK_PERIOD_MS) == ESP_OK)
         ESP_LOGI(TAG, "received WiFi credentials from uploader");
-    }
     else if (esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config) == ESP_OK)
     {
         if (strlen((char *)wifi_config.sta.ssid))
@@ -89,8 +87,14 @@ esp_err_t wifi_start()
 
 esp_err_t wifi_stop()
 {
-    // TODO
-    return ESP_FAIL;
+	esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, event_handler);
+    esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, event_handler);
+    esp_wifi_stop();
+
+    vTaskDelay(500 / portTICK_PERIOD_MS); // wait for wifi to stop
+
+	esp_wifi_deinit();
+    return ESP_OK;
 }
 
 int8_t wifi_get_rssi()
