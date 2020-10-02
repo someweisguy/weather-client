@@ -30,8 +30,12 @@ void app_main(void)
 
     // init sensors
     pms5003_reset();
+    const pms5003_config_t pms_config = PMS5003_DEFAULT_CONFIG;
+    pms5003_set_config(&pms_config);
     
     max17043_reset();
+    const max17043_config_t max_config = MAX17043_DEFAULT_CONFIG;
+    max17043_set_config(&max_config);
     
     bme280_reset();
     const bme280_config_t bme_config = BME280_WEATHER_MONITORING;
@@ -72,10 +76,10 @@ void app_main(void)
         printf("PM2.5 at %d (checksum %s, fan on for %lld ms)\n", pms_data.concAtm.pm2_5, 
             pms_data.checksum_ok ? "OK" : "FAIL", pms_data.fan_on_time);
 
-        sph0645_data_t data;
-        sph0645_get_data(&data);
+        sph0645_data_t sph_data;
+        sph0645_get_data(&sph_data);
         printf("Min: %.3f dBC, Max: %.3f dBC, Avg: %.3f dBC (%lld samples)\n",
-               data.min, data.max, data.avg, data.samples);
+               sph_data.min, sph_data.max, sph_data.avg, sph_data.samples);
 
         max17043_data_t max_data;
         max17043_get_data(&max_data);
