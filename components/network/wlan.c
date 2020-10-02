@@ -44,7 +44,7 @@ static void event_handler(void *handler_args, esp_event_base_t base,
     else if (base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
         const ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-        ESP_LOGI(TAG, "got IP '%d.%d.%d.%d'", IP2STR(&event->ip_info.ip));
+        ESP_LOGI(TAG, "got IP %d.%d.%d.%d", IP2STR(&event->ip_info.ip));
     }
 }
 
