@@ -69,8 +69,8 @@ void app_main(void)
 
         pms5003_data_t pms_data;
         pms5003_get_data(&pms_data);
-        printf("PM2.5 at %d (checksum %s)\n", pms_data.concAtm.pm2_5, 
-            pms_data.checksum_ok ? "OK" : "FAIL");
+        printf("PM2.5 at %d (checksum %s, fan on for %lld ms)\n", pms_data.concAtm.pm2_5, 
+            pms_data.checksum_ok ? "OK" : "FAIL", pms_data.fan_on_time_ms);
 
         sph0645_data_t data;
         sph0645_get_data(&data);
