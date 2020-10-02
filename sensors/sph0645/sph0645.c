@@ -25,8 +25,7 @@
 #define MAX(a, b) ((a > b) ? a : b)
 
 static TaskHandle_t mic_reader_task_handle = NULL;
-static float samples[6000];
-//static float *samples = NULL;
+static float *samples = NULL;
 static sph0645_data_t task_data;
 static sph0645_config_t task_config;
 
@@ -51,7 +50,7 @@ static void mic_reader_task(void *arg)
         i2s_read(0, samples, num_samples * sizeof(int32_t), &bytes_read, portMAX_DELAY);
 
         // Convert integer microphone values to floats
-        int32_t *int_samples = (int32_t *)&samples;
+        int32_t *int_samples = (int32_t *)samples;
         for (int i = 0; i < num_samples; i++)
             samples[i] = int_samples[i] >> (SAMPLE_BITS - MIC_BITS);
 
@@ -134,16 +133,16 @@ esp_err_t sph0645_set_config(const sph0645_config_t *config)
     if (mic_reader_task_handle != NULL)
         vTaskSuspend(mic_reader_task_handle);
 
-    // // Check to see if we can malloc a large enough block of memory for samples
-    // const size_t num_samples = SAMPLE_RATE / 1000 * config->sample_length;
-    // float *tmp_samples = realloc(samples, num_samples * sizeof(float));
-    // if (tmp_samples == NULL)
-    // {
-    //     if (mic_reader_task_handle != NULL)
-    //         vTaskResume(mic_reader_task_handle);
-    //     return ESP_ERR_NO_MEM;
-    // }
-    // samples = tmp_samples;
+    // Check to see if we can malloc a large enough block of memory for samples
+    const size_t num_samples = SAMPLE_RATE / 1000 * config->sample_length;
+    float *tmp_samples = realloc(samples, num_samples * sizeof(float));
+    if (tmp_samples == NULL)
+    {
+        if (mic_reader_task_handle != NULL)
+            vTaskResume(mic_reader_task_handle);
+        return ESP_ERR_NO_MEM;
+    }
+    samples = tmp_samples;
 
     // Copy argument to task_config
     memcpy(&task_config, config, sizeof(task_config));
