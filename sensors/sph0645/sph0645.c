@@ -31,12 +31,14 @@ static sph0645_config_t task_config;
 
 static void mic_reader_task(void *arg)
 {
-    const size_t num_samples = SAMPLE_RATE / 1000 * task_config.sample_length;
-    const double mic_ref_ampl = pow10(MIC_SENSITIVITY / 20.0) * ((1 << (MIC_BITS - 1)) - 1);
+    const size_t num_samples = SAMPLE_RATE / 1000 * task_config.sample_length;               // Number of samples needed for the configured sample length.
+    const double mic_ref_ampl = pow10(MIC_SENSITIVITY / 20.0) * ((1 << (MIC_BITS - 1)) - 1); // Microphone i2s output at 94dB SPL.
+
 
     uint64_t acc_samples = 0;
     double acc_sum_sqr = 0;
     size_t bytes_read = 0;
+    bool delay_state_uninitialized = true;
 
     // Reset the running data
     task_data.avg = 0;
@@ -57,6 +59,13 @@ static void mic_reader_task(void *arg)
         // Apply equalization and get C-weighted sum of squares
         const float sum_sqr_z = equalize(samples, samples, num_samples);
         const float sum_sqr_c = weight_dBC(samples, samples, num_samples);
+
+        // Discard first round of data because of uninitialized delay state
+        if (delay_state_uninitialized)
+        {
+            delay_state_uninitialized = false;
+            continue;
+        }
 
         // Calculate dB values relative to mic_ref_ampl and adjust for microphone reference
         const double rms_z = sqrt((double)sum_sqr_z / num_samples);
