@@ -8,6 +8,8 @@
 #define PIN_NUM_SET 21
 #define PIN_NUM_RST 19
 
+#define DEFAULT_WAIT_TIME 100 / portTICK_PERIOD_MS
+
 static int64_t fan_on_tick = -1;
 
 esp_err_t pms5003_reset()
@@ -52,7 +54,7 @@ esp_err_t pms5003_get_data(pms5003_data_t *data)
     // allocate a buffer and read the data in
     uint8_t buffer[32];
     uart_flush_input(CONFIG_UART_PORT);
-    esp_err_t err = uart_bus_read(buffer, 32, 500);
+    esp_err_t err = uart_bus_read(buffer, 32, DEFAULT_WAIT_TIME);
     if (err)
         return err;
 
