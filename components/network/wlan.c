@@ -17,25 +17,25 @@ static void event_handler(void *handler_args, esp_event_base_t base,
         switch (event_id)
         {
         case WIFI_EVENT_STA_START:
-            ESP_LOGI(TAG, "Handling WIFI_EVENT_STA_START event");
+            ESP_LOGI(TAG, "Connecting to WiFi...");
             esp_wifi_connect();
             break;
 
         case WIFI_EVENT_STA_CONNECTED:
-            ESP_LOGI(TAG, "Handling WIFI_EVENT_STA_CONNECTED event");
+            // Do nothing
             break;
 
         case WIFI_EVENT_STA_DISCONNECTED:
-            ESP_LOGI(TAG, "Handling WIFI_EVENT_STA_DISCONNECTED event");
+            ESP_LOGI(TAG, "Reconnecting...");
             esp_wifi_connect();
             break;
 
         case WIFI_EVENT_STA_STOP:
-            ESP_LOGI(TAG, "Handling WIFI_EVENT_STA_STOP event");
+            // Do nothing
             break;
 
         default:
-            ESP_LOGW(TAG, "Handling unexpected event (%i)", event_id);
+            ESP_LOGW(TAG, "unexpected event %i", event_id);
             break;
         }
     }
@@ -44,7 +44,7 @@ static void event_handler(void *handler_args, esp_event_base_t base,
     else if (base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
         const ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-        ESP_LOGI(TAG, "Got IP '%d.%d.%d.%d'", IP2STR(&event->ip_info.ip));
+        ESP_LOGI(TAG, "got IP '%d.%d.%d.%d'", IP2STR(&event->ip_info.ip));
     }
 }
 
@@ -64,20 +64,9 @@ esp_err_t wifi_start()
 
     // get wifi credentials from uploader or nvs
     wifi_config_t wifi_config = {};
-    if (uploader_get_config(&wifi_config, 100 / portTICK_PERIOD_MS) == ESP_OK)
-        ESP_LOGI(TAG, "received WiFi credentials from uploader");
-    else if (esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config) == ESP_OK)
-    {
-        if (strlen((char *)wifi_config.sta.ssid))
-            ESP_LOGI(TAG, "received WiFi credentials from NVS");
-        else
-            ESP_LOGI(TAG, "no WiFi credentials were found in NVS");
-    }
-    else
-    {
-        ESP_LOGE(TAG, "an error occurred while loading WiFi credentials");
+    if (uploader_get_config(&wifi_config, 100 / portTICK_PERIOD_MS) != ESP_OK &&
+        esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config) != ESP_OK)
         return ESP_FAIL;
-    }
 
     esp_wifi_set_mode(WIFI_MODE_STA);
     esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config);
@@ -87,13 +76,13 @@ esp_err_t wifi_start()
 
 esp_err_t wifi_stop()
 {
-	esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, event_handler);
+    esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, event_handler);
     esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, event_handler);
     esp_wifi_stop();
 
     vTaskDelay(500 / portTICK_PERIOD_MS); // wait for wifi to stop
 
-	esp_wifi_deinit();
+    esp_wifi_deinit();
     return ESP_OK;
 }
 
