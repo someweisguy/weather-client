@@ -39,8 +39,8 @@ void app_main(void)
 
     sph0645_reset();
     const sph0645_config_t sph_config = SPH0645_DEFAULT_CONFIG;
-    if (sph0645_set_config(&sph_config) != ESP_OK)
-        printf("ERROR!!!!\n");
+    sph0645_set_config(&sph_config);
+
 
     // init non-volatile storage
     esp_err_t err = nvs_flash_init();
@@ -54,32 +54,33 @@ void app_main(void)
 
     wifi_start();
 
-    sph0645_data_t data;
+    pms5003_set_power(1);
 
     while (1)
     {
         vTaskDelay(5000 / portTICK_PERIOD_MS);
-        /*
+        
         bme280_data_t bme_data;
         bme280_force_measurement();
         bme280_get_data(&bme_data);
-        printf("It's %.2f F, with %.2f%%RH, and %lld Pa pressure\n", bme_data.temperature * 9.0/5.0 + 32,
-               bme_data.humidity, bme_data.pressure);
+        printf("It's %.2f F, with %.2f%%RH, the dew point is %.2f F, and the pressure is %lld Pa\n", 
+            bme_data.temperature * 9.0/5.0 + 32, bme_data.humidity, 
+            bme_data.dew_point * 9.0/5.0 + 32, bme_data.pressure);
 
         pms5003_data_t pms_data;
         pms5003_get_data(&pms_data);
         printf("PM2.5 at %d (checksum %s)\n", pms_data.concAtm.pm2_5, 
             pms_data.checksum_ok ? "OK" : "FAIL");
 
+        sph0645_data_t data;
+        sph0645_get_data(&data);
+        printf("Min: %.3f dBC, Max: %.3f dBC, Avg: %.3f dBC (%lld samples)\n",
+               data.min, data.max, data.avg, data.samples);
+
         max17043_data_t max_data;
         max17043_get_data(&max_data);
         printf("Battery at %.2f%% (%.1fmV)\n", max_data.battery_life, 
             max_data.millivolts);
-        */
-
-        sph0645_get_data(&data);
-        printf("Min: %.3f dBC, Max: %.3f dBC, Avg: %.3f dBC (%lld samples)\n",
-               data.min, data.max, data.avg, data.samples);
 
     }
 }

@@ -20,6 +20,8 @@
 
 #define DEFAULT_WAIT_TIME 100
 
+#define MAX(a, b) (a > b ? a : b)
+
 static struct
 {
     	uint16_t t1;
@@ -229,6 +231,15 @@ esp_err_t bme280_get_data(bme280_data_t *data)
         data->humidity = compensate_humidity(t_fine, adc_H) / 1024.0;
     else
         data->humidity = NAN;
+
+    // calculate the dew point
+    if (adc_T != 0x80000 && adc_H != 0x800)
+    {
+        const double gamma = log(MAX(data->humidity, 0.001) / 100) + ((17.62 * data->temperature) / (243.12 + data->temperature));
+        data->dew_point = (243.12 * gamma) / (17.32 - gamma);
+    }
+    else
+        data->dew_point = NAN;
 
     return ESP_OK;
 }
