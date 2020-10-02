@@ -18,7 +18,7 @@
 #define MEASURING_BIT 8
 #define IM_UPDATE_BIT 1
 
-#define DEFAULT_WAIT_TIME 100
+#define DEFAULT_WAIT_TIME 100 / portTICK_PERIOD_MS
 
 #define MAX(a, b) (a > b ? a : b)
 
@@ -103,7 +103,7 @@ static esp_err_t wait_for_device(uint8_t bit_to_wait_for)
     for (uint8_t bit = 1; bit & bit_to_wait_for;)
     {
         // Wait for the device to be ready by reading the status register
-        esp_err_t err = i2c_read(I2C_ADDRESS, REG_RESET, &bit, 1, DEFAULT_WAIT_TIME);
+        esp_err_t err = i2c_bus_read(I2C_ADDRESS, REG_RESET, &bit, 1, DEFAULT_WAIT_TIME);
         if (err)
             return err;
     }
@@ -113,7 +113,7 @@ static esp_err_t wait_for_device(uint8_t bit_to_wait_for)
 esp_err_t bme280_reset()
 {
     const uint8_t soft_reset_word = 0xb6; // The soft reset word which resets the device using the complete power-on-reset procedure.
-    esp_err_t err = i2c_write(I2C_ADDRESS, REG_RESET, &soft_reset_word, 1, DEFAULT_WAIT_TIME);
+    esp_err_t err = i2c_bus_write(I2C_ADDRESS, REG_RESET, &soft_reset_word, 1, DEFAULT_WAIT_TIME);
     if (err)
         return err;
     
@@ -123,10 +123,10 @@ esp_err_t bme280_reset()
 
     // read the trimming parameters and copy them to memory
     char buf[32];
-    err = i2c_read(I2C_ADDRESS, REG_TRIM_T1_TO_H1, buf, 25, DEFAULT_WAIT_TIME);
+    err = i2c_bus_read(I2C_ADDRESS, REG_TRIM_T1_TO_H1, buf, 25, DEFAULT_WAIT_TIME);
     if (err)
         return err;
-    err = i2c_read(I2C_ADDRESS, REG_TRIM_H2_TO_H6, buf + 25, 7, DEFAULT_WAIT_TIME);
+    err = i2c_bus_read(I2C_ADDRESS, REG_TRIM_H2_TO_H6, buf + 25, 7, DEFAULT_WAIT_TIME);
     if (err)
         return err;
     memcpy(&dig, buf, 25);
@@ -143,37 +143,37 @@ esp_err_t bme280_set_config(const bme280_config_t *config)
 {
     // set device to sleep mode or else changes won't take
     const uint8_t sleep_word = 0;
-    esp_err_t err = i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &sleep_word, 1, DEFAULT_WAIT_TIME);
+    esp_err_t err = i2c_bus_write(I2C_ADDRESS, REG_CTRL_MEAS, &sleep_word, 1, DEFAULT_WAIT_TIME);
     if (err)
         return err;
 
     // Writes must be made in this order
-    err = i2c_write(I2C_ADDRESS, REG_CONFIG, &(config->config.val), 1, DEFAULT_WAIT_TIME);
+    err = i2c_bus_write(I2C_ADDRESS, REG_CONFIG, &(config->config.val), 1, DEFAULT_WAIT_TIME);
     if (err)
         return err;
-    err = i2c_write(I2C_ADDRESS, REG_CTRL_HUM, &(config->ctrl_hum.val), 1, DEFAULT_WAIT_TIME);
+    err = i2c_bus_write(I2C_ADDRESS, REG_CTRL_HUM, &(config->ctrl_hum.val), 1, DEFAULT_WAIT_TIME);
     if (err)
         return err;
-    err = i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &(config->ctrl_meas.val), 1, DEFAULT_WAIT_TIME);
+    err = i2c_bus_write(I2C_ADDRESS, REG_CTRL_MEAS, &(config->ctrl_meas.val), 1, DEFAULT_WAIT_TIME);
     return err;
 }
 
 esp_err_t bme280_get_config(bme280_config_t *config)
 {
-    esp_err_t err = i2c_read(I2C_ADDRESS, REG_CONFIG, &(config->config.val), 1, DEFAULT_WAIT_TIME);
+    esp_err_t err = i2c_bus_read(I2C_ADDRESS, REG_CONFIG, &(config->config.val), 1, DEFAULT_WAIT_TIME);
     if (err)
         return err;
-    err = i2c_read(I2C_ADDRESS, REG_CTRL_MEAS, &(config->ctrl_meas.val), 1, DEFAULT_WAIT_TIME);
+    err = i2c_bus_read(I2C_ADDRESS, REG_CTRL_MEAS, &(config->ctrl_meas.val), 1, DEFAULT_WAIT_TIME);
     if (err)
         return err;
-    err = i2c_read(I2C_ADDRESS, REG_CTRL_HUM, &(config->ctrl_hum.val), 1, DEFAULT_WAIT_TIME);
+    err = i2c_bus_read(I2C_ADDRESS, REG_CTRL_HUM, &(config->ctrl_hum.val), 1, DEFAULT_WAIT_TIME);
     return err;
 }
 
 esp_err_t bme280_force_measurement()
 {
     bme280_config_t config;
-    esp_err_t err = i2c_read(I2C_ADDRESS, REG_CTRL_MEAS, &(config.ctrl_meas.val), 1, DEFAULT_WAIT_TIME);
+    esp_err_t err = i2c_bus_read(I2C_ADDRESS, REG_CTRL_MEAS, &(config.ctrl_meas.val), 1, DEFAULT_WAIT_TIME);
     if (err)
         return err;
 
@@ -183,7 +183,7 @@ esp_err_t bme280_force_measurement()
 
     // set the device to forced measurement mode
     config.ctrl_meas.mode = BME280_FORCED_MODE;
-    err = i2c_write(I2C_ADDRESS, REG_CTRL_MEAS, &(config.ctrl_meas.val), 1, DEFAULT_WAIT_TIME);
+    err = i2c_bus_write(I2C_ADDRESS, REG_CTRL_MEAS, &(config.ctrl_meas.val), 1, DEFAULT_WAIT_TIME);
     return err;
 }
 
@@ -195,7 +195,7 @@ esp_err_t bme280_get_data(bme280_data_t *data)
 
     // get uncompensated data from the device
     uint8_t buf[8];
-    err = i2c_read(I2C_ADDRESS, REG_DATA_START, buf, 8, DEFAULT_WAIT_TIME);
+    err = i2c_bus_read(I2C_ADDRESS, REG_DATA_START, buf, 8, DEFAULT_WAIT_TIME);
     if (err)
         return err;
 
@@ -246,5 +246,5 @@ esp_err_t bme280_get_data(bme280_data_t *data)
 
 esp_err_t bme280_get_chip_id(uint8_t *chip_id)
 {
-    return i2c_write(I2C_ADDRESS, REG_CHIP_ID, chip_id, 1, DEFAULT_WAIT_TIME);
+    return i2c_bus_write(I2C_ADDRESS, REG_CHIP_ID, chip_id, 1, DEFAULT_WAIT_TIME);
 }

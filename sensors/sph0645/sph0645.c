@@ -1,14 +1,13 @@
 #include "sph0645.h"
 
-#include "sos_iir_filter.h"
-
 #include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
 #include "freertos/task.h"
 #include "i2s.h"
 
 #include <math.h>
 #include <string.h>
+
+#include "sos_iir_filter.h"
 
 #define SAMPLE_RATE 48000 // Hz, fixed to design of IIR filters
 #define SAMPLE_BITS 32    // Number of bits received in the i2s frame.
@@ -24,16 +23,16 @@
 #define MIN(a, b) ((a < b) ? a : b)
 #define MAX(a, b) ((a > b) ? a : b)
 
-static TaskHandle_t mic_reader_task_handle = NULL;
+static TaskHandle_t mic_reader_task_handle = NULL; // The task handle for the mic reader task
+static sph0645_data_t task_data;                   // Holds the currently collected data. Average is calculated lazily.
+static sph0645_config_t task_config;               // Holds the current config data.
 static float *samples = NULL;
-static sph0645_data_t task_data;
-static sph0645_config_t task_config;
 
 static void mic_reader_task(void *arg)
 {
     const size_t num_samples = SAMPLE_RATE / 1000 * task_config.sample_length;               // Number of samples needed for the configured sample length.
     const double mic_ref_ampl = pow10(MIC_SENSITIVITY / 20.0) * ((1 << (MIC_BITS - 1)) - 1); // Microphone i2s output at 94dB SPL.
-    float (*weighing)(float*, float*, size_t);
+    float (*weighing)(float *, float *, size_t);
     if (task_config.weighting == SPH0645_WEIGHTING_C)
         weighing = weight_dBC;
     else if (task_config.weighting == SPH0645_WEIGHTING_A)
@@ -43,7 +42,6 @@ static void mic_reader_task(void *arg)
 
     uint64_t acc_samples = 0;
     double acc_sum_sqr = 0;
-    size_t bytes_read = 0;
     bool delay_state_uninitialized = true;
 
     // Reset the running data
@@ -55,7 +53,7 @@ static void mic_reader_task(void *arg)
     while (true)
     {
         // Block and wait for microphone values from i2s
-        i2s_read(0, samples, num_samples * sizeof(int32_t), &bytes_read, portMAX_DELAY);
+        i2s_bus_read(samples, num_samples * sizeof(int32_t), portMAX_DELAY);
 
         // Convert integer microphone values to floats
         int32_t *int_samples = (int32_t *)samples;
@@ -118,9 +116,8 @@ esp_err_t sph0645_reset()
         const size_t num_samples = SAMPLE_RATE / 1000 * MIC_POWER_UP_TIME;
         for (int i = 0; i < num_samples; ++i)
         {
-            size_t bytes_read;
             int32_t discard;
-            esp_err_t err = i2s_read(0, &discard, sizeof(int32_t), &bytes_read, 1);
+            esp_err_t err = i2s_bus_read(&discard, sizeof(discard), 1);
             if (err)
                 return err;
         }

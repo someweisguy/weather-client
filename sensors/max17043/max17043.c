@@ -15,28 +15,28 @@
 #define CONFIG_REG      0x0c
 #define COMMAND_REG     0xfe
 
-#define DEFAULT_WAIT_TIME 100
+#define DEFAULT_WAIT_TIME 100 / portTICK_PERIOD_MS
 
 esp_err_t max17043_reset()
 {
     const uint8_t reset_word[2] = {0x54, 0x00}; // power-on reset command
-    return i2c_write(DEVICE_ADDRESS, COMMAND_REG, reset_word, 2, DEFAULT_WAIT_TIME);
+    return i2c_bus_write(DEVICE_ADDRESS, COMMAND_REG, reset_word, 2, DEFAULT_WAIT_TIME);
 }
 
 esp_err_t max17043_set_config(const max17043_config_t *config)
 {
-    return i2c_write(DEVICE_ADDRESS, CONFIG_REG, config, 2, DEFAULT_WAIT_TIME);
+    return i2c_bus_write(DEVICE_ADDRESS, CONFIG_REG, config, 2, DEFAULT_WAIT_TIME);
 }
 
 esp_err_t max17043_get_config(max17043_config_t *config)
 {
     uint8_t buf[2];
-    esp_err_t err = i2c_read(DEVICE_ADDRESS, CONFIG_REG, buf, 2, DEFAULT_WAIT_TIME);
+    esp_err_t err = i2c_bus_read(DEVICE_ADDRESS, CONFIG_REG, buf, 2, DEFAULT_WAIT_TIME);
     if (err)
         return err;
     config->config.val = buf[0] << 8 | buf[1];
 
-    err = i2c_read(DEVICE_ADDRESS, MODE_REG, buf, 2, DEFAULT_WAIT_TIME);
+    err = i2c_bus_read(DEVICE_ADDRESS, MODE_REG, buf, 2, DEFAULT_WAIT_TIME);
     if (err)
         return err;
     config->mode = buf[0] << 8 | buf[1];
@@ -46,12 +46,12 @@ esp_err_t max17043_get_config(max17043_config_t *config)
 esp_err_t max17043_get_data(max17043_data_t *data)
 {
     uint8_t buf[2];
-    esp_err_t err = i2c_read(DEVICE_ADDRESS, VCELL_REG, buf, 2, DEFAULT_WAIT_TIME);
+    esp_err_t err = i2c_bus_read(DEVICE_ADDRESS, VCELL_REG, buf, 2, DEFAULT_WAIT_TIME);
     if (err)
         return err;
     data->millivolts = ((buf[0] << 8 | buf[1]) >> 4) * 1.25;
     
-    err = i2c_read(DEVICE_ADDRESS, SOC_REG, buf, 2, DEFAULT_WAIT_TIME);
+    err = i2c_bus_read(DEVICE_ADDRESS, SOC_REG, buf, 2, DEFAULT_WAIT_TIME);
     if (err)
         return err;
     data->battery_life = (buf[0] << 8 | buf[1]) / 256.0;
@@ -67,7 +67,7 @@ uint8_t max17043_alert_threshold(uint8_t percentage)
 esp_err_t max17043_get_version(uint16_t *version)
 {
     uint8_t buf[2];
-    esp_err_t err = i2c_read(DEVICE_ADDRESS, VERSION_REG, buf, 2, DEFAULT_WAIT_TIME);
+    esp_err_t err = i2c_bus_read(DEVICE_ADDRESS, VERSION_REG, buf, 2, DEFAULT_WAIT_TIME);
     if (err)
         return err;
     *version = buf[0] << 8 | buf[1];

@@ -8,7 +8,7 @@
 #define PIN_NUM_SET 21
 #define PIN_NUM_RST 19
 
-static int64_t power_on_tick = -1;
+static int64_t fan_on_tick = -1;
 
 esp_err_t pms5003_reset()
 {
@@ -34,9 +34,9 @@ esp_err_t pms5003_set_power(uint32_t level)
     if (!err)
     {
         if (level == 1)
-            power_on_tick = esp_timer_get_time();
+            fan_on_tick = esp_timer_get_time();
         else
-            power_on_tick = -1;
+            fan_on_tick = -1;
     }
     return err;
 }
@@ -44,12 +44,15 @@ esp_err_t pms5003_set_power(uint32_t level)
 esp_err_t pms5003_get_data(pms5003_data_t *data)
 {
     data->checksum_ok = false; // assume data is bad
-    data->power_on_tick = power_on_tick;
+    if (fan_on_tick >= 0)
+        data->fan_on_time_ms = (esp_timer_get_time() / fan_on_tick) / 1000;
+    else
+        data->fan_on_time_ms = -1;
 
     // allocate a buffer and read the data in
     uint8_t buffer[32];
-    uart_flush_input(UART_NUM_1);
-    esp_err_t err = uart_read(buffer, 32, 1000);
+    uart_flush_input(CONFIG_UART_PORT);
+    esp_err_t err = uart_bus_read(buffer, 32, 500);
     if (err)
         return err;
 
@@ -61,7 +64,7 @@ esp_err_t pms5003_get_data(pms5003_data_t *data)
     }
 
     // validate checksum
-    uint16_t checksum = 0xab;
+    uint16_t checksum = 0xab; // first 4 bytes always sum to 0xab
     for (int i = 4; i < 30; ++i)
         checksum += buffer[i];
     if (checksum == (buffer[30] << 8 | buffer[31]))
