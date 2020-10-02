@@ -27,35 +27,28 @@ esp_err_t uart_stop()
 	return uart_driver_delete(UART_PORT);
 }
 
-esp_err_t uart_write(void *buf, size_t size, time_t wait_ms)
+esp_err_t uart_bus_write(void *buf, size_t size, TickType_t timeout)
 {
 	if (size == 0)
 		return ESP_OK;
 
 	const int written = uart_write_bytes(UART_PORT, buf, size);
 
-	// get the amount of ticks to wait
-	const TickType_t ticks = wait_ms == 0 ? portMAX_DELAY : wait_ms / portTICK_PERIOD_MS;
-
-	esp_err_t err = uart_wait_tx_done(UART_PORT, ticks);
+	esp_err_t err = uart_wait_tx_done(UART_PORT, timeout);
 	if (written != size)
 		return ESP_ERR_INVALID_SIZE;
 	else
 		return err;
 }
 
-esp_err_t uart_read(void *buf, size_t size, time_t wait_ms)
+esp_err_t uart_bus_read(void *buf, size_t size, TickType_t timeout)
 {
 	if (size == 0)
 		return ESP_OK;
-
-	// get the amount of ticks to wait
-	const TickType_t ticks = wait_ms == 0 ? portMAX_DELAY : wait_ms / portTICK_PERIOD_MS;
-
 	// only read new data
 	uart_flush_input(UART_PORT);
 
-	const int read = uart_read_bytes(UART_PORT, buf, size, ticks);
+	const int read = uart_read_bytes(UART_PORT, buf, size, timeout);
 
 	if (read != size)
 		return ESP_ERR_INVALID_SIZE;

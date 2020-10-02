@@ -4,12 +4,11 @@
 #define READ 1
 #define WRITE 0
 
-#define I2C_PORT I2C_NUM_1
 #define PIN_NUM_SDA 23 // Adafruit Feather 32 Default
 #define PIN_NUM_SCL 22 // Adafruit Feather 32 Default
 
 static esp_err_t i2c_master_command(char addr, char reg, void *buf, size_t size,
-									time_t wait_ms, const uint8_t READ_BIT)
+									TickType_t timeout, const uint8_t READ_BIT)
 {
 	if (size == 0)
 		return ESP_OK;
@@ -39,10 +38,7 @@ static esp_err_t i2c_master_command(char addr, char reg, void *buf, size_t size,
 
 	i2c_master_stop(cmd);
 
-	// Get the amount of ticks to wait
-	const TickType_t ticks = wait_ms == 0 ? portMAX_DELAY : wait_ms / portTICK_PERIOD_MS;
-
-	esp_err_t err = i2c_master_cmd_begin(I2C_PORT, cmd, ticks);
+	esp_err_t err = i2c_master_cmd_begin(CONFIG_I2C_PORT, cmd, timeout);
 	i2c_cmd_link_delete(cmd);
 	return err;
 }
@@ -59,24 +55,24 @@ esp_err_t i2c_start()
 		.sda_pullup_en = false, // enable built-in pullup
 		.scl_pullup_en = false, // enable built-in pullup
 	};
-	esp_err_t err = i2c_param_config(I2C_PORT, &i2c_config);
+	esp_err_t err = i2c_param_config(CONFIG_I2C_PORT, &i2c_config);
 	if (err)
 		return err;
-	err = i2c_driver_install(I2C_PORT, i2c_config.mode, 0, 0, 0);
+	err = i2c_driver_install(CONFIG_I2C_PORT, i2c_config.mode, 0, 0, 0);
 	return err;
 }
 
 esp_err_t i2c_stop()
 {
-	return i2c_driver_delete(I2C_PORT);
+	return i2c_driver_delete(CONFIG_I2C_PORT);
 }
 
-esp_err_t i2c_read(char addr, char reg, void *buf, size_t size, time_t wait_ms)
+esp_err_t i2c_bus_read(char addr, char reg, void *buf, size_t size, TickType_t timeout)
 {
-	return i2c_master_command(addr, reg, buf, size, wait_ms, READ);
+	return i2c_master_command(addr, reg, buf, size, timeout, READ);
 }
 
-esp_err_t i2c_write(char addr, char reg, const void *buf, size_t size, time_t wait_ms)
+esp_err_t i2c_bus_write(char addr, char reg, const void *buf, size_t size, TickType_t timeout)
 {
-	return i2c_master_command(addr, reg, (void *)buf, size, wait_ms, WRITE);
+	return i2c_master_command(addr, reg, (void *)buf, size, timeout, WRITE);
 }
