@@ -79,8 +79,8 @@ void app_main(void)
 
         max17043_data_t max_data;
         max17043_get_data(&max_data);
-        printf("Battery at %.2f%% (%.1fmV)\n", max_data.battery_life, 
-            max_data.millivolts);
+        printf("Battery at %.2f%% (%.1fmV), RSSI at %i\n", max_data.battery_life, 
+            max_data.millivolts, wifi_get_rssi());
 
     }
 }

@@ -86,3 +86,18 @@ esp_err_t wifi_start()
     esp_wifi_start();
     return ESP_OK;
 }
+
+esp_err_t wifi_stop()
+{
+    // TODO
+    return ESP_FAIL;
+}
+
+int8_t wifi_get_rssi()
+{
+    wifi_ap_record_t wifi_record;
+    esp_err_t err = esp_wifi_sta_get_ap_info(&wifi_record);
+    if (err)
+        return 0;
+    return wifi_record.rssi;
+}
