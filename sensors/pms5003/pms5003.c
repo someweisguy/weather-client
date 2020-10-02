@@ -45,9 +45,9 @@ esp_err_t pms5003_get_data(pms5003_data_t *data)
 {
     data->checksum_ok = false; // assume data is bad
     if (fan_on_tick >= 0)
-        data->fan_on_time_ms = (esp_timer_get_time() / fan_on_tick) / 1000;
+        data->fan_on_time = (esp_timer_get_time() - fan_on_tick) / 1000;
     else
-        data->fan_on_time_ms = -1;
+        data->fan_on_time = -1;
 
     // allocate a buffer and read the data in
     uint8_t buffer[32];
