@@ -2,7 +2,6 @@
 
 #include <string.h>
 #include "driver/gpio.h"
-#include "driver/uart.h"
 #include "uart.h"
 
 #define PIN_NUM_SET 21
@@ -79,7 +78,6 @@ esp_err_t pms5003_get_data(pms5003_data_t *data)
 
     // allocate a buffer and read the data in
     uint8_t buffer[32];
-    uart_flush_input(CONFIG_UART_PORT);
     if (device_config.mode == PMS5003_PASSIVE)
     {
         // request data from the device
