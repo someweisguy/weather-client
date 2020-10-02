@@ -1,0 +1,20 @@
+menu "Serial Configuration"
+
+    config I2C_PORT
+        int "I2C Port"
+        default 1
+        help
+            I2C port to use.
+
+    config UART_PORT
+        int "UART Port"
+        default 1
+        help
+            UART port to use.
+
+    config I2S_PORT
+        int "I2S Port"
+        default 0
+        help
+            I2S port to use.
+endmenu
