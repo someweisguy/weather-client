@@ -16,10 +16,7 @@
 
 #include "driver/gpio.h"
 
-
-
 static const char *TAG = "main";
-
 
 void app_main(void)
 {
@@ -33,11 +30,18 @@ void app_main(void)
 
     // init sensors
     pms5003_reset();
+    
     max17043_reset();
+    
     bme280_reset();
     const bme280_config_t bme_config = BME280_WEATHER_MONITORING;
     bme280_set_config(&bme_config);
-    
+
+    sph0645_reset();
+    const sph0645_config_t sph_config = SPH0645_DEFAULT_CONFIG;
+    if (sph0645_set_config(&sph_config) != ESP_OK)
+        printf("ERROR!!!!\n");
+
     // init non-volatile storage
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
@@ -50,6 +54,7 @@ void app_main(void)
 
     wifi_start();
 
+    sph0645_data_t data;
 
     while (1)
     {
@@ -71,11 +76,10 @@ void app_main(void)
             max_data.millivolts);
         */
 
+        sph0645_get_data(&data);
+        printf("Min: %.3f dBC, Max: %.3f dBC, Avg: %.3f dBC (%lld samples)\n",
+               data.min, data.max, data.avg, data.samples);
 
-       stub();
-
-
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
-
