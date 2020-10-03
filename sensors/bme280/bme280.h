@@ -29,7 +29,7 @@
 #define BME280_FILTER_8 3
 #define BME280_FILTER_16 4
 
-#define BME280_WEATHER_MONITORING { .config = {.spi3w_en = 0, .t_sb = 0, .filter = 0}, .ctrl_meas = {.mode = 1, .osrs_p = 1, .osrs_t = 1}, .ctrl_hum = {.osrs_h = 1}};
+#define BME280_WEATHER_MONITORING {.config = {.spi3w_en = 0, .t_sb = 0, .filter = 0}, .ctrl_meas = {.mode = 1, .osrs_p = 1, .osrs_t = 1}, .ctrl_hum = {.osrs_h = 1}};
 
 typedef struct
 {

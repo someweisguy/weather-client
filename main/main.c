@@ -32,9 +32,8 @@ void app_main(void)
     pms5003_set_config(&pms_config);
     
     max17043_reset();
-    // TODO: figure out default config for MAX17043
-    //const max17043_config_t max_config = MAX17043_DEFAULT_CONFIG;
-    //max17043_set_config(&max_config);
+    const max17043_config_t max_config = MAX17043_DEFAULT_CONFIG;
+    max17043_set_config(&max_config);
     
     bme280_reset();
     const bme280_config_t bme_config = BME280_WEATHER_MONITORING;
@@ -43,7 +42,6 @@ void app_main(void)
     sph0645_reset();
     const sph0645_config_t sph_config = SPH0645_DEFAULT_CONFIG;
     sph0645_set_config(&sph_config);
-
 
     // init non-volatile storage
     esp_err_t err = nvs_flash_init();

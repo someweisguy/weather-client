@@ -24,26 +24,26 @@
 
 static struct
 {
-    	uint16_t t1;
-		int16_t t2;
-		int16_t t3;
+    uint16_t t1;
+    int16_t t2;
+    int16_t t3;
 
-		uint16_t p1;
-		int16_t p2;
-		int16_t p3;
-		int16_t p4;
-		int16_t p5;
-		int16_t p6;
-		int16_t p7;
-		int16_t p8;
-		int16_t p9;
+    uint16_t p1;
+    int16_t p2;
+    int16_t p3;
+    int16_t p4;
+    int16_t p5;
+    int16_t p6;
+    int16_t p7;
+    int16_t p8;
+    int16_t p9;
 
-		uint8_t h1;
-		int16_t h2;
-		uint8_t h3;
-		int16_t h4;
-		int16_t h5;
-		int8_t h6;
+    uint8_t h1;
+    int16_t h2;
+    uint8_t h3;
+    int16_t h4;
+    int16_t h5;
+    int8_t h6;
 } dig; // Trimming parameters.
 
 static int32_t calculate_t_fine(const int32_t adc_T)
@@ -116,7 +116,7 @@ esp_err_t bme280_reset()
     esp_err_t err = i2c_bus_write(I2C_ADDRESS, REG_RESET, &soft_reset_word, 1, DEFAULT_WAIT_TIME);
     if (err)
         return err;
-    
+
     err = wait_for_device(IM_UPDATE_BIT);
     if (err)
         return err;

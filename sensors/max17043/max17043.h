@@ -11,8 +11,8 @@
 
 typedef struct
 {
-    float millivolts;
-    float battery_life;
+    float millivolts;   // Voltage output of the battery in millivolts.
+    float battery_life; // Battery life of the connected battery as a percentage.
 } max17043_data_t;
 
 typedef struct
@@ -21,9 +21,9 @@ typedef struct
     {
         struct
         {
-            uint16_t rcomp : 8;
-            uint16_t athd : 5; // Alert Threshold. The alert threshold is a 5-bit value that sets the state of charge level where an interrupt is generated on the ALRT pin. The alert threshold has an LSb weight of 1% and can be programmed from 1% up to 32%. The threshold value is stored in two’s-complement form (00000 = 32%, 00001 = 31%, 00010 = 30%, 11111 = 1%). The power-up default value for ATHD is 4% or 1Ch.
-            uint16_t alrt : 1; // ALERT Flag. This bit is set by the IC when the SOC register value falls below the alert threshold setting and an interrupt is generated. This bit can only be cleared by software. The power-up default value for ALRT is logic 0.
+            uint16_t rcomp : 8; // Compensate battery life algorithms for different battery chemistries. Contact Maxim for documentation on this register. This register's default is 0x97.
+            uint16_t athd : 5;  // Alert Threshold. The alert threshold is a 5-bit value that sets the state of charge level where an interrupt is generated on the ALRT pin. The alert threshold has an LSb weight of 1% and can be programmed from 1% up to 32%. The threshold value is stored in two’s-complement form (00000 = 32%, 00001 = 31%, 00010 = 30%, 11111 = 1%). The power-up default value for ATHD is 4% or 1Ch.
+            uint16_t alrt : 1;  // ALERT Flag. This bit is set by the IC when the SOC register value falls below the alert threshold setting and an interrupt is generated. This bit can only be cleared by software. The power-up default value for ALRT is logic 0.
             uint16_t : 1;
             uint16_t sleep : 1; // Sleep Bit. Writing SLEEP to logic 1 forces the ICs into Sleep mode. Writing SLEEP to logic 0 forces the ICs to exit Sleep mode. The power-up default value for SLEEP is logic 0.
         };

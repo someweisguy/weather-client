@@ -7,13 +7,13 @@
  *   http://cdn.sparkfun.com/datasheets/Prototyping/MAX17043-MAX17044.pdf
 */
 
-#define DEVICE_ADDRESS  0x36
-#define VCELL_REG       0x02
-#define SOC_REG         0x04
-#define MODE_REG        0x06
-#define VERSION_REG     0x08
-#define CONFIG_REG      0x0c
-#define COMMAND_REG     0xfe
+#define DEVICE_ADDRESS 0x36
+#define VCELL_REG 0x02
+#define SOC_REG 0x04
+#define MODE_REG 0x06
+#define VERSION_REG 0x08
+#define CONFIG_REG 0x0c
+#define COMMAND_REG 0xfe
 
 #define DEFAULT_WAIT_TIME 100 / portTICK_PERIOD_MS
 
@@ -50,12 +50,12 @@ esp_err_t max17043_get_data(max17043_data_t *data)
     if (err)
         return err;
     data->millivolts = ((buf[0] << 8 | buf[1]) >> 4) * 1.25;
-    
+
     err = i2c_bus_read(DEVICE_ADDRESS, SOC_REG, buf, 2, DEFAULT_WAIT_TIME);
     if (err)
         return err;
     data->battery_life = (buf[0] << 8 | buf[1]) / 256.0;
-    
+
     return ESP_OK;
 }
 

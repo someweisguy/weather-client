@@ -34,16 +34,28 @@ typedef struct
     int64_t fan_on_time;
 } pms5003_data_t;
 
-typedef struct 
+typedef struct
 {
     uint8_t mode;
     uint8_t sleep;
 } pms5003_config_t;
 
-#define PMS5003_ACTIVE_AWAKE { .mode = PMS5003_ACTIVE, .sleep = PMS5003_WAKEUP }
-#define PMS5003_ACTIVE_ASLEEP { .mode = PMS5003_ACTIVE, .sleep = PMS5003_SLEEP }
-#define PMS5003_PASSIVE_AWAKE { .mode = PMS5003_PASSIVE, .sleep = PMS5003_WAKEUP }
-#define PMS5003_PASSIVE_ASLEEP { .mode = PMS5003_PASSIVE, .sleep = PMS5003_SLEEP }
+#define PMS5003_ACTIVE_AWAKE                            \
+    {                                                   \
+        .mode = PMS5003_ACTIVE, .sleep = PMS5003_WAKEUP \
+    }
+#define PMS5003_ACTIVE_ASLEEP                          \
+    {                                                  \
+        .mode = PMS5003_ACTIVE, .sleep = PMS5003_SLEEP \
+    }
+#define PMS5003_PASSIVE_AWAKE                            \
+    {                                                    \
+        .mode = PMS5003_PASSIVE, .sleep = PMS5003_WAKEUP \
+    }
+#define PMS5003_PASSIVE_ASLEEP                          \
+    {                                                   \
+        .mode = PMS5003_PASSIVE, .sleep = PMS5003_SLEEP \
+    }
 
 esp_err_t pms5003_reset();
 
