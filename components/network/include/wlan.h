@@ -5,9 +5,9 @@
 
 typedef struct
 {
-    esp_ip4_addr_t ip;
-    int64_t up_time;
-    int8_t rssi;
+    esp_ip4_addr_t ip; // The IP address in use by the device.
+    int64_t up_time;   // WiFi uptime (ms).
+    int8_t rssi;       // Received Signal Strength Indicator (dBm). See https://www.metageek.com/training/resources/understanding-rssi.html for more info.
 } wlan_data_t;
 
 esp_err_t wlan_start();
