@@ -22,6 +22,8 @@
 
 #define MAX(a, b) (a > b ? a : b)
 
+static int32_t elevation = 0;
+
 static struct
 {
     uint16_t t1;
@@ -216,15 +218,23 @@ esp_err_t bme280_get_data(bme280_data_t *data)
         // temperature sampling must be turned on to get valid data
         data->temperature = NAN;
         data->humidity = NAN;
-        data->pressure = -1;
+        data->pressure = NAN;
         return ESP_ERR_INVALID_STATE;
     }
 
     // get pressure value
     if (adc_P != 0x80000)
-        data->pressure = compensate_pressure(t_fine, adc_P) / 256;
+    {
+        // compensate for pressure at elevation
+        const uint32_t pressure_sea_level = compensate_pressure(t_fine, adc_P) / 256;
+        const double M = 0.02897,           // molar mass of Eath's air (kg/mol)
+            g = 9.807665,                   // gravitational constant (m/s^2)
+            R = 8.3145,                     // universal gas constant (J/mol*K)
+            K = data->temperature + 273.15; // temperature in Kelvin
+        data->pressure = pressure_sea_level * exp((M * g) / (R * K) * elevation);
+    }
     else
-        data->pressure = 1;
+        data->pressure = NAN;
 
     // get humidity value
     if (adc_H != 0x800)

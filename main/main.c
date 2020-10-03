@@ -73,7 +73,7 @@ void app_main(void)
         bme280_data_t bme_data;
         bme280_force_measurement();
         bme280_get_data(&bme_data);
-        printf("It's %.2f F, with %.2f%%RH, the dew point is %.2f F, and the pressure is %lld Pa\n", 
+        printf("It's %.2f F, with %.2f%%RH, the dew point is %.2f F, and the pressure is %.1f Pa\n", 
             bme_data.temperature * 9.0/5.0 + 32, bme_data.humidity, 
             bme_data.dew_point * 9.0/5.0 + 32, bme_data.pressure);
 
