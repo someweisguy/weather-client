@@ -14,8 +14,6 @@
 
 #include "wlan.h"
 
-#include "driver/gpio.h"
-
 static const char *TAG = "main";
 
 void app_main(void)
@@ -30,12 +28,13 @@ void app_main(void)
 
     // init sensors
     pms5003_reset();
-    const pms5003_config_t pms_config = PMS5003_DEFAULT_CONFIG;
+    const pms5003_config_t pms_config = PMS5003_PASSIVE_AWAKE;
     pms5003_set_config(&pms_config);
     
     max17043_reset();
-    const max17043_config_t max_config = MAX17043_DEFAULT_CONFIG;
-    max17043_set_config(&max_config);
+    // TODO: figure out default config for MAX17043
+    //const max17043_config_t max_config = MAX17043_DEFAULT_CONFIG;
+    //max17043_set_config(&max_config);
     
     bme280_reset();
     const bme280_config_t bme_config = BME280_WEATHER_MONITORING;
