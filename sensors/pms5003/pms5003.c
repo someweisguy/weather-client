@@ -64,6 +64,13 @@ esp_err_t pms5003_set_config(const pms5003_config_t *config)
         if (err)
             return err;
         device_config.sleep = config->sleep;
+        
+        uint32_t level;
+        pms5003_get_power(level);
+        if (level == PMS5003_WAKEUP && config->sleep == PMS5003_WAKEUP)
+            fan_on_tick = esp_timer_get_time();
+        else
+            fan_on_tick = -1;
     }
     return ESP_OK;
 }
@@ -109,12 +116,18 @@ esp_err_t pms5003_get_data(pms5003_data_t *data)
     return ESP_OK;
 }
 
+esp_err_t pms5003_get_power(uint32_t *level)
+{
+    level = gpio_get_level(PIN_NUM_SET);
+    return ESP_OK;
+}
+
 esp_err_t pms5003_set_power(uint32_t level)
 {
     esp_err_t err = gpio_set_level(PIN_NUM_SET, level);
     if (!err)
     {
-        if (level == 1)
+        if (level == 1 && device_config.sleep == PMS5003_WAKEUP)
             fan_on_tick = esp_timer_get_time();
         else
             fan_on_tick = -1;
