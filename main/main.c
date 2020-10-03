@@ -58,8 +58,6 @@ void app_main(void)
 
     wifi_start();
 
-    pms5003_set_power(1);
-
     while (1)
     {
         vTaskDelay(5000 / portTICK_PERIOD_MS);
