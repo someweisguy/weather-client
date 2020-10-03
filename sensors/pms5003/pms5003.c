@@ -2,7 +2,6 @@
 
 #include <string.h>
 #include "driver/gpio.h"
-#include "driver/uart.h"
 #include "uart.h"
 
 #define PIN_NUM_SET 21
