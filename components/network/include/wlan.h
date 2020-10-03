@@ -1,8 +1,16 @@
 #pragma once
 
 #include "esp_system.h"
+#include "esp_netif.h"
 
-esp_err_t wifi_start();
-esp_err_t wifi_stop();
+typedef struct
+{
+    esp_ip4_addr_t ip;
+    int64_t up_time;
+    int8_t rssi;
+} wlan_data_t;
 
-int8_t wifi_get_rssi();
+esp_err_t wlan_start();
+esp_err_t wlan_stop();
+
+esp_err_t wlan_get_data(wlan_data_t *config);

@@ -5,8 +5,8 @@
 #include "esp_wifi.h"
 #include "uploader.h"
 
-static const char *TAG = "wlan";
 static volatile uint8_t retries = 0;
+static int64_t up_time = -1;
 
 static void event_handler(void *handler_args, esp_event_base_t base,
                           int event_id, void *event_data)
@@ -17,7 +17,6 @@ static void event_handler(void *handler_args, esp_event_base_t base,
         switch (event_id)
         {
         case WIFI_EVENT_STA_START:
-            ESP_LOGI(TAG, "Connecting to WiFi...");
             esp_wifi_connect();
             break;
 
@@ -26,7 +25,7 @@ static void event_handler(void *handler_args, esp_event_base_t base,
             break;
 
         case WIFI_EVENT_STA_DISCONNECTED:
-            ESP_LOGI(TAG, "Reconnecting...");
+            up_time = -1;
             esp_wifi_connect();
             break;
 
@@ -35,7 +34,7 @@ static void event_handler(void *handler_args, esp_event_base_t base,
             break;
 
         default:
-            ESP_LOGW(TAG, "unexpected event %i", event_id);
+            ESP_LOGW("wlan", "unexpected event %i", event_id);
             break;
         }
     }
@@ -43,12 +42,11 @@ static void event_handler(void *handler_args, esp_event_base_t base,
     // handle got ip event
     else if (base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
-        const ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-        ESP_LOGI(TAG, "got IP %d.%d.%d.%d", IP2STR(&event->ip_info.ip));
+        up_time = esp_timer_get_time();
     }
 }
 
-esp_err_t wifi_start()
+esp_err_t wlan_start()
 {
     // init network interface and wifi sta
     esp_netif_init();
@@ -74,7 +72,7 @@ esp_err_t wifi_start()
     return ESP_OK;
 }
 
-esp_err_t wifi_stop()
+esp_err_t wlan_stop()
 {
     esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, event_handler);
     esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, event_handler);
@@ -86,11 +84,33 @@ esp_err_t wifi_stop()
     return ESP_OK;
 }
 
-int8_t wifi_get_rssi()
+esp_err_t wlan_get_data(wlan_data_t *config)
 {
-    wifi_ap_record_t wifi_record;
-    esp_err_t err = esp_wifi_sta_get_ap_info(&wifi_record);
+    esp_netif_t *netif = NULL;
+    for (int i = 0; i < esp_netif_get_nr_of_ifs(); ++i)
+    {
+        // iterate the netifs to find which one is active
+        netif = esp_netif_next(netif);
+        if (esp_netif_is_netif_up(netif))
+            break;
+    }
+    
+    // Get the IP address
+    esp_netif_ip_info_t ip_info;
+    esp_err_t err = esp_netif_get_ip_info(netif, &ip_info);
     if (err)
-        return 0;
-    return wifi_record.rssi;
+        return err;
+    config->ip = ip_info.ip;
+    
+    // Get the RSSI
+    wifi_ap_record_t ap_info;
+    err = esp_wifi_sta_get_ap_info(&ap_info);
+    if (err)
+        ap_info.rssi = 0;
+    config->rssi = ap_info.rssi;
+
+    // copy the wifi uptime
+    config->up_time = (esp_timer_get_time() - up_time) / 1000;
+
+    return ESP_OK;
 }
