@@ -22,7 +22,7 @@
 
 #define MAX(a, b) (a > b ? a : b)
 
-static int32_t elevation = 0;
+static RTC_DATA_ATTR int32_t elevation = 0; // The elevation of the weather station. Used to compensate pressure at current elevation from sea level.
 
 static struct
 {
@@ -157,7 +157,7 @@ esp_err_t bme280_set_config(const bme280_config_t *config)
     if (err)
         return err;
     err = i2c_bus_write(I2C_ADDRESS, REG_CTRL_MEAS, &(config->ctrl_meas.val), 1, DEFAULT_WAIT_TIME);
-    return err;
+        return err;
 }
 
 esp_err_t bme280_get_config(bme280_config_t *config)
@@ -225,7 +225,7 @@ esp_err_t bme280_get_data(bme280_data_t *data)
     // get pressure value
     if (adc_P != 0x80000)
     {
-        // compensate for pressure at elevation
+        // compensate for pressure at current_elevation
         const uint32_t pressure_sea_level = compensate_pressure(t_fine, adc_P) / 256;
         const double M = 0.02897,           // molar mass of Eath's air (kg/mol)
             g = 9.807665,                   // gravitational constant (m/s^2)
@@ -257,4 +257,14 @@ esp_err_t bme280_get_data(bme280_data_t *data)
 esp_err_t bme280_get_chip_id(uint8_t *chip_id)
 {
     return i2c_bus_write(I2C_ADDRESS, REG_CHIP_ID, chip_id, 1, DEFAULT_WAIT_TIME);
+}
+
+int32_t bme280_get_elevation()
+{
+    return elevation;
+}
+
+void bme280_set_elevation(int32_t new_elevation)
+{
+    elevation = new_elevation;
 }
