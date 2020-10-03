@@ -53,7 +53,7 @@ void app_main(void)
             esp_restart();
     }
 
-    wifi_start();
+    wlan_start();
 
     while (1)
     {
@@ -76,10 +76,15 @@ void app_main(void)
         printf("Min: %.3f dBC, Max: %.3f dBC, Avg: %.3f dBC (%lld samples)\n",
                sph_data.min, sph_data.max, sph_data.avg, sph_data.samples);
 
+        wlan_data_t wlan_data;
+        wlan_get_data(&wlan_data);
+
         max17043_data_t max_data;
         max17043_get_data(&max_data);
         printf("Battery at %.2f%% (%.1fmV), RSSI at %i\n", max_data.battery_life, 
-            max_data.millivolts, wifi_get_rssi());
+            max_data.millivolts, wlan_data.rssi);
+        
+        puts("\n");
 
     }
 }
