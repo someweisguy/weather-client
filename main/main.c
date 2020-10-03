@@ -1,3 +1,5 @@
+#include <sys/time.h>
+
 #include "esp_system.h"
 #include "esp_log.h"
 #include "esp_event.h"
@@ -15,6 +17,13 @@
 #include "wlan.h"
 
 static const char *TAG = "main";
+
+uint64_t up_time()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+}
 
 void app_main(void)
 {
@@ -58,6 +67,8 @@ void app_main(void)
     while (1)
     {
         vTaskDelay(5000 / portTICK_PERIOD_MS);
+
+        printf("System uptime is %lld ms\n", up_time());
         
         bme280_data_t bme_data;
         bme280_force_measurement();
@@ -81,7 +92,7 @@ void app_main(void)
 
         max17043_data_t max_data;
         max17043_get_data(&max_data);
-        printf("Battery at %.2f%% (%.1fmV), RSSI at %i\n", max_data.battery_life, 
+        printf("Battery at %.2f%% (%.1fmV), RSSI is at %i\n", max_data.battery_life, 
             max_data.millivolts, wlan_data.rssi);
         
         puts("\n");
