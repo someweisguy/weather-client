@@ -49,4 +49,5 @@ esp_err_t pms5003_set_config(const pms5003_config_t *config);
 
 esp_err_t pms5003_get_data(pms5003_data_t *data);
 
+esp_err_t pms5003_get_power(uint32_t *level);
 esp_err_t pms5003_set_power(uint32_t level);
