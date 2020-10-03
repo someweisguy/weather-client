@@ -2,14 +2,15 @@
 
 #include <string.h>
 #include "driver/gpio.h"
+#include "driver/uart.h"
 #include "uart.h"
 
 #define PIN_NUM_SET 21
 #define PIN_NUM_RST 19
 
-#define DEFAULT_WAIT_TIME 100 / portTICK_PERIOD_MS
+#define DEFAULT_WAIT_TIME 2000 / portTICK_PERIOD_MS
 
-static pms5003_config_t device_config;
+static uint8_t pms5003_mode;
 static int64_t fan_on_tick = -1;
 
 esp_err_t pms5003_reset()
@@ -25,15 +26,17 @@ esp_err_t pms5003_reset()
     gpio_set_level(PIN_NUM_RST, 1);
 
     // set the default config
-    device_config.mode = PMS5003_ACTIVE;
-    device_config.sleep = PMS5003_WAKEUP;
+    gpio_set_level(PIN_NUM_SET, 1);
+    fan_on_tick = esp_timer_get_time();
+    pms5003_mode = PMS5003_ACTIVE;
 
     return ESP_OK;
 }
 
 esp_err_t pms5003_get_config(pms5003_config_t *config)
 {
-    memcpy(config, &device_config, sizeof(device_config));
+    config->mode = pms5003_mode;
+    config->sleep = gpio_get_level(PIN_NUM_SET);
     return ESP_OK;
 }
 
@@ -43,34 +46,28 @@ esp_err_t pms5003_set_config(const pms5003_config_t *config)
         return ESP_ERR_INVALID_ARG;
 
     // set the device mode
-    if (config->mode != device_config.mode)
+    if (config->mode != pms5003_mode)
     {
         uint8_t cmd[] = {0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70};
-        cmd[4] += config->mode;
-        cmd[6] += config->mode;
+        cmd[4] += config->mode; // set the command
+        cmd[6] += config->mode; // set the checksum
         esp_err_t err = uart_bus_write(cmd, sizeof(cmd), DEFAULT_WAIT_TIME);
         if (err)
             return err;
-        device_config.mode = config->mode;
+        pms5003_mode = config->mode;
     }
 
     // set the device sleep
-    if (config->sleep != device_config.sleep)
+    if (config->sleep != gpio_get_level(PIN_NUM_SET))
     {
-        uint8_t cmd[] = {0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73};
-        cmd[4] += config->sleep;
-        cmd[6] += config->sleep;
-        esp_err_t err = uart_bus_write(cmd, sizeof(cmd), DEFAULT_WAIT_TIME);
-        if (err)
-            return err;
-        device_config.sleep = config->sleep;
-        
-        uint32_t level;
-        pms5003_get_power(&level);
-        if (level == PMS5003_WAKEUP && config->sleep == PMS5003_WAKEUP)
-            fan_on_tick = esp_timer_get_time();
-        else
-            fan_on_tick = -1;
+        esp_err_t err = gpio_set_level(PIN_NUM_SET, config->sleep);
+        if (!err)
+        {
+            if (config->sleep == PMS5003_WAKEUP)
+                fan_on_tick = esp_timer_get_time();
+            else
+                fan_on_tick = -1;
+        }
     }
     return ESP_OK;
 }
@@ -85,7 +82,7 @@ esp_err_t pms5003_get_data(pms5003_data_t *data)
 
     // allocate a buffer and read the data in
     uint8_t buffer[32];
-    if (device_config.mode == PMS5003_PASSIVE)
+    if (pms5003_mode == PMS5003_PASSIVE)
     {
         // request data from the device
         const uint8_t cmd[] = {0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71};
@@ -114,23 +111,4 @@ esp_err_t pms5003_get_data(pms5003_data_t *data)
         data->checksum_ok = true;
 
     return ESP_OK;
-}
-
-esp_err_t pms5003_get_power(uint32_t *level)
-{
-    *level = gpio_get_level(PIN_NUM_SET);
-    return ESP_OK;
-}
-
-esp_err_t pms5003_set_power(uint32_t level)
-{
-    esp_err_t err = gpio_set_level(PIN_NUM_SET, level);
-    if (!err)
-    {
-        if (level == 1 && device_config.sleep == PMS5003_WAKEUP)
-            fan_on_tick = esp_timer_get_time();
-        else
-            fan_on_tick = -1;
-    }
-    return err;
 }
