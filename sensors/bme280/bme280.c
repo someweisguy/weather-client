@@ -157,7 +157,7 @@ esp_err_t bme280_set_config(const bme280_config_t *config)
     if (err)
         return err;
     err = i2c_bus_write(I2C_ADDRESS, REG_CTRL_MEAS, &(config->ctrl_meas.val), 1, DEFAULT_WAIT_TIME);
-        return err;
+    return err;
 }
 
 esp_err_t bme280_get_config(bme280_config_t *config)
