@@ -22,7 +22,7 @@
 
 #define MAX(a, b) (a > b ? a : b)
 
-static RTC_DATA_ATTR int32_t elevation = 0; // The elevation of the weather station. Used to compensate pressure at current elevation from sea level.
+static RTC_DATA_ATTR int32_t elevation; // The elevation of the weather station (meters). Used to compensate pressure at current elevation from sea level.
 
 static struct
 {
@@ -264,7 +264,7 @@ int32_t bme280_get_elevation()
     return elevation;
 }
 
-void bme280_set_elevation(int32_t new_elevation)
+void bme280_set_elevation(int32_t meters)
 {
-    elevation = new_elevation;
+    elevation = meters;
 }
