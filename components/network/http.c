@@ -24,7 +24,7 @@ esp_err_t http_stop()
     return ESP_OK;
 }
 
-esp_err_t http_register_handler(const char *uri, const httpd_method_t method, esp_err_t (*handler)(httpd_req_t *r), void *user_ctx)
+esp_err_t http_register_handler(const char *uri, const httpd_method_t method, esp_err_t (*handler)(httpd_req_t *), void *user_ctx)
 {
     const httpd_uri_t http_handler = {
         .uri = uri,
