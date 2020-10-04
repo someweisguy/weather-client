@@ -104,8 +104,7 @@ esp_err_t uploader_get_config(wifi_config_t *wifi_config, const TickType_t timeo
             if (strlen((char *)wifi_config->sta.ssid))
             {
                 puts(JSON_OK);
-                ESP_LOGD(TAG, "received ssid: %s, password: %s", wifi_config->sta.ssid,
-                         wifi_config->sta.password);
+                ESP_LOGD(TAG, "received ssid: %s", wifi_config->sta.ssid);
                 ret = ESP_OK;
 
                 // register the wifi response handler
