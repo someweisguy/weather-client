@@ -1,18 +1,18 @@
 {
   "system": {
-    "system_up_time": 59693,
-    "wifi_up_time": 58577,
+    "system_up_time": 4376,
+    "wifi_up_time": 3261,
     "ip": "192.168.0.18",
     "rssi": -63,
     "battery_life": 99.71484375,
-    "battery_mV": 4177.5
+    "battery_mV": 4176.25
   },
   "weather": {
     "data": {
-      "temperature": 24.659999847412109,
-      "humidity": 44.37109375,
-      "pressure": 101414.74048920246,
-      "dew_point": 11.928571929426639
+      "temperature": 25.049999237060547,
+      "humidity": 43.826171875,
+      "pressure": 101380.17426012272,
+      "dew_point": 12.097190622351709
     },
     "config": {
       "oversampling": {
@@ -28,23 +28,23 @@
   },
   "air": {
     "data": {
-      "fan_time": 59618,
+      "fan_time": 4302,
       "checksum_ok": true,
       "standard": {
         "pm1": 5,
-        "pm2_5": 7,
-        "pm10": 8
+        "pm2_5": 5,
+        "pm10": 5
       },
       "atmospheric": {
         "pm1": 5,
-        "pm2_5": 7,
-        "pm10": 8
+        "pm2_5": 5,
+        "pm10": 5
       },
       "count_per_0_1L": {
-        "0_3um": 969,
-        "0_5um": 287,
-        "1_0um": 47,
-        "2_5um": 7,
+        "0_3um": 0,
+        "0_5um": 0,
+        "1_0um": 0,
+        "2_5um": 0,
         "5_0um": 0,
         "10_0um": 0
       }
@@ -56,15 +56,16 @@
   },
   "noise": {
     "data": {
-      "avg": 61.349666595458984,
-      "min": 55.665599822998047,
-      "max": 66.832962036132812,
-      "num_samples": 51
+      "avg": 66.431648254394531,
+      "min": 61.320625305175781,
+      "max": 76.412727355957031,
+      "num_samples": 4
     },
     "config": {
       "sample_len": 125,
       "sample_period": 1000,
       "weighting": 2
-    }
+    },
+    "clear_data": 0
   }
 }
