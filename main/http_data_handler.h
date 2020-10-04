@@ -11,7 +11,10 @@
 
 #include "json_keys.h"
 
-esp_err_t http_get_handler(httpd_req_t *r)
+#define CLEAR_SPH0645_DATA 1
+#define KEEP_SPH0645_DATA 0
+
+esp_err_t http_data_handler(httpd_req_t *r)
 {
     esp_err_t err;
     char *err_caller = "none";
@@ -101,6 +104,10 @@ esp_err_t http_get_handler(httpd_req_t *r)
             err_caller = "sp0645-config";
             break;
         }
+
+        // clear or keep the sph0645 data
+        if ((int) (r->user_ctx) == CLEAR_SPH0645_DATA)
+            sph0645_clear_data();
 
     } while (false);
     if (err)
@@ -213,8 +220,7 @@ esp_err_t http_get_handler(httpd_req_t *r)
     cJSON_AddNumberToObject(sph_config_root, SPH_SAMPLE_WEIGHTING_KEY, sph_config.weighting);
 
     // create the sph0645 clear data node
-    cJSON *sph_clear_data_node = cJSON_CreateObject();
-    cJSON_AddNumberToObject(sph_root, SPH_CLEAR_DATA_KEY, 0); // do not clear data on GET
+    cJSON_AddNumberToObject(sph_root, SPH_CLEAR_DATA_KEY, (int) (r->user_ctx));
 
     // render the json as a string
     char *rendered = cJSON_Print(root);
