@@ -1,82 +1,70 @@
 {
-  "wlan":
-  {
-    "up_time": 12345,
-    "ip": "192.168.0.100",
-    "rssi": -40
+  "system": {
+    "system_up_time": 59693,
+    "wifi_up_time": 58577,
+    "ip": "192.168.0.18",
+    "rssi": -63,
+    "battery_life": 99.71484375,
+    "battery_mV": 4177.5
   },
-  "battery":
-  {
-    "life": 96.12,
-    "voltage": 3000.1
-  },
-  "air":
-  {
+  "weather": {
     "data": {
-      "up_time": 12345678,
+      "temperature": 24.659999847412109,
+      "humidity": 44.37109375,
+      "pressure": 101414.74048920246,
+      "dew_point": 11.928571929426639
+    },
+    "config": {
+      "oversampling": {
+        "temperature": 1,
+        "humidity": 1,
+        "pressure": 1
+      },
+      "mode": 0,
+      "standby_time": 0,
+      "filter": 0
+    },
+    "elevation": 765
+  },
+  "air": {
+    "data": {
+      "fan_time": 59618,
       "checksum_ok": true,
       "standard": {
-        "pm1": 2,
-        "pm2_5": 3,
-        "pm10": 3
+        "pm1": 5,
+        "pm2_5": 7,
+        "pm10": 8
       },
       "atmospheric": {
-        "pm1": 2,
-        "pm2_5": 3,
-        "pm10": 3
+        "pm1": 5,
+        "pm2_5": 7,
+        "pm10": 8
       },
       "count_per_0_1L": {
-        "0_3um": 417,
-        "0_5um": 132,
-        "1_0um": 10,
-        "2_5um": 4,
+        "0_3um": 969,
+        "0_5um": 287,
+        "1_0um": 47,
+        "2_5um": 7,
         "5_0um": 0,
         "10_0um": 0
       }
     },
-    "config":
-    {
-      "mode": "active",
-      "sleep": "awake"
+    "config": {
+      "mode": 0,
+      "sleep": 1
     }
   },
-  "weather":
-  {
-    "data":
-    {
-      "temperature": 70.0,
-      "humidity": 45.0,
-      "pressure": 123456,
-      "dew_point": 45.0
+  "noise": {
+    "data": {
+      "avg": 61.349666595458984,
+      "min": 55.665599822998047,
+      "max": 66.832962036132812,
+      "num_samples": 51
     },
-    "config":
-    {
-      "oversampling":
-      {
-        "temperature": 16,
-        "humidity": 8,
-        "pressure": 4
-      },
-      "mode": "forced",
-      "standby_time": 62.5,
-      "filter_coefficient": 2
-    },
-    "elevation": 765
-  },
-  "noise":
-  {
-    "data":
-    {
-      "avg": 60.123,
-      "min": 60.123,
-      "max": 60.123,
-      "num_samples": 500
-    },
-    "config":
-    {
+    "config": {
       "sample_len": 125,
       "sample_period": 1000,
-      "weighting": "C"
+      "weighting": 2
     }
   }
 }
