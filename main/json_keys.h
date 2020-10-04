@@ -38,7 +38,7 @@
 #define PMS_5_0UM_KEY "5_0um"
 #define PMS_10_0UM_KEY "10_0um"
 #define PMS_MODE_KEY "mode"
-#define PMS_SLEEP_SET_KEY "sleep"
+#define PMS_SLEEP_SET_KEY "awake"
 
 #define JSON_ROOT_SPH "noise"
 #define SPH_AVG_KEY "avg"

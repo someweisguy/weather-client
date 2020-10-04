@@ -51,7 +51,7 @@
     },
     "config": {
       "mode": 0,
-      "sleep": 1
+      "awake": 1
     }
   },
   "noise": {
