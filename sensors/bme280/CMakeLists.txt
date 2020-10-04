@@ -6,4 +6,5 @@ idf_component_register(
     REQUIRES 
     PRIV_REQUIRES
         serial
+        nvs_flash
 )

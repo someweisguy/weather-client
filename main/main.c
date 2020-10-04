@@ -30,6 +30,16 @@ void app_main(void)
     // create default event loop
     esp_event_loop_create_default();
 
+    // init non-volatile storage
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        ESP_LOGI(TAG, "erasing nvs flash");
+        nvs_flash_erase();
+        if (nvs_flash_init() != ESP_OK)
+            esp_restart();
+    }
+
     // start serial communications
     i2c_start();
     uart_start();
@@ -52,30 +62,21 @@ void app_main(void)
     const sph0645_config_t sph_config = SPH0645_DEFAULT_CONFIG;
     sph0645_set_config(&sph_config);
 
-    // init non-volatile storage
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
-    {
-        ESP_LOGI(TAG, "erasing nvs flash");
-        nvs_flash_erase();
-        if (nvs_flash_init() != ESP_OK)
-            esp_restart();
-    }
-
     wlan_start();
 
     while (1)
     {
         vTaskDelay(5000 / portTICK_PERIOD_MS);
 
-        printf("System uptime is %lld ms\n", up_time());
+        printf("\nSystem uptime is %lld ms.\n", up_time());
         
         bme280_data_t bme_data;
         bme280_force_measurement();
         bme280_get_data(&bme_data);
-        printf("It's %.2f F, with %.2f%%RH, the dew point is %.2f F, and the pressure is %.1f Pa\n", 
+        printf("It's %.2f F, with %.2f%%RH, the dew point is %.2f F, and the pressure is %.1f Pa (@%im)\n", 
             bme_data.temperature * 9.0/5.0 + 32, bme_data.humidity, 
-            bme_data.dew_point * 9.0/5.0 + 32, bme_data.pressure);
+            bme_data.dew_point * 9.0/5.0 + 32, bme_data.pressure,
+            bme280_get_elevation());
 
         pms5003_data_t pms_data;
         pms5003_get_data(&pms_data);
@@ -92,10 +93,11 @@ void app_main(void)
 
         max17043_data_t max_data;
         max17043_get_data(&max_data);
-        printf("Battery at %.2f%% (%.1fmV), RSSI is at %i\n", max_data.battery_life, 
+        printf("Battery at %.2f%% (%.1fmV), RSSI is at %i\n\n", max_data.battery_life, 
             max_data.millivolts, wlan_data.rssi);
-        
-        puts("\n");
 
+        
+        if (bme280_set_elevation(765) != ESP_OK)
+            printf("COULD NOT SET ELEVATION\n");
     }
 }
