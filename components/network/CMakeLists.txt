@@ -2,8 +2,10 @@ idf_component_register(
     SRCS 
         "wlan.c"
         "uploader.c"
+        "http.c"
     INCLUDE_DIRS 
         "include"
     PRIV_REQUIRES
         json
+        esp_http_server
 )
