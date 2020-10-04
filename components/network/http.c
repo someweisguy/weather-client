@@ -1,6 +1,5 @@
 #include "http.h"
 
-#include "esp_http_server.h"
 #include "cJSON.h"
 
 static httpd_handle_t server = NULL;

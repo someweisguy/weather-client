@@ -5,7 +5,8 @@ idf_component_register(
         "http.c"
     INCLUDE_DIRS 
         "include"
+    REQUIRES
+        esp_http_server
     PRIV_REQUIRES
         json
-        esp_http_server
 )
