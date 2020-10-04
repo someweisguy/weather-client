@@ -212,10 +212,15 @@ esp_err_t http_get_handler(httpd_req_t *r)
     cJSON_AddNumberToObject(sph_config_root, SPH_SAMPLE_PERIOD_KEY, sph_config.sample_period);
     cJSON_AddNumberToObject(sph_config_root, SPH_SAMPLE_WEIGHTING_KEY, sph_config.weighting);
 
+    // create the sph0645 clear data node
+    cJSON *sph_clear_data_node = cJSON_CreateObject();
+    cJSON_AddNumberToObject(sph_root, SPH_CLEAR_DATA_KEY, 0); // do not clear data on GET
+
     // render the json as a string
     char *rendered = cJSON_Print(root);
 
     // send the response to the client
+    httpd_resp_set_status(r, HTTPD_200);
     httpd_resp_sendstr(r, rendered);
 
     // free resources

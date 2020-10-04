@@ -44,11 +44,7 @@ static void mic_reader_task(void *arg)
     double acc_sum_sqr = 0;
     bool delay_state_uninitialized = true;
 
-    // Reset the running data
-    task_data.avg = 0;
-    task_data.samples = 0;
-    task_data.max = -INFINITY;
-    task_data.min = INFINITY;
+    sph0645_clear_data();
 
     while (true)
     {
@@ -184,6 +180,15 @@ esp_err_t sph0645_get_data(sph0645_data_t *data)
     task_data.avg /= task_data.samples;
     memcpy(data, &task_data, sizeof(task_data));
 
+    xTaskResumeAll(); // exit critical section
+
+    return ESP_OK;
+}
+
+void sph0645_clear_data()
+{
+    vTaskSuspendAll(); // enter critical section, interrupts enabled
+
     // Reset the task data
     task_data.avg = 0;
     task_data.samples = 0;
@@ -191,6 +196,4 @@ esp_err_t sph0645_get_data(sph0645_data_t *data)
     task_data.min = INFINITY;
 
     xTaskResumeAll(); // exit critical section
-
-    return ESP_OK;
 }

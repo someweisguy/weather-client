@@ -32,3 +32,5 @@ esp_err_t sph0645_set_config(const sph0645_config_t *config);
 esp_err_t sph0645_get_config(sph0645_config_t *config);
 
 esp_err_t sph0645_get_data(sph0645_data_t *data);
+
+void sph0645_clear_data();

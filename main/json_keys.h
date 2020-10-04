@@ -48,3 +48,4 @@
 #define SPH_SAMPLE_LEN_KEY "sample_len"
 #define SPH_SAMPLE_PERIOD_KEY "sample_period"
 #define SPH_SAMPLE_WEIGHTING_KEY "weighting"
+#define SPH_CLEAR_DATA_KEY "clear_data"
