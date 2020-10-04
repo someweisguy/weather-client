@@ -84,7 +84,7 @@ esp_err_t wlan_stop()
     return ESP_OK;
 }
 
-esp_err_t wlan_get_data(wlan_data_t *config)
+esp_err_t wlan_get_data(wlan_data_t *data)
 {
     esp_netif_t *netif = NULL;
     for (int i = 0; i < esp_netif_get_nr_of_ifs(); ++i)
@@ -100,17 +100,20 @@ esp_err_t wlan_get_data(wlan_data_t *config)
     esp_err_t err = esp_netif_get_ip_info(netif, &ip_info);
     if (err)
         return err;
-    config->ip = ip_info.ip;
+    data->ip = ip_info.ip;
+
+    // copy the ip as a string
+    sprintf(data->ip_str, "%d.%d.%d.%d", IP2STR(&ip_info.ip));
     
     // Get the RSSI
     wifi_ap_record_t ap_info;
     err = esp_wifi_sta_get_ap_info(&ap_info);
     if (err)
         ap_info.rssi = 0;
-    config->rssi = ap_info.rssi;
+    data->rssi = ap_info.rssi;
 
     // copy the wifi uptime
-    config->up_time = (esp_timer_get_time() - up_time) / 1000;
+    data->up_time = (esp_timer_get_time() - up_time) / 1000;
 
     return ESP_OK;
 }
