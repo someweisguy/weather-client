@@ -1,4 +1,6 @@
 .vscode
 build
 sdkconfig.old
-secrets.py
+secrets*
+.idea
+__pycache__
