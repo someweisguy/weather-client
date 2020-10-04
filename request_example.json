@@ -1,0 +1,82 @@
+{
+  "wlan":
+  {
+    "up_time": 12345,
+    "ip": "192.168.0.100",
+    "rssi": -40
+  },
+  "battery":
+  {
+    "life": 96.12,
+    "voltage": 3000.1
+  },
+  "air":
+  {
+    "data": {
+      "up_time": 12345678,
+      "checksum_ok": true,
+      "standard": {
+        "pm1": 2,
+        "pm2_5": 3,
+        "pm10": 3
+      },
+      "atmospheric": {
+        "pm1": 2,
+        "pm2_5": 3,
+        "pm10": 3
+      },
+      "count_per_0_1L": {
+        "0_3um": 417,
+        "0_5um": 132,
+        "1_0um": 10,
+        "2_5um": 4,
+        "5_0um": 0,
+        "10_0um": 0
+      }
+    },
+    "config":
+    {
+      "mode": "active",
+      "sleep": "awake"
+    }
+  },
+  "weather":
+  {
+    "data":
+    {
+      "temperature": 70.0,
+      "humidity": 45.0,
+      "pressure": 123456,
+      "dew_point": 45.0
+    },
+    "config":
+    {
+      "oversampling":
+      {
+        "temperature": 16,
+        "humidity": 8,
+        "pressure": 4
+      },
+      "mode": "forced",
+      "standby_time": 62.5,
+      "filter_coefficient": 2
+    },
+    "elevation": 765
+  },
+  "noise":
+  {
+    "data":
+    {
+      "avg": 60.123,
+      "min": 60.123,
+      "max": 60.123,
+      "num_samples": 500
+    },
+    "config":
+    {
+      "sample_len": 125,
+      "sample_period": 1000,
+      "weighting": "C"
+    }
+  }
+}
