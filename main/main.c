@@ -15,6 +15,8 @@
 #include "i2s.h"
 
 #include "wlan.h"
+#include "http.h"
+#include "http_get_handler.h"
 
 static const char *TAG = "main";
 
@@ -63,41 +65,42 @@ void app_main(void)
     sph0645_set_config(&sph_config);
 
     wlan_start();
+    http_start();
+    http_register_handler("/", HTTP_GET, &http_get_handler, NULL);
 
     while (1)
     {
         vTaskDelay(5000 / portTICK_PERIOD_MS);
 
-        printf("\nSystem uptime is %lld ms.\n", up_time());
+        // printf("\nSystem uptime is %lld ms.\n", up_time());
         
-        bme280_data_t bme_data;
-        bme280_force_measurement();
-        bme280_get_data(&bme_data);
-        printf("It's %.2f F, with %.2f%%RH, the dew point is %.2f F, and the pressure is %.1f Pa (@%im)\n", 
-            bme_data.temperature * 9.0/5.0 + 32, bme_data.humidity, 
-            bme_data.dew_point * 9.0/5.0 + 32, bme_data.pressure,
-            bme280_get_elevation());
+        // bme280_data_t bme_data;
+        // bme280_force_measurement();
+        // bme280_get_data(&bme_data);
+        // printf("It's %.2f F, with %.2f%%RH, the dew point is %.2f F, and the pressure is %.1f Pa (@%im)\n", 
+        //     bme_data.temperature * 9.0/5.0 + 32, bme_data.humidity, 
+        //     bme_data.dew_point * 9.0/5.0 + 32, bme_data.pressure,
+        //     bme280_get_elevation());
 
-        pms5003_data_t pms_data;
-        pms5003_get_data(&pms_data);
-        printf("PM2.5 at %d (checksum %s, fan on for %lld ms)\n", pms_data.concAtm.pm2_5, 
-            pms_data.checksum_ok ? "OK" : "FAIL", pms_data.fan_on_time);
+        // pms5003_data_t pms_data;
+        // pms5003_get_data(&pms_data);
+        // printf("PM2.5 at %d (checksum %s, fan on for %lld ms)\n", pms_data.concAtm.pm2_5, 
+        //     pms_data.checksum_ok ? "OK" : "FAIL", pms_data.fan_on_time);
 
-        sph0645_data_t sph_data;
-        sph0645_get_data(&sph_data);
-        printf("Min: %.3f dBC, Max: %.3f dBC, Avg: %.3f dBC (%lld samples)\n",
-               sph_data.min, sph_data.max, sph_data.avg, sph_data.samples);
+        // sph0645_data_t sph_data;
+        // sph0645_get_data(&sph_data);
+        // printf("Min: %.3f dBC, Max: %.3f dBC, Avg: %.3f dBC (%lld samples)\n",
+        //        sph_data.min, sph_data.max, sph_data.avg, sph_data.samples);
 
-        wlan_data_t wlan_data;
-        wlan_get_data(&wlan_data);
+        // wlan_data_t wlan_data;
+        // wlan_get_data(&wlan_data);
 
-        max17043_data_t max_data;
-        max17043_get_data(&max_data);
-        printf("Battery at %.2f%% (%.1fmV), RSSI is at %i\n\n", max_data.battery_life, 
-            max_data.millivolts, wlan_data.rssi);
+        // max17043_data_t max_data;
+        // max17043_get_data(&max_data);
+        // printf("Battery at %.2f%% (%.1fmV), RSSI is at %i\n\n", max_data.battery_life, 
+        //     max_data.millivolts, wlan_data.rssi);
 
         
-        if (bme280_set_elevation(765) != ESP_OK)
-            printf("COULD NOT SET ELEVATION\n");
+        bme280_set_elevation(765);
     }
 }
