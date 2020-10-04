@@ -145,15 +145,11 @@ esp_err_t bme280_reset()
     nvs_handle_t nvs_handle;
     err = nvs_open(ELEVATION_NVS_PAGE, NVS_READWRITE, &nvs_handle);
     if (err)
-    {
-        printf("ERROR OPENING NVS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
         return err;
-    }
     err = nvs_get_i32(nvs_handle, ELEVATION_NVS_KEY, &elevation);
     if (err == ESP_ERR_NVS_NOT_FOUND)
     {
         // elevation hasn't been initialized in nvs yet
-        printf("NOT INIT ERROR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
         elevation = 0; // default is sea level
         nvs_set_i32(nvs_handle, ELEVATION_NVS_KEY, elevation);
         nvs_commit(nvs_handle);
