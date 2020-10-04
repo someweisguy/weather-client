@@ -74,7 +74,7 @@ esp_err_t uploader_get_config(wifi_config_t *wifi_config, const TickType_t timeo
     puts(JSON_READY);
 
     uart_event_t event;
-    if (xQueueReceive(uart0_queue, &event, timeout / portTICK_PERIOD_MS))
+    if (xQueueReceive(uart0_queue, &event, timeout))
     {
         if (event.type == UART_DATA)
         {
