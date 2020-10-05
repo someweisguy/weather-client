@@ -24,15 +24,31 @@ static esp_err_t bme280_config_edit(cJSON *root)
     cJSON *elem;
     cJSON_ArrayForEach(elem, root->child)
     {
-        // TODO
+        if (strcasecmp(elem->string, BME_OVERSAMPLING_KEY) == 0)
+        {
+            cJSON* osrs; // oversampling json nodes
+            cJSON_ArrayForEach(osrs, elem->child)
+            {
+                if (strcasecmp(osrs->string, BME_TEMPERATURE_KEY) == 0)
+                    config.ctrl_meas.osrs_t = elem->valueint;
+                else if (strcasecmp(osrs->string, BME_HUMIDITY_KEY) == 0)
+                    config.ctrl_hum.osrs_h = elem->valueint;
+                else if (strcasecmp(osrs->string, BME_PRESSURE_KEY) == 0)
+                    config.ctrl_meas.osrs_p = elem->valueint;
+            }
+        }
+        else if (strcasecmp(elem->string, BME_MODE_KEY) == 0)
+            config.ctrl_meas.mode = elem->valueint;
+        else if (strcasecmp(elem->string, BME_STANDBY_TIME_KEY) == 0)
+            config.config.t_sb = elem->valueint;
+        else if (strcasecmp(elem->string, BME_FILTER_KEY) == 0)
+            config.config.filter = elem->valueint;
     }
 
     // set bme280 elevation
     elem = cJSON_GetObjectItem(root, BME_ELEVATION_KEY);
     if (elem != NULL)
-    {
         bme280_set_elevation(elem->valueint);
-    }
 
     return bme280_set_config(&config);
 }
