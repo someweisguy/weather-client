@@ -44,7 +44,7 @@ void app_main(void)
 
     // init sensors
     pms5003_reset();
-    const pms5003_config_t pms_config = PMS5003_PASSIVE_AWAKE;
+    const pms5003_config_t pms_config = PMS5003_PASSIVE_ASLEEP;
     pms5003_set_config(&pms_config);
 
     max17043_reset();
