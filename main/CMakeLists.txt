@@ -3,4 +3,5 @@ idf_component_register(
                 "main.c"
         INCLUDE_DIRS 
                 "."
+                "http_handlers/"
 )
