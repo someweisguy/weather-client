@@ -46,8 +46,8 @@ static void event_handler(void *handler_args, esp_event_base_t base,
         smartconfig_event_got_ssid_pswd_t *event = (smartconfig_event_got_ssid_pswd_t *)event_data;
 
         // copy the credentials from smartconfig into the wifi_config
-        wifi_config_t wifi_config;
-        bzero(&wifi_config, sizeof(wifi_config_t));
+        wifi_config_t wifi_config = {};
+        esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config);
         memcpy(wifi_config.sta.ssid, event->ssid, sizeof(wifi_config.sta.ssid));
         memcpy(wifi_config.sta.password, event->password, sizeof(wifi_config.sta.password));
         wifi_config.sta.bssid_set = event->bssid_set;
@@ -93,9 +93,12 @@ esp_err_t wlan_start()
     esp_wifi_start();
 
     // configure and start smartconfig
-    esp_smartconfig_set_type(SC_TYPE_ESPTOUCH);
-    smartconfig_start_config_t smartcfg_config = SMARTCONFIG_START_CONFIG_DEFAULT();
-    esp_smartconfig_start(&smartcfg_config);
+    if (strlen((const char *)(wifi_config.sta.ssid)) == 0)
+    {
+        esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS);
+        smartconfig_start_config_t smartcfg_config = SMARTCONFIG_START_CONFIG_DEFAULT();
+        esp_smartconfig_start(&smartcfg_config);
+    }
 
     return ESP_OK;
 }
