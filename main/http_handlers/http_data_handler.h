@@ -32,12 +32,6 @@ esp_err_t http_data_handler(httpd_req_t *r)
     cJSON *sph_root = cJSON_CreateObject();
     cJSON_AddItemToObject(root, JSON_ROOT_SPH, sph_root);
 
-    // get the system up time
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    const uint64_t system_up_time = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
-    cJSON_AddNumberToObject(system_root, SYSTEM_UP_TIME_KEY, system_up_time);
-
     // get the wlan data
     wlan_data_t wlan_data;
     err = wlan_get_data(&wlan_data);
