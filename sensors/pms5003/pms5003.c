@@ -73,11 +73,11 @@ esp_err_t pms5003_set_config(const pms5003_config_t *config)
 
 esp_err_t pms5003_get_data(pms5003_data_t *data)
 {
+    if (fan_on_tick < 0)
+        return ESP_ERR_INVALID_STATE; // pms5003 is sleeping, so it won't respond to uart commands
+    
     data->checksum_ok = false; // assume data is bad
-    if (fan_on_tick >= 0)
-        data->fan_on_time = (esp_timer_get_time() - fan_on_tick) / 1000;
-    else
-        data->fan_on_time = -1;
+    data->fan_on_time = (esp_timer_get_time() - fan_on_tick) / 1000;
 
     // allocate a buffer and read the data in
     uint8_t buffer[32];
