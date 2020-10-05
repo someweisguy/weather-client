@@ -4,7 +4,7 @@
 #define JSON_CONFIG_KEY "config"
 
 #define JSON_ROOT_SYSTEM "system"
-#define SYSTEM_WIFI_UP_TIME_KEY "wifi_up_time"
+#define SYSTEM_WIFI_UP_TIME_KEY "connection_time"
 #define SYSTEM_WIFI_RSSI_KEY "rssi"
 #define SYSTEM_IP_KEY "ip"
 #define SYSTEM_BATT_LIFE_KEY "battery_life"
