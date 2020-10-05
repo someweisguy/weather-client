@@ -31,7 +31,7 @@ void app_main(void)
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
     {
-        ESP_LOGI(TAG, "erasing nvs flash");
+        ESP_LOGW(TAG, "erasing nvs flash");
         nvs_flash_erase();
         if (nvs_flash_init() != ESP_OK)
             esp_restart();
