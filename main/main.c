@@ -67,7 +67,6 @@ void app_main(void)
     http_register_handler("/", HTTP_POST, &http_data_handler, CLEAR_SPH0645_DATA);
     http_register_handler("/", HTTP_PUT, &http_config_handler, NULL);
     http_register_handler("/test", HTTP_GET, &http_test_handler, NULL);
-    http_register_handler("/restart", HTTP_GET, &esp_restart, NULL);
 
     while (1)
     {
