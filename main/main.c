@@ -18,7 +18,7 @@
 #include "http.h"
 #include "http_data_handler.h"
 #include "http_config_handler.h"
-#include "http_test_handler.h"
+#include "http_about_handler.h"
 
 static const char *TAG = "main";
 
@@ -66,5 +66,5 @@ void app_main(void)
     http_register_handler("/", HTTP_GET, &http_data_handler, KEEP_SPH0645_DATA);
     http_register_handler("/", HTTP_POST, &http_data_handler, CLEAR_SPH0645_DATA);
     http_register_handler("/", HTTP_PUT, &http_config_handler, NULL);
-    http_register_handler("/test", HTTP_GET, &http_test_handler, NULL);
+    http_register_handler("/about", HTTP_GET, &http_about_handler, NULL);
 }
