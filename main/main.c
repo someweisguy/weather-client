@@ -18,6 +18,7 @@
 #include "http.h"
 #include "http_data_handler.h"
 #include "http_config_handler.h"
+#include "http_test_handler.h"
 
 static const char *TAG = "main";
 
@@ -45,11 +46,11 @@ void app_main(void)
     pms5003_reset();
     const pms5003_config_t pms_config = PMS5003_PASSIVE_AWAKE;
     pms5003_set_config(&pms_config);
-    
+
     max17043_reset();
     const max17043_config_t max_config = MAX17043_DEFAULT_CONFIG;
     max17043_set_config(&max_config);
-    
+
     bme280_reset();
     const bme280_config_t bme_config = BME280_WEATHER_MONITORING;
     bme280_set_config(&bme_config);
@@ -57,7 +58,7 @@ void app_main(void)
     sph0645_reset();
     const sph0645_config_t sph_config = SPH0645_DEFAULT_CONFIG;
     sph0645_set_config(&sph_config);
-    
+
     wlan_start();
     http_start();
 
@@ -65,24 +66,25 @@ void app_main(void)
     http_register_handler("/", HTTP_GET, &http_data_handler, KEEP_SPH0645_DATA);
     http_register_handler("/", HTTP_POST, &http_data_handler, CLEAR_SPH0645_DATA);
     http_register_handler("/", HTTP_PUT, &http_config_handler, NULL);
-
+    http_register_handler("/test", HTTP_GET, &http_test_handler, NULL);
+    http_register_handler("/restart", HTTP_GET, &esp_restart, NULL);
 
     while (1)
     {
         vTaskDelay(5000 / portTICK_PERIOD_MS);
-        
+
         bme280_data_t bme_data;
         bme280_force_measurement();
         bme280_get_data(&bme_data);
-        printf("It's %.2f F, with %.2f%%RH, the dew point is %.2f F, and the pressure is %.1f Pa (@%im)\n", 
-            bme_data.temperature * 9.0/5.0 + 32, bme_data.humidity, 
-            bme_data.dew_point * 9.0/5.0 + 32, bme_data.pressure,
-            bme280_get_elevation());
+        printf("It's %.2f F, with %.2f%%RH, the dew point is %.2f F, and the pressure is %.1f Pa (@%im)\n",
+               bme_data.temperature * 9.0 / 5.0 + 32, bme_data.humidity,
+               bme_data.dew_point * 9.0 / 5.0 + 32, bme_data.pressure,
+               bme280_get_elevation());
 
         pms5003_data_t pms_data;
         pms5003_get_data(&pms_data);
-        printf("PM2.5 at %d (checksum %s, fan on for %lld ms)\n", pms_data.concAtm.pm2_5, 
-            pms_data.checksum_ok ? "OK" : "FAIL", pms_data.fan_on_time);
+        printf("PM2.5 at %d (checksum %s, fan on for %lld ms)\n", pms_data.concAtm.pm2_5,
+               pms_data.checksum_ok ? "OK" : "FAIL", pms_data.fan_on_time);
 
         sph0645_data_t sph_data;
         sph0645_get_data(&sph_data);
@@ -94,7 +96,7 @@ void app_main(void)
 
         max17043_data_t max_data;
         max17043_get_data(&max_data);
-        printf("Battery at %.2f%% (%.1fmV), RSSI is at %i\n\n", max_data.battery_life, 
-            max_data.millivolts, wlan_data.rssi);        
+        printf("Battery at %.2f%% (%.1fmV), RSSI is at %i\n\n", max_data.battery_life,
+               max_data.millivolts, wlan_data.rssi);
     }
 }
