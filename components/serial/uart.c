@@ -35,7 +35,7 @@ esp_err_t uart_bus_write(const void *buf, size_t size, TickType_t timeout)
 
 	esp_err_t err = uart_wait_tx_done(CONFIG_UART_PORT, timeout);
 	if (written != size)
-		return ESP_ERR_INVALID_SIZE;
+		return ESP_ERR_TIMEOUT;
 	else
 		return err;
 }
@@ -51,7 +51,7 @@ esp_err_t uart_bus_read(void *buf, size_t size, TickType_t timeout)
 	const int read = uart_read_bytes(CONFIG_UART_PORT, buf, size, timeout);
 
 	if (read != size)
-		return ESP_ERR_INVALID_SIZE;
+		return ESP_ERR_TIMEOUT;
 	else
 		return ESP_OK;
 }
