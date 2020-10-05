@@ -177,8 +177,8 @@ esp_err_t sph0645_get_data(sph0645_data_t *data)
     vTaskSuspendAll(); // enter critical section, interrupts enabled
 
     // Get the average and copy the data over
-    task_data.avg /= task_data.samples;
     memcpy(data, &task_data, sizeof(task_data));
+    data->avg /= data->samples;
 
     xTaskResumeAll(); // exit critical section
 
