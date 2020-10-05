@@ -11,8 +11,8 @@
 
 #include "json_keys.h"
 
-#define CLEAR_SPH0645_DATA 1
-#define KEEP_SPH0645_DATA 0
+#define CLEAR_SPH0645_DATA (void *) (1)
+#define KEEP_SPH0645_DATA (void *) (0)
 
 esp_err_t http_data_handler(httpd_req_t *r)
 {
@@ -106,7 +106,7 @@ esp_err_t http_data_handler(httpd_req_t *r)
         }
 
         // clear or keep the sph0645 data
-        if ((int) (r->user_ctx) == CLEAR_SPH0645_DATA)
+        if (r->user_ctx == CLEAR_SPH0645_DATA)
             sph0645_clear_data();
 
     } while (false);
@@ -123,7 +123,7 @@ esp_err_t http_data_handler(httpd_req_t *r)
         char *error_rendered = cJSON_Print(error_root);
 
         // send a response to the client
-        httpd_resp_set_status(r, HTTPD_500_INTERNAL_SERVER_ERROR);
+        httpd_resp_set_status(r, HTTPD_500);
         httpd_resp_sendstr(r, error_rendered);
 
         // free resources
