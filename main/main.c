@@ -16,9 +16,8 @@
 
 #include "wlan.h"
 #include "http.h"
-#include "http_data_handler.h"
-#include "http_config_handler.h"
-#include "http_about_handler.h"
+
+#include "http_handlers.h"
 
 static const char *TAG = "main";
 
@@ -58,13 +57,13 @@ void app_main(void)
     const sph0645_config_t sph_config = SPH0645_DEFAULT_CONFIG;
     sph0645_set_config(&sph_config);
 
-    // start wifi and http server
     wlan_start();
-    http_start();
 
-    // register http handlers
-    http_register_handler("/", HTTP_GET, &http_data_handler, (void *)0);
-    http_register_handler("/", HTTP_POST, &http_data_handler, (void *)1);
+    // start http and register handlers
+    ESP_LOGI(TAG, "starting http server");
+    http_start();
+    http_register_handler("/", HTTP_GET, &http_data_handler, (void *)0); // keep data
+    http_register_handler("/", HTTP_POST, &http_data_handler, (void *)1); // clear data
     http_register_handler("/", HTTP_PUT, &http_config_handler, NULL);
     http_register_handler("/about", HTTP_GET, &http_about_handler, NULL);
 }
