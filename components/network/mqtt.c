@@ -37,3 +37,11 @@ esp_err_t mqtt_start(const char *mqtt_broker)
 
     return ESP_OK;
 }
+
+esp_err_t mqtt_stop()
+{
+    esp_mqtt_client_stop(client);
+    esp_mqtt_client_destroy(client);
+    client = NULL;
+    return ESP_OK;
+}
