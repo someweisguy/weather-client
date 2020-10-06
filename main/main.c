@@ -16,8 +16,8 @@
 
 #include "wlan.h"
 #include "http.h"
-
 #include "http_handlers.h"
+#include "mqtt.h"
 
 static const char *TAG = "main";
 
@@ -66,4 +66,9 @@ void app_main(void)
     http_register_handler("/", HTTP_POST, &http_data_handler, (void *)1); // clear data
     http_register_handler("/", HTTP_PUT, &http_config_handler, NULL);
     http_register_handler("/about", HTTP_GET, &http_about_handler, NULL);
+
+    // start mqtt and register handlers
+    ESP_LOGI(TAG, "starting mqtt client");
+    mqtt_start("mqtt://192.168.0.2");
+
 }

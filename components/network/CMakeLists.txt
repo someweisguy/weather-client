@@ -3,10 +3,12 @@ idf_component_register(
         "wlan.c"
         "uploader.c"
         "http.c"
+        "mqtt.c"
     INCLUDE_DIRS 
         "include"
     REQUIRES
         esp_http_server
     PRIV_REQUIRES
         json
+        mqtt
 )
