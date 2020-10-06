@@ -11,14 +11,10 @@
 
 #include "json_keys.h"
 
-esp_err_t http_about_handler(httpd_req_t *r)
+char *about_handler()
 {
     esp_err_t err;
-
-    // send json back to the client
-    httpd_resp_set_type(r, HTTPD_TYPE_JSON);
-
-    cJSON* root = cJSON_CreateObject();
+    cJSON *root = cJSON_CreateObject();
 
     // add the compilation timestamp
     cJSON_AddStringToObject(root, "compiled", __DATE__ " " __TIME__);
@@ -54,15 +50,27 @@ esp_err_t http_about_handler(httpd_req_t *r)
     cJSON_AddStringToObject(sensor_root, "sph0645", esp_err_to_name(err));
 
     // render the json as a string
-    char *rendered = cJSON_Print(root);
+    char *response = cJSON_Print(root);
+
+    cJSON_Delete(root);
+
+    return response;
+}
+
+esp_err_t http_about_handler(httpd_req_t *r)
+{
+    // send json back to the client
+    httpd_resp_set_type(r, HTTPD_TYPE_JSON);
+
+    // generate the response to the client
+    char *response = about_handler();
 
     // send the response to the client
     httpd_resp_set_status(r, HTTPD_200);
-    httpd_resp_sendstr(r, rendered);
+    httpd_resp_sendstr(r, response);
 
-    // free resources
-    cJSON_Delete(root);
-    free(rendered);
+    // free the response
+    free(response);
 
     return ESP_OK;
 }

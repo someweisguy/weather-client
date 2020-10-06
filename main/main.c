@@ -63,8 +63,8 @@ void app_main(void)
     http_start();
 
     // register http handlers
-    http_register_handler("/", HTTP_GET, &http_data_handler, KEEP_SPH0645_DATA);
-    http_register_handler("/", HTTP_POST, &http_data_handler, CLEAR_SPH0645_DATA);
+    http_register_handler("/", HTTP_GET, &http_data_handler, (void *)0);
+    http_register_handler("/", HTTP_POST, &http_data_handler, (void *)1);
     http_register_handler("/", HTTP_PUT, &http_config_handler, NULL);
     http_register_handler("/about", HTTP_GET, &http_about_handler, NULL);
 }

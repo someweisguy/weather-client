@@ -11,15 +11,9 @@
 
 #include "json_keys.h"
 
-#define CLEAR_SPH0645_DATA (void *)(1)
-#define KEEP_SPH0645_DATA (void *)(0)
-
-esp_err_t http_data_handler(httpd_req_t *r)
+char *data_handler(const bool clear_data)
 {
     esp_err_t err;
-
-    // send json back to the client
-    httpd_resp_set_type(r, HTTPD_TYPE_JSON);
 
     // create the main json root
     cJSON *root = cJSON_CreateObject();
@@ -157,20 +151,31 @@ esp_err_t http_data_handler(httpd_req_t *r)
     }
 
     // clear or keep the sph0645 data
-    if (r->user_ctx == CLEAR_SPH0645_DATA)
+    if (clear_data)
         sph0645_clear_data();
-    cJSON_AddBoolToObject(sph_root, SPH_CLEAR_DATA_KEY, (int)(r->user_ctx));
+    cJSON_AddBoolToObject(sph_root, SPH_CLEAR_DATA_KEY, clear_data);
 
     // render the json as a string
-    char *rendered = cJSON_Print(root);
+    char *response = cJSON_Print(root);
+    cJSON_Delete(root);
 
+    return response;
+}
+
+esp_err_t http_data_handler(httpd_req_t *r)
+{
+    // send json back to the client
+    httpd_resp_set_type(r, HTTPD_TYPE_JSON);
+
+    bool clear_data = (bool) r->user_ctx;
+    char *response = data_handler(clear_data);
+    
     // send the response to the client
     httpd_resp_set_status(r, HTTPD_200);
-    httpd_resp_sendstr(r, rendered);
+    httpd_resp_sendstr(r, response);
 
     // free resources
-    cJSON_Delete(root);
-    free(rendered);
+    free(response);
 
     return ESP_OK;
 }

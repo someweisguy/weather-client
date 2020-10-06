@@ -26,7 +26,7 @@ static esp_err_t bme280_config_edit(cJSON *root)
     {
         if (strcasecmp(elem->string, BME_OVERSAMPLING_KEY) == 0)
         {
-            cJSON* osrs; // oversampling json nodes
+            cJSON *osrs; // oversampling json nodes
             cJSON_ArrayForEach(osrs, elem->child)
             {
                 if (strcasecmp(osrs->string, BME_TEMPERATURE_KEY) == 0)
@@ -74,7 +74,7 @@ static esp_err_t pms5003_config_edit(cJSON *root)
                 config.sleep = elem->valueint;
         }
     }
-    
+
     // return results
     return pms5003_set_config(&config);
 }
@@ -126,67 +126,68 @@ static esp_err_t sph0645_config_edit(cJSON *root)
     return config_changed ? sph0645_set_config(&config) : ESP_OK;
 }
 
+esp_err_t config_handler(const char *request)
+{
+    // parse the JSON object
+    cJSON *root = cJSON_Parse(request);
+    if (root == NULL)
+        return ESP_ERR_INVALID_ARG;
+
+    // iterate the JSON object
+    esp_err_t err = ESP_OK;
+    cJSON *device;
+    cJSON_ArrayForEach(device, root)
+    {
+        if (strcasecmp(device->string, JSON_ROOT_BME) == 0)
+        {
+            err = bme280_config_edit(device);
+            if (err)
+                break;
+        }
+        else if (strcasecmp(device->string, JSON_ROOT_PMS) == 0)
+        {
+            err = pms5003_config_edit(device);
+            if (err)
+                break;
+        }
+        else if (strcasecmp(device->string, JSON_ROOT_SPH) == 0)
+        {
+            err = sph0645_config_edit(device);
+            if (err)
+                break;
+        }
+    }
+
+    cJSON_Delete(root);
+
+    return err;
+}
+
 esp_err_t http_config_handler(httpd_req_t *r)
 {
     // set the response type
     httpd_resp_set_type(r, HTTPD_TYPE_TEXT);
 
     // read the body of the request into memory
-    char *body = malloc(r->content_len + 1); // content + null terminator
-    if (body == NULL)
+    char *request = malloc(r->content_len + 1); // content + null terminator
+    if (request == NULL)
     {
         httpd_resp_set_status(r, HTTPD_507);
         httpd_resp_sendstr(r, "NO MEMORY");
         return ESP_ERR_NO_MEM;
     }
-    httpd_req_recv(r, body, r->content_len + 1);
+    httpd_req_recv(r, request, r->content_len + 1);
 
-    // parse the JSON object
-    cJSON *root = cJSON_Parse(body);
-    if (root == NULL)
-    {
-        httpd_resp_set_status(r, HTTPD_400);
-        httpd_resp_sendstr(r, "BAD JSON");
-        free(body);
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    esp_err_t err = ESP_OK;
-    do
-    {
-        cJSON *device;
-        cJSON_ArrayForEach(device, root)
-        {
-            if (strcasecmp(device->string, JSON_ROOT_BME) == 0)
-            {
-                err = bme280_config_edit(device);
-                if (err)
-                    break;
-            }
-            else if (strcasecmp(device->string, JSON_ROOT_PMS) == 0)
-            {
-                err = pms5003_config_edit(device);
-                if (err)
-                    break;
-            }
-            else if (strcasecmp(device->string, JSON_ROOT_SPH) == 0)
-            {
-                err = sph0645_config_edit(device);
-                if (err)
-                    break;
-            }
-        }
-    } while (false);
+    esp_err_t err = config_handler(request);
+    free(request);
 
     // send a response to the client
-    if (err == ESP_ERR_INVALID_ARG)
+    if (err)
     {
-        httpd_resp_set_status(r, HTTPD_400);
-        httpd_resp_sendstr(r, "FAIL");
-    }
-    else if (err)
-    {
-        httpd_resp_set_status(r, HTTPD_500);
+        if (err == ESP_ERR_INVALID_ARG)
+            httpd_resp_set_status(r, HTTPD_400);
+        else
+            httpd_resp_set_status(r, HTTPD_500);
         httpd_resp_sendstr(r, "FAIL");
     }
     else
@@ -194,10 +195,6 @@ esp_err_t http_config_handler(httpd_req_t *r)
         httpd_resp_set_status(r, HTTPD_200);
         httpd_resp_sendstr(r, "OK");
     }
-
-    // free resources
-    cJSON_Delete(root);
-    free(body);
 
     return ESP_OK;
 }
