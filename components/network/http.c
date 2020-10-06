@@ -10,9 +10,6 @@ esp_err_t http_start()
     esp_err_t err = httpd_start(&server, &config);
     if (err)
         return err;
-
-    // TODO: register uri handlers
-
     return ESP_OK;
 }
 
