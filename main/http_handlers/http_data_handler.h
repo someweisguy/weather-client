@@ -158,7 +158,7 @@ esp_err_t http_data_handler(httpd_req_t *r)
     // clear or keep the sph0645 data
     if (r->user_ctx == CLEAR_SPH0645_DATA)
         sph0645_clear_data();
-    cJSON_AddNumberToObject(sph_root, SPH_CLEAR_DATA_KEY, (int)(r->user_ctx));
+    cJSON_AddBoolToObject(sph_root, SPH_CLEAR_DATA_KEY, (int)(r->user_ctx));
 
     // render the json as a string
     char *rendered = cJSON_Print(root);

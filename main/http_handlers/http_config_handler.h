@@ -117,7 +117,7 @@ static esp_err_t sph0645_config_edit(cJSON *root)
     elem = cJSON_GetObjectItem(root, SPH_CLEAR_DATA_KEY);
     if (elem != NULL)
     {
-        if (elem->valueint == 1)
+        if (cJSON_IsTrue(elem))
             sph0645_clear_data();
         else
             return ESP_ERR_INVALID_ARG;
