@@ -6,6 +6,11 @@
 
 static esp_mqtt_client_handle_t client = NULL;
 
+static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
+{
+    return ESP_OK;
+}
+
 static void mqtt_starter(void *handler_args, esp_event_base_t base, int event_id, void *event_data)
 {
     if (client != NULL)
@@ -17,7 +22,8 @@ esp_err_t mqtt_start(const char *mqtt_broker)
 {
 
     const esp_mqtt_client_config_t config = {
-        .uri = mqtt_broker};
+        .uri = mqtt_broker,
+        .event_handle = mqtt_event_handler};
     client = esp_mqtt_client_init(&config);
     // TODO register event handlers
 
