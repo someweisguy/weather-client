@@ -90,6 +90,7 @@ static void mic_reader_task(void *arg)
             const double dBc = MIC_OFFSET_DB + MIC_REF_DB + 20 * log10(rms_c / mic_ref_ampl);
 
             // Add the data to the currently running data
+            task_data.latest = dBc;
             task_data.avg += dBc;
             task_data.min = MIN(task_data.min, dBc);
             task_data.max = MAX(task_data.max, dBc);
@@ -196,6 +197,7 @@ void sph0645_clear_data()
     task_data.samples = 0;
     task_data.max = -INFINITY;
     task_data.min = INFINITY;
+    task_data.latest = 0;
 
     xTaskResumeAll(); // exit critical section
 }
