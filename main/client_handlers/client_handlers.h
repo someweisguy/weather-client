@@ -1,5 +1,7 @@
 #pragma once
 
+#include "esp_system.h"
+
 #define JSON_DATA_KEY "data"
 #define JSON_CONFIG_KEY "config"
 
@@ -49,3 +51,9 @@
 #define SPH_SAMPLE_PERIOD_KEY "sample_period"
 #define SPH_SAMPLE_WEIGHTING_KEY "weighting"
 #define SPH_CLEAR_DATA_KEY "clear_data"
+
+char *about_handler();
+
+esp_err_t config_handler(const char *request);
+
+char *data_handler(const bool clear_data);
