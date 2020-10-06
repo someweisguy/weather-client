@@ -13,119 +13,6 @@
 
 #define HTTPD_507 "507 Insufficient Storage"
 
-static esp_err_t bme280_config_edit(cJSON *root)
-{
-    // get the current config
-    bme280_config_t config;
-    esp_err_t err = bme280_get_config(&config);
-    if (err)
-        return err;
-
-    cJSON *elem;
-    cJSON_ArrayForEach(elem, root->child)
-    {
-        if (strcasecmp(elem->string, BME_OVERSAMPLING_KEY) == 0)
-        {
-            cJSON *osrs; // oversampling json nodes
-            cJSON_ArrayForEach(osrs, elem->child)
-            {
-                if (strcasecmp(osrs->string, BME_TEMPERATURE_KEY) == 0)
-                    config.ctrl_meas.osrs_t = elem->valueint;
-                else if (strcasecmp(osrs->string, BME_HUMIDITY_KEY) == 0)
-                    config.ctrl_hum.osrs_h = elem->valueint;
-                else if (strcasecmp(osrs->string, BME_PRESSURE_KEY) == 0)
-                    config.ctrl_meas.osrs_p = elem->valueint;
-            }
-        }
-        else if (strcasecmp(elem->string, BME_MODE_KEY) == 0)
-            config.ctrl_meas.mode = elem->valueint;
-        else if (strcasecmp(elem->string, BME_STANDBY_TIME_KEY) == 0)
-            config.config.t_sb = elem->valueint;
-        else if (strcasecmp(elem->string, BME_FILTER_KEY) == 0)
-            config.config.filter = elem->valueint;
-    }
-
-    // set bme280 elevation
-    elem = cJSON_GetObjectItem(root, BME_ELEVATION_KEY);
-    if (elem != NULL)
-        bme280_set_elevation(elem->valueint);
-
-    return bme280_set_config(&config);
-}
-
-static esp_err_t pms5003_config_edit(cJSON *root)
-{
-    // get the current config
-    pms5003_config_t config;
-    esp_err_t err = pms5003_get_config(&config);
-    if (err)
-        return err;
-
-    // set the config to the requested mode
-    cJSON *config_node = cJSON_GetObjectItem(root, JSON_CONFIG_KEY);
-    if (config_node != NULL)
-    {
-        cJSON *elem;
-        cJSON_ArrayForEach(elem, config_node)
-        {
-            if (strcasecmp(elem->string, PMS_MODE_KEY) == 0)
-                config.mode = elem->valueint;
-            else if (strcasecmp(elem->string, PMS_SLEEP_SET_KEY) == 0)
-                config.sleep = elem->valueint;
-        }
-    }
-
-    // return results
-    return pms5003_set_config(&config);
-}
-
-static esp_err_t sph0645_config_edit(cJSON *root)
-{
-    // get the current config
-    sph0645_config_t config;
-    esp_err_t err = sph0645_get_config(&config);
-    if (err)
-        return err;
-
-    bool config_changed = false; // avoid unneccessary task restarts
-
-    // set the config to the requested mode
-    cJSON *elem;
-    cJSON_ArrayForEach(elem, root->child)
-    {
-        if (strcasecmp(elem->string, SPH_SAMPLE_LEN_KEY) == 0)
-        {
-            if (elem->valueint != config.sample_length)
-                config_changed = true;
-            config.sample_length = elem->valueint;
-        }
-        else if (strcasecmp(elem->string, SPH_SAMPLE_PERIOD_KEY) == 0)
-        {
-            if (elem->valueint != config.sample_period)
-                config_changed = true;
-            config.sample_period = elem->valueint;
-        }
-        else if (strcasecmp(elem->string, SPH_SAMPLE_WEIGHTING_KEY) == 0)
-        {
-            if (elem->valueint != config.weighting)
-                config_changed = true;
-            config.weighting = elem->valueint;
-        }
-    }
-
-    // get the clear data key if it exists
-    elem = cJSON_GetObjectItem(root, SPH_CLEAR_DATA_KEY);
-    if (elem != NULL)
-    {
-        if (cJSON_IsTrue(elem))
-            sph0645_clear_data();
-        else
-            return ESP_ERR_INVALID_ARG;
-    }
-
-    return config_changed ? sph0645_set_config(&config) : ESP_OK;
-}
-
 esp_err_t config_handler(const char *request)
 {
     // parse the JSON object
@@ -138,21 +25,119 @@ esp_err_t config_handler(const char *request)
     cJSON *device;
     cJSON_ArrayForEach(device, root)
     {
+        // edit bme280 config
         if (strcasecmp(device->string, JSON_ROOT_BME) == 0)
         {
-            err = bme280_config_edit(device);
+            bme280_config_t config;
+            err = bme280_get_config(&config);
+            if (err)
+                break;
+
+            cJSON *elem;
+            cJSON_ArrayForEach(elem, root->child)
+            {
+                if (strcasecmp(elem->string, BME_OVERSAMPLING_KEY) == 0)
+                {
+                    cJSON *osrs; // oversampling json nodes
+                    cJSON_ArrayForEach(osrs, elem->child)
+                    {
+                        if (strcasecmp(osrs->string, BME_TEMPERATURE_KEY) == 0)
+                            config.ctrl_meas.osrs_t = elem->valueint;
+                        else if (strcasecmp(osrs->string, BME_HUMIDITY_KEY) == 0)
+                            config.ctrl_hum.osrs_h = elem->valueint;
+                        else if (strcasecmp(osrs->string, BME_PRESSURE_KEY) == 0)
+                            config.ctrl_meas.osrs_p = elem->valueint;
+                    }
+                }
+                else if (strcasecmp(elem->string, BME_MODE_KEY) == 0)
+                    config.ctrl_meas.mode = elem->valueint;
+                else if (strcasecmp(elem->string, BME_STANDBY_TIME_KEY) == 0)
+                    config.config.t_sb = elem->valueint;
+                else if (strcasecmp(elem->string, BME_FILTER_KEY) == 0)
+                    config.config.filter = elem->valueint;
+            }
+
+            // set bme280 elevation
+            elem = cJSON_GetObjectItem(root, BME_ELEVATION_KEY);
+            if (elem != NULL)
+                bme280_set_elevation(elem->valueint);
+
+            err = bme280_set_config(&config);
             if (err)
                 break;
         }
+
+        // edit pms5003 config
         else if (strcasecmp(device->string, JSON_ROOT_PMS) == 0)
         {
-            err = pms5003_config_edit(device);
+            // get the current config
+            pms5003_config_t config;
+            err = pms5003_get_config(&config);
+            if (err)
+                break;
+
+            // set the config to the requested mode
+            cJSON *config_node = cJSON_GetObjectItem(root, JSON_CONFIG_KEY);
+            if (config_node != NULL)
+            {
+                cJSON *elem;
+                cJSON_ArrayForEach(elem, config_node)
+                {
+                    if (strcasecmp(elem->string, PMS_MODE_KEY) == 0)
+                        config.mode = elem->valueint;
+                    else if (strcasecmp(elem->string, PMS_SLEEP_SET_KEY) == 0)
+                        config.sleep = elem->valueint;
+                }
+            }
+
+            // return results
+            err = pms5003_set_config(&config);
             if (err)
                 break;
         }
+
+        // edit sph0645 config
         else if (strcasecmp(device->string, JSON_ROOT_SPH) == 0)
         {
-            err = sph0645_config_edit(device);
+            // get the current config
+            sph0645_config_t config;
+            err = sph0645_get_config(&config);
+            if (err)
+                break;
+
+            bool config_changed = false; // avoid unneccessary task restarts
+
+            // set the config to the requested mode
+            cJSON *elem;
+            cJSON_ArrayForEach(elem, root->child)
+            {
+                if (strcasecmp(elem->string, SPH_SAMPLE_LEN_KEY) == 0)
+                {
+                    if (elem->valueint != config.sample_length)
+                        config_changed = true;
+                    config.sample_length = elem->valueint;
+                }
+                else if (strcasecmp(elem->string, SPH_SAMPLE_PERIOD_KEY) == 0)
+                {
+                    if (elem->valueint != config.sample_period)
+                        config_changed = true;
+                    config.sample_period = elem->valueint;
+                }
+                else if (strcasecmp(elem->string, SPH_SAMPLE_WEIGHTING_KEY) == 0)
+                {
+                    if (elem->valueint != config.weighting)
+                        config_changed = true;
+                    config.weighting = elem->valueint;
+                }
+            }
+
+            // get the clear data key if it exists
+            elem = cJSON_GetObjectItem(root, SPH_CLEAR_DATA_KEY);
+            if (elem != NULL && cJSON_IsTrue(elem))
+                sph0645_clear_data();
+
+            if (config_changed)
+                err = sph0645_set_config(&config);
             if (err)
                 break;
         }
