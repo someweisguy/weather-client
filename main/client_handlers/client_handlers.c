@@ -117,7 +117,6 @@ esp_err_t config_handler(const char *request)
         // edit pms5003 config
         else if (strcasecmp(device->string, JSON_ROOT_PMS) == 0)
         {
-            printf("Got PMS config data\n");
             // get the current config
             pms5003_config_t config;
             err = pms5003_get_config(&config);
