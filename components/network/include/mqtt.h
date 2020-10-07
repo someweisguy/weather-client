@@ -19,4 +19,4 @@ esp_err_t mqtt_stop();
 
 esp_err_t mqtt_subscribe(const char *topic, int qos, mqtt_callback_t callback);
 
-esp_err_t mqtt_resp_sendstr(const mqtt_req_t* r, const char *str, int qos, bool retain);
+esp_err_t mqtt_resp_sendstr(const mqtt_req_t* r, const char *topic, const char *str, int qos, bool retain);

@@ -15,6 +15,11 @@ typedef struct
 } subscription_data_t;
 
 static esp_mqtt_client_handle_t client = NULL;
+
+// mqtt is connected
+static bool mqtt_is_connected = false;
+
+// list of topic subscriptions
 static subscription_data_t subscriptions[10];
 static size_t num_subscriptions = 0;
 
@@ -28,9 +33,15 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 
     else if (event->event_id == MQTT_EVENT_DATA)
     {
+        // get the topic name
+        char topic[event->topic_len + 1]; // + null terminator
+        memcpy(topic, event->topic, event->topic_len);
+        topic[event->topic_len] = 0;
+
+        // find the callback associated with the topic
         for (int i = 0; i < num_subscriptions; ++i)
         {
-            if (strcmp(subscriptions[i].topic, event->topic) == 0)
+            if (strcmp(subscriptions[i].topic, topic) == 0)
             {
                 mqtt_req_t r = {
                     .client = &(event->client),
@@ -45,6 +56,12 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
         }
     }
 
+    else if (event->event_id == MQTT_EVENT_CONNECTED)
+        mqtt_is_connected = true;
+    
+    else if (event->event_id == MQTT_EVENT_DISCONNECTED)
+        mqtt_is_connected = false;
+
     return ESP_OK;
 }
 
@@ -57,7 +74,7 @@ static void mqtt_starter(void *handler_args, esp_event_base_t base, int event_id
 
 esp_err_t mqtt_start(const char *mqtt_broker)
 {
-
+    // config the mqtt client
     const esp_mqtt_client_config_t config = {
         .uri = mqtt_broker,
         .event_handle = mqtt_event_handler};
@@ -85,7 +102,7 @@ esp_err_t mqtt_stop()
 esp_err_t mqtt_subscribe(const char *topic, int qos, mqtt_callback_t callback)
 {
     // if mqtt is connected subscribe now
-    if (client != NULL)
+    if (mqtt_is_connected)
         esp_mqtt_client_subscribe(client, topic, qos);
 
     // add the subscription to the list
@@ -101,7 +118,8 @@ esp_err_t mqtt_subscribe(const char *topic, int qos, mqtt_callback_t callback)
         return ESP_ERR_INVALID_SIZE;
 }
 
-esp_err_t mqtt_resp_sendstr(const mqtt_req_t* r, const char *str, int qos, bool retain)
+esp_err_t mqtt_resp_sendstr(const mqtt_req_t* r, const char *topic, const char *str, int qos, bool retain)
 {
-    return esp_mqtt_client_publish(*(r->client), r->topic, str, strlen(str), qos, retain);
+    const int ret =  esp_mqtt_client_publish(*(r->client), topic, str, strlen(str), qos, retain);
+    return ret == -1 ? ESP_FAIL : ESP_OK;
 }
