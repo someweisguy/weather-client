@@ -242,6 +242,7 @@ char *data_handler(const bool clear_data)
 
     // get the bme280 data
     bme280_data_t bme_data;
+    bme280_force_measurement();
     err = bme280_get_data(&bme_data);
     if (!err)
     {
