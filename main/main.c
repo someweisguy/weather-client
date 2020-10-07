@@ -18,6 +18,7 @@
 #include "http.h"
 #include "http_handlers.h"
 #include "mqtt.h"
+#include "mqtt_handlers.h"
 
 static const char *TAG = "main";
 
@@ -70,5 +71,6 @@ void app_main(void)
     // start mqtt and register handlers
     ESP_LOGI(TAG, "starting mqtt client");
     mqtt_start("mqtt://192.168.0.2");
+    mqtt_subscribe("weather/about", 1, &mqtt_about_handler);
 
 }
