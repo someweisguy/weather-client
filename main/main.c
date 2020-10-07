@@ -68,6 +68,7 @@ void app_main(void)
     http_register_handler("/", HTTP_POST, &http_data_handler, (void *)1); // clear data
     http_register_handler("/", HTTP_PUT, &http_config_handler, NULL);
     http_register_handler("/about", HTTP_GET, &http_about_handler, NULL);
+    http_register_handler("/restart", HTTP_GET, &http_restart_handler, NULL);
 #endif
 
 #ifdef MQTT_BROKER
@@ -77,6 +78,7 @@ void app_main(void)
     mqtt_subscribe("weather/data", 1, &mqtt_data_handler);
     mqtt_subscribe("weather/config", 1, &mqtt_config_handler);
     mqtt_subscribe("weather/about", 1, &mqtt_about_handler);
+    mqtt_subscribe("weather/restart", 1, &mqtt_restart_handler);
 #endif
 
 }
