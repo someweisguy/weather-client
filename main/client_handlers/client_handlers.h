@@ -57,3 +57,5 @@ char *about_handler();
 esp_err_t config_handler(const char *request);
 
 char *data_handler(const bool clear_data);
+
+void restart_handler();

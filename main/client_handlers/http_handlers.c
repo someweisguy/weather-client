@@ -75,3 +75,12 @@ esp_err_t http_data_handler(httpd_req_t *r)
 
     return ESP_OK;
 }
+
+esp_err_t http_restart_handler(httpd_req_t *r)
+{
+    httpd_resp_set_type(r, HTTPD_TYPE_TEXT);
+    httpd_resp_set_status(r, HTTPD_200);
+    httpd_resp_sendstr(r, "OK");
+    restart_handler();
+    return ESP_OK;
+}

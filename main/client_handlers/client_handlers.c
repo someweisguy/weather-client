@@ -9,6 +9,12 @@
 #include "bme280.h"
 #include "sph0645.h"
 
+static void restart_task(void* args)
+{
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    esp_restart();
+}
+
 char *about_handler()
 {
     esp_err_t err;
@@ -349,4 +355,10 @@ char *data_handler(const bool clear_data)
     cJSON_Delete(root);
 
     return response;
+}
+
+
+void restart_handler()
+{
+    xTaskCreate(restart_task, "restart_task", 2048, NULL, 5, NULL);
 }

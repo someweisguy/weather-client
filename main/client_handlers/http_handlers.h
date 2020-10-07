@@ -6,3 +6,4 @@
 esp_err_t http_about_handler(httpd_req_t *r);
 esp_err_t http_config_handler(httpd_req_t *r);
 esp_err_t http_data_handler(httpd_req_t *r);
+esp_err_t http_restart_handler(httpd_req_t *r);
