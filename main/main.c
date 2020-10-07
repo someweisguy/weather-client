@@ -71,6 +71,8 @@ void app_main(void)
     // start mqtt and register handlers
     ESP_LOGI(TAG, "starting mqtt client");
     mqtt_start("mqtt://192.168.0.2");
+    mqtt_subscribe("weather/data", 1, &mqtt_data_handler);
+    mqtt_subscribe("weather/config", 1, &mqtt_config_handler);
     mqtt_subscribe("weather/about", 1, &mqtt_about_handler);
 
 }
