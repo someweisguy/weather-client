@@ -1,3 +1,5 @@
+#include <sys/time.h>
+
 #include "esp_system.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
@@ -24,6 +26,10 @@ static const char *TAG = "main";
 
 void app_main(void)
 {
+    // reset the esp uptime
+    const struct timeval tv = {};
+    settimeofday(&tv, NULL);
+    
     // create default event loop
     esp_event_loop_create_default();
 
