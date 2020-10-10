@@ -36,7 +36,6 @@ static esp_err_t i2c_master_command(char addr, char reg, void *buf, size_t size,
 	else
 	{
 		// write to the i2c slave
-		const bool check_ack = (READ_BIT == WRITE);
 		i2c_master_write(cmd, buf, size, check_ack);
 	}
 
@@ -56,8 +55,8 @@ esp_err_t i2c_start()
 		},
 		.sda_io_num = PIN_NUM_SDA,
 		.scl_io_num = PIN_NUM_SCL,
-		.sda_pullup_en = false, // enable built-in pullup
-		.scl_pullup_en = false, // enable built-in pullup
+		.sda_pullup_en = true, // enable built-in pullup
+		.scl_pullup_en = true, // enable built-in pullup
 	};
 	esp_err_t err = i2c_param_config(CONFIG_I2C_PORT, &i2c_config);
 	if (err)
