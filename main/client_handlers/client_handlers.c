@@ -113,7 +113,11 @@ esp_err_t config_handler(const char *request)
             // set bme280 elevation
             cJSON *elevation_node = cJSON_GetObjectItem(device, BME_ELEVATION_KEY);
             if (elevation_node != NULL)
-                bme280_set_elevation(elevation_node->valueint);
+            {
+                err = bme280_set_elevation(elevation_node->valueint);
+                if (err)
+                    break;
+            }
 
             err = bme280_set_config(&config);
             if (err)
