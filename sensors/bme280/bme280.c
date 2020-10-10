@@ -4,6 +4,7 @@
 #include <string.h>
 #include "i2c.h"
 #include "nvs_flash.h"
+#include "nvs.h"
 
 #define I2C_ADDRESS 0x76
 #define REG_CHIP_ID 0xd0
@@ -16,7 +17,7 @@
 #define REG_TRIM_T1_TO_H1 0x88
 #define REG_TRIM_H2_TO_H6 0xe1
 
-#define ELEVATION_NVS_PAGE "nvs"
+#define ELEVATION_NVS_PAGE "bme"
 #define ELEVATION_NVS_KEY "elevation"
 #define MEASURING_BIT 8
 #define IM_UPDATE_BIT 1
@@ -142,24 +143,23 @@ esp_err_t bme280_reset()
     dig.h6 = buf[31];
 
     // load elevation from nvs
-    nvs_handle_t nvs_handle;
-    err = nvs_open(ELEVATION_NVS_PAGE, NVS_READWRITE, &nvs_handle);
+    nvs_handle_t nvs;
+    err = nvs_open(ELEVATION_NVS_PAGE, NVS_READWRITE, &nvs);
     if (err)
         return err;
-    err = nvs_get_i32(nvs_handle, ELEVATION_NVS_KEY, &elevation);
+    err = nvs_get_i32(nvs, ELEVATION_NVS_KEY, &elevation);
     if (err == ESP_ERR_NVS_NOT_FOUND)
     {
         // elevation hasn't been initialized in nvs yet
         elevation = 0; // default is sea level
-        nvs_set_i32(nvs_handle, ELEVATION_NVS_KEY, elevation);
-        nvs_commit(nvs_handle);
+        err = nvs_set_i32(nvs, ELEVATION_NVS_KEY, elevation);
+        if (!err)
+            err = nvs_commit(nvs);
     }
-    else if (err)
-        return err;
-    else
-    nvs_close(nvs_handle);
+    
+    nvs_close(nvs);
 
-    return ESP_OK;
+    return err;
 }
 
 esp_err_t bme280_set_config(const bme280_config_t *config)
@@ -287,17 +287,17 @@ int32_t bme280_get_elevation()
 
 esp_err_t bme280_set_elevation(int32_t meters)
 {
-    nvs_handle_t nvs_handle;
-    esp_err_t err = nvs_open(ELEVATION_NVS_PAGE, NVS_READWRITE, &nvs_handle);
+    nvs_handle_t nvs;
+    esp_err_t err = nvs_open(ELEVATION_NVS_PAGE, NVS_READWRITE, &nvs);
     if (err)
         return err;
-    err = nvs_set_i32(nvs_handle, ELEVATION_NVS_KEY, elevation);
-    if (err)
-        return err;
-    err = nvs_commit(nvs_handle);
-    if (err)
-        return err;
-    nvs_close(nvs_handle);
+    err = nvs_set_i32(nvs, ELEVATION_NVS_KEY, meters);
+    if (!err)
+        err = nvs_commit(nvs);
+
+    nvs_close(nvs);
+    
     elevation = meters;
-    return ESP_OK;
+    
+    return err;
 }
