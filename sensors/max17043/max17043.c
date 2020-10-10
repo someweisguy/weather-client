@@ -15,7 +15,7 @@
 #define CONFIG_REG 0x0c
 #define COMMAND_REG 0xfe
 
-#define DEFAULT_WAIT_TIME 500 / portTICK_PERIOD_MS
+#define DEFAULT_WAIT_TIME 2500 / portTICK_PERIOD_MS
 
 esp_err_t max17043_reset()
 {
