@@ -1,8 +1,9 @@
 #include "i2c.h"
 #include "driver/i2c.h"
 
-#define READ 1
 #define WRITE 0
+#define READ 1
+#define WRITE_NO_ACK 2
 
 #define PIN_NUM_SDA 23 // Adafruit Feather 32 Default
 #define PIN_NUM_SCL 22 // Adafruit Feather 32 Default
@@ -21,7 +22,7 @@ static esp_err_t i2c_master_command(char addr, char reg, void *buf, size_t size,
 	i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, true);
 	i2c_master_write_byte(cmd, reg, true);
 
-	if (READ_BIT)
+	if (READ_BIT == READ)
 	{
 		// read from the i2c slave
 		i2c_master_start(cmd);
@@ -33,7 +34,8 @@ static esp_err_t i2c_master_command(char addr, char reg, void *buf, size_t size,
 	else
 	{
 		// write to the i2c slave
-		i2c_master_write(cmd, buf, size, true);
+		const bool check_ack = (READ_BIT == WRITE);
+		i2c_master_write(cmd, buf, size, check_ack);
 	}
 
 	i2c_master_stop(cmd);
@@ -75,4 +77,9 @@ esp_err_t i2c_bus_read(char addr, char reg, void *buf, size_t size, TickType_t t
 esp_err_t i2c_bus_write(char addr, char reg, const void *buf, size_t size, TickType_t timeout)
 {
 	return i2c_master_command(addr, reg, (void *)buf, size, timeout, WRITE);
+}
+
+esp_err_t i2c_bus_write_no_ack(char addr, char reg, const void *buf, size_t size, TickType_t timeout)
+{
+	return i2c_master_command(addr, reg, (void *)buf, size, timeout, WRITE_NO_ACK);
 }

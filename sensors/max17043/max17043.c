@@ -20,7 +20,7 @@
 esp_err_t max17043_reset()
 {
     const uint8_t reset_word[2] = {0x54, 0x00}; // power-on reset command
-    return i2c_bus_write(DEVICE_ADDRESS, COMMAND_REG, reset_word, 2, DEFAULT_WAIT_TIME);
+    return i2c_bus_write_no_ack(DEVICE_ADDRESS, COMMAND_REG, reset_word, 2, DEFAULT_WAIT_TIME);
 }
 
 esp_err_t max17043_set_config(const max17043_config_t *config)
