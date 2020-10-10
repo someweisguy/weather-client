@@ -15,7 +15,7 @@
 #define CONFIG_REG 0x0c
 #define COMMAND_REG 0xfe
 
-#define DEFAULT_WAIT_TIME 100 / portTICK_PERIOD_MS
+#define DEFAULT_WAIT_TIME 500 / portTICK_PERIOD_MS
 
 esp_err_t max17043_reset()
 {
@@ -45,16 +45,13 @@ esp_err_t max17043_get_config(max17043_config_t *config)
 
 esp_err_t max17043_get_data(max17043_data_t *data)
 {
-    uint8_t buf[2];
-    esp_err_t err = i2c_bus_read(DEVICE_ADDRESS, VCELL_REG, buf, 2, DEFAULT_WAIT_TIME);
+    uint8_t buf[4];
+    esp_err_t err = i2c_bus_read(DEVICE_ADDRESS, VCELL_REG, buf, 4, DEFAULT_WAIT_TIME);
     if (err)
         return err;
+        
     data->millivolts = ((buf[0] << 8 | buf[1]) >> 4) * 1.25;
-
-    err = i2c_bus_read(DEVICE_ADDRESS, SOC_REG, buf, 2, DEFAULT_WAIT_TIME);
-    if (err)
-        return err;
-    data->battery_life = (buf[0] << 8 | buf[1]) / 256.0;
+    data->battery_life = (buf[2] << 8 | buf[3]) / 256.0;
 
     return ESP_OK;
 }
