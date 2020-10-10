@@ -11,7 +11,7 @@
 
 static void restart_task(void* args)
 {
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
     esp_restart();
 }
 
