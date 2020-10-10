@@ -17,10 +17,12 @@ static esp_err_t i2c_master_command(char addr, char reg, void *buf, size_t size,
 	// create the command handle
 	const i2c_cmd_handle_t cmd = i2c_cmd_link_create();
 
+	const bool check_ack = (READ_BIT != WRITE_NO_ACK);
+
 	// queue the start, address, and register
 	i2c_master_start(cmd);
-	i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, true);
-	i2c_master_write_byte(cmd, reg, true);
+	i2c_master_write_byte(cmd, (addr << 1) | I2C_MASTER_WRITE, check_ack);
+	i2c_master_write_byte(cmd, reg, check_ack);
 
 	if (READ_BIT == READ)
 	{
