@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include "i2c.h"
+#include "rom/ets_sys.h"
 
 /** Datasheet can be found here:
  *   http://cdn.sparkfun.com/datasheets/Prototyping/MAX17043-MAX17044.pdf
@@ -20,7 +21,9 @@
 esp_err_t max17043_reset()
 {
     const uint8_t reset_word[2] = {0x54, 0x00}; // power-on reset command
-    return i2c_bus_write_no_ack(DEVICE_ADDRESS, COMMAND_REG, reset_word, 2, DEFAULT_WAIT_TIME);
+    esp_err_t err = i2c_bus_write_no_ack(DEVICE_ADDRESS, COMMAND_REG, reset_word, 2, DEFAULT_WAIT_TIME);
+    ets_delay_us(1000); // delay 1ms for mode transition per datasheet
+    return err;
 }
 
 esp_err_t max17043_set_config(const max17043_config_t *config)
