@@ -52,10 +52,6 @@ void app_main(void)
     const pms5003_config_t pms_config = PMS5003_PASSIVE_ASLEEP;
     pms5003_set_config(&pms_config);
 
-    max17043_reset();
-    const max17043_config_t max_config = MAX17043_DEFAULT_CONFIG;
-    max17043_set_config(&max_config);
-
     bme280_reset();
     const bme280_config_t bme_config = BME280_WEATHER_MONITORING;
     bme280_set_config(&bme_config);
