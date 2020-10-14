@@ -9,12 +9,21 @@
 static volatile uint8_t retries = 0;
 static int64_t up_time = -1;
 
+static void smartconfig_start()
+{
+    esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS);
+    smartconfig_start_config_t smartcfg_config = SMARTCONFIG_START_CONFIG_DEFAULT();
+    esp_smartconfig_fast_mode(true);
+    esp_smartconfig_start(&smartcfg_config);
+}
+
 static void event_handler(void *handler_args, esp_event_base_t base,
                           int event_id, void *event_data)
 {
     // handle wifi events
     if (base == WIFI_EVENT)
     {
+        const system_event_t *wifi_data = event_data;
         switch (event_id)
         {
         case WIFI_EVENT_STA_START:
@@ -26,8 +35,14 @@ static void event_handler(void *handler_args, esp_event_base_t base,
             break;
 
         case WIFI_EVENT_STA_DISCONNECTED:
-            up_time = -1;
-            esp_wifi_connect();
+            // start smartconfig ssid doesn't exist or password fails on first connection attempt
+            if (up_time == -1 && wifi_data->event_info.disconnected.reason == 63)
+                smartconfig_start();
+            else
+            {
+                up_time = 0;
+                esp_wifi_connect();
+            }
             break;
 
         case WIFI_EVENT_STA_STOP:
@@ -92,13 +107,9 @@ esp_err_t wlan_start()
     esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config);
     esp_wifi_start();
 
-    // configure and start smartconfig
+    // start smartconfig if there is no ssid
     if (strlen((const char *)(wifi_config.sta.ssid)) == 0)
-    {
-        esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS);
-        smartconfig_start_config_t smartcfg_config = SMARTCONFIG_START_CONFIG_DEFAULT();
-        esp_smartconfig_start(&smartcfg_config);
-    }
+        smartconfig_start();
 
     return ESP_OK;
 }
