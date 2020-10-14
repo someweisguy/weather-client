@@ -287,6 +287,10 @@ int32_t bme280_get_elevation()
 
 esp_err_t bme280_set_elevation(int32_t meters)
 {
+    // avoid unecessary nvs read/write
+    if (meters == elevation)
+        return ESP_OK;
+
     nvs_handle_t nvs;
     esp_err_t err = nvs_open(ELEVATION_NVS_PAGE, NVS_READWRITE, &nvs);
     if (err)
