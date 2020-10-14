@@ -87,7 +87,8 @@ def upload_to_station(port: str, ssid: str, password: Optional[str]) -> Optional
                             break
 
     except serial.serialutil.SerialException:
-        print(f'Connection to {port} failed. Reconnect the hardware and try again.', file=sys.stderr)
+        print(
+            f'Connection to {port} failed. Reconnect the hardware and try again.', file=sys.stderr)
 
 
 def update_server(ip_address: str):
