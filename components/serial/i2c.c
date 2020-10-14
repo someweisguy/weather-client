@@ -46,7 +46,7 @@ static esp_err_t i2c_master_command(char addr, char reg, void *buf, size_t size,
 	return err;
 }
 
-esp_err_t i2c_start()
+esp_err_t i2c_init()
 {
 	const i2c_config_t i2c_config = {
 		.mode = I2C_MODE_MASTER, // set to master mode
@@ -65,7 +65,7 @@ esp_err_t i2c_start()
 	return err;
 }
 
-esp_err_t i2c_stop()
+esp_err_t i2c_deinit()
 {
 	return i2c_driver_delete(CONFIG_I2C_PORT);
 }

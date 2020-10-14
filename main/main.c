@@ -44,8 +44,8 @@ void app_main(void)
     }
 
     // start serial communications
-    i2c_start();
-    uart_start();
+    i2c_init();
+    uart_init();
     i2s_init();
 
     pms5003_reset();
