@@ -3,7 +3,6 @@
 #include <string.h>
 #include "esp_log.h"
 #include "esp_wifi.h"
-#include "uploader.h"
 #include "esp_smartconfig.h"
 
 static volatile uint8_t retries = 0;
@@ -98,9 +97,9 @@ esp_err_t wlan_start()
 
     // get wifi credentials from uploader or nvs
     wifi_config_t wifi_config = {};
-    if (uploader_get_config(&wifi_config, 100 / portTICK_PERIOD_MS) != ESP_OK &&
-        esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config) != ESP_OK)
-        return ESP_FAIL;
+    esp_err_t err = esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config);
+    if (err)
+        return err;
 
     // configure and start wifi
     esp_wifi_set_mode(WIFI_MODE_STA);

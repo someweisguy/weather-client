@@ -1,7 +1,6 @@
 idf_component_register(
     SRCS 
         "wlan.c"
-        "uploader.c"
         "http.c"
         "mqtt.c"
     INCLUDE_DIRS 
