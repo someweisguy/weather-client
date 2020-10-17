@@ -61,7 +61,6 @@ esp_err_t mqtt_config_handler(mqtt_req_t *r)
 
 esp_err_t mqtt_data_handler(mqtt_req_t *r)
 {
-    char resp_str[RESP_STR_LENGTH];
 
     // build the response topic
     char resp_topic[strlen(MQTT_RESP_SUFFIX) + strlen(r->topic) + 1];
@@ -72,6 +71,7 @@ esp_err_t mqtt_data_handler(mqtt_req_t *r)
     char *request = malloc(r->content_len + 1); // content + null terminator
     if (request == NULL)
     {
+        char resp_str[RESP_STR_LENGTH];
         snprintf(resp_str, sizeof(resp_str), RESP_FORMAT, "error", esp_err_to_name(ESP_ERR_NO_MEM));
         mqtt_resp_sendstr(r, resp_topic, resp_str, DEFAULT_QOS, false);
         return ESP_ERR_NO_MEM;
@@ -98,13 +98,12 @@ esp_err_t mqtt_data_handler(mqtt_req_t *r)
 
 esp_err_t mqtt_restart_handler(mqtt_req_t *r)
 {
-    char resp_str[RESP_STR_LENGTH];
-
     // build the response topic
     char resp_topic[strlen(MQTT_RESP_SUFFIX) + strlen(r->topic) + 1];
     strcpy(resp_topic, r->topic);
     strcat(resp_topic, MQTT_RESP_SUFFIX);
 
+    char resp_str[RESP_STR_LENGTH];
     snprintf(resp_str, sizeof(resp_str), RESP_FORMAT, "response", esp_err_to_name(ESP_OK));
     mqtt_resp_sendstr(r, resp_topic, resp_str, DEFAULT_QOS, false);
     restart_handler();
