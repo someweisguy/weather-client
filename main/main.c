@@ -19,9 +19,6 @@
 #include "mqtt.h"
 #include "mqtt_handlers.h"
 
-#define MQTT_BROKER "mqtt://192.168.0.2"
-#define USE_HTTP
-
 static const char *TAG = "main";
 
 void app_main(void)
@@ -29,7 +26,7 @@ void app_main(void)
     // reset the esp uptime
     const struct timeval tv = {};
     settimeofday(&tv, NULL);
-    
+
     // create default event loop
     esp_event_loop_create_default();
 
@@ -62,25 +59,32 @@ void app_main(void)
 
     wlan_start();
 
-#ifdef USE_HTTP
+#ifdef CONFIG_USE_HTTP
     // start http and register handlers
     ESP_LOGI(TAG, "starting http server");
     http_start();
-    http_register_handler("/", HTTP_GET, &http_data_handler, (void *)0); // keep data
+    http_register_handler("/", HTTP_GET, &http_data_handler, (void *)0);  // keep data
     http_register_handler("/", HTTP_POST, &http_data_handler, (void *)1); // clear data
     http_register_handler("/", HTTP_PUT, &http_config_handler, NULL);
     http_register_handler("/about", HTTP_GET, &http_about_handler, NULL);
     http_register_handler("/restart", HTTP_GET, &http_restart_handler, NULL);
 #endif
 
-#ifdef MQTT_BROKER
+#ifdef CONFIG_MQTT_BROKER_URI
+
+#ifdef CONFIG_OUTSIDE_STATION
+#define MQTT_CLIENT_NAME "outside"
+#elif defined(CONFIG_INSIDE_STATION)
+#define MQTT_CLIENT_NAME "inside"
+#elif defined(CONFIG_WIND_AND_RAIN_STATION)
+#define MQTT_CLIENT_NAME "wind&rain"
+#endif
     // start mqtt and register handlers
     ESP_LOGI(TAG, "starting mqtt client");
-    mqtt_start(MQTT_BROKER);
-    mqtt_subscribe("weather/data", 1, &mqtt_data_handler);
-    mqtt_subscribe("weather/config", 1, &mqtt_config_handler);
-    mqtt_subscribe("weather/about", 1, &mqtt_about_handler);
-    mqtt_subscribe("weather/restart", 1, &mqtt_restart_handler);
+    mqtt_start(CONFIG_MQTT_BROKER_URI);
+    mqtt_subscribe("weather-client/" MQTT_CLIENT_NAME "/data", 1, &mqtt_data_handler);
+    mqtt_subscribe("weather-client/" MQTT_CLIENT_NAME "/config", 1, &mqtt_config_handler);
+    mqtt_subscribe("weather-client/" MQTT_CLIENT_NAME "/about", 1, &mqtt_about_handler);
+    mqtt_subscribe("weather-client/" MQTT_CLIENT_NAME "/restart", 1, &mqtt_restart_handler);
 #endif
-
 }

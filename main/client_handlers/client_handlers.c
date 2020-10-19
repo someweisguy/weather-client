@@ -9,6 +9,24 @@
 #include "bme280.h"
 #include "sph0645.h"
 
+#ifdef CONFIG_OUTSIDE_STATION
+#define USE_MAX17043
+#define USE_BME280
+#define USE_PMS5003
+#define USE_SPH0645
+#endif 
+
+#ifdef CONFIG_INSIDE_STATION
+#define USE_BME280
+#define USE_PMS5003
+// TODO: add CO2 sensor
+#endif 
+
+#ifdef CONFIG_WIND_AND_RAIN_STATION
+#define USE_MAX17043
+// TODO: add wind vane and rain gauge
+#endif 
+
 static void restart_task(void* args)
 {
     vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -33,25 +51,33 @@ char *about_handler()
     cJSON *sensor_root = cJSON_CreateObject();
     cJSON_AddItemToObject(root, "sensors", sensor_root);
 
+#ifdef USE_MAX17043
     // report max17043 status
     max17043_config_t max_config;
     err = max17043_get_config(&max_config);
     cJSON_AddStringToObject(sensor_root, "max17043", esp_err_to_name(err));
+#endif
 
+#ifdef USE_BME280
     // report bme280 status
     bme280_config_t bme_config;
     err = bme280_get_config(&bme_config);
     cJSON_AddStringToObject(sensor_root, "bme280", esp_err_to_name(err));
+#endif
 
+#ifdef USE_PMS5003
     // reposrt pms5003 status
     pms5003_config_t pms_config;
     err = pms5003_get_config(&pms_config);
     cJSON_AddStringToObject(sensor_root, "pms5003", esp_err_to_name(err));
+#endif
 
+#ifdef USE_SPH0645
     // report sph0645 status
     sph0645_config_t sph_config;
     err = sph0645_get_config(&sph_config);
     cJSON_AddStringToObject(sensor_root, "sph0645", esp_err_to_name(err));
+#endif
 
     // render the json as a string
     char *response = cJSON_Print(root);
@@ -73,6 +99,7 @@ esp_err_t config_handler(const char *request)
     cJSON *device;
     cJSON_ArrayForEach(device, root)
     {
+#ifdef USE_BME280
         // edit bme280 config
         if (strcasecmp(device->string, JSON_ROOT_BME) == 0)
         {
@@ -123,9 +150,11 @@ esp_err_t config_handler(const char *request)
             if (err)
                 break;
         }
+#endif // USE_BME280
 
+#ifdef USE_PMS5003
         // edit pms5003 config
-        else if (strcasecmp(device->string, JSON_ROOT_PMS) == 0)
+        if (strcasecmp(device->string, JSON_ROOT_PMS) == 0)
         {
             // get the current config
             pms5003_config_t config;
@@ -152,9 +181,11 @@ esp_err_t config_handler(const char *request)
             if (err)
                 break;
         }
+#endif // USE_PMS5003
 
+#ifdef USE_SPH0645
         // edit sph0645 config
-        else if (strcasecmp(device->string, JSON_ROOT_SPH) == 0)
+        if (strcasecmp(device->string, JSON_ROOT_SPH) == 0)
         {
             // get the current config
             sph0645_config_t config;
@@ -203,6 +234,7 @@ esp_err_t config_handler(const char *request)
             if (err)
                 break;
         }
+#endif // USE_SPH0645
     }
 
     cJSON_Delete(root);
@@ -218,12 +250,6 @@ char *data_handler(const bool clear_data)
     cJSON *root = cJSON_CreateObject();
     cJSON *system_root = cJSON_CreateObject();
     cJSON_AddItemToObject(root, JSON_ROOT_SYSTEM, system_root);
-    cJSON *bme_root = cJSON_CreateObject();
-    cJSON_AddItemToObject(root, JSON_ROOT_BME, bme_root);
-    cJSON *pms_root = cJSON_CreateObject();
-    cJSON_AddItemToObject(root, JSON_ROOT_PMS, pms_root);
-    cJSON *sph_root = cJSON_CreateObject();
-    cJSON_AddItemToObject(root, JSON_ROOT_SPH, sph_root);
 
     // get the wlan data
     wlan_data_t wlan_data;
@@ -235,6 +261,7 @@ char *data_handler(const bool clear_data)
         cJSON_AddNumberToObject(system_root, SYSTEM_WIFI_RSSI_KEY, wlan_data.rssi);
     }
 
+#ifdef USE_MAX17043
     // get the battery data
     max17043_data_t max_data;
     err = max17043_get_data(&max_data);
@@ -243,6 +270,11 @@ char *data_handler(const bool clear_data)
         cJSON_AddNumberToObject(system_root, SYSTEM_BATT_LIFE_KEY, max_data.battery_life);
         cJSON_AddNumberToObject(system_root, SYSTEM_BATT_VOLTAGE_KEY, max_data.millivolts);
     }
+#endif // USE_MAX17043
+
+#ifdef USE_BME280
+    cJSON *bme_root = cJSON_CreateObject();
+    cJSON_AddItemToObject(root, JSON_ROOT_BME, bme_root);
 
     // get the bme280 data
     bme280_data_t bme_data;
@@ -279,6 +311,11 @@ char *data_handler(const bool clear_data)
     // create the bme280 elevation node
     const int32_t bme_elevation = bme280_get_elevation();
     cJSON_AddNumberToObject(bme_root, BME_ELEVATION_KEY, bme_elevation);
+#endif // USE_BME280
+
+#ifdef USE_PMS5003
+    cJSON *pms_root = cJSON_CreateObject();
+    cJSON_AddItemToObject(root, JSON_ROOT_PMS, pms_root);
 
     // get the pms5003 data
     pms5003_data_t pms_data;
@@ -321,6 +358,11 @@ char *data_handler(const bool clear_data)
         cJSON_AddNumberToObject(pms_config_root, PMS_MODE_KEY, pms_config.mode);
         cJSON_AddNumberToObject(pms_config_root, PMS_SLEEP_SET_KEY, pms_config.sleep);
     }
+#endif // USE_PMS5003
+
+#ifdef USE_SPH0645
+    cJSON *sph_root = cJSON_CreateObject();
+    cJSON_AddItemToObject(root, JSON_ROOT_SPH, sph_root);
 
     // get the sph0645 data
     sph0645_data_t sph_data;
@@ -354,6 +396,7 @@ char *data_handler(const bool clear_data)
     if (clear_data)
         sph0645_clear_data();
     cJSON_AddBoolToObject(sph_root, SPH_CLEAR_DATA_KEY, clear_data);
+#endif // USE_SPH0645
 
     // render the json as a string
     char *response = cJSON_Print(root);
