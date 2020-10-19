@@ -12,7 +12,7 @@
 #define SYSTEM_BATT_LIFE_KEY "battery_life"
 #define SYSTEM_BATT_VOLTAGE_KEY "battery_mV"
 
-#define JSON_ROOT_BME "weather"
+#define JSON_ROOT_BME "climate"
 #define BME_TEMPERATURE_KEY "temperature"
 #define BME_HUMIDITY_KEY "humidity"
 #define BME_PRESSURE_KEY "pressure"
