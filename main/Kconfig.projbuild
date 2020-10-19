@@ -1,0 +1,31 @@
+menu "Weather Station Setup"
+
+    choice STATION_TYPE
+        prompt "Select the type of weather station to use."
+        default OUTSIDE_STATION
+        help
+            Select the type of weather station to use. Different stations use different sensors.
+
+        config OUTSIDE_STATION
+            bool "outside"
+        
+        config INSIDE_STATION
+            bool "inside"
+        
+        config WIND_AND_RAIN_STATION
+            bool "wind&rain"
+    
+    endchoice
+
+    config MQTT_BROKER_URI
+        string "MQTT broker URI."
+        help
+            Define a MQTT broker to connect to. Leaving this blank disables MQTT.
+
+    config USE_HTTP
+        bool "Use HTTP server as a host handler."
+        default y
+        help 
+            Enables the HTTP server to serve weather data.
+
+endmenu

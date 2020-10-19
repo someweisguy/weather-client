@@ -119,6 +119,16 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
+# Weather Station Setup
+#
+CONFIG_OUTSIDE_STATION=y
+# CONFIG_INSIDE_STATION is not set
+# CONFIG_WIND_AND_RAIN_STATION is not set
+CONFIG_MQTT_BROKER_URI="mqtt://192.168.0.2"
+CONFIG_USE_HTTP=y
+# end of Weather Station Setup
+
+#
 # Serial Configuration
 #
 CONFIG_I2C_PORT=1
