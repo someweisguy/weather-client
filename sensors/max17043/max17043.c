@@ -2,7 +2,7 @@
 
 #include <math.h>
 #include "i2c.h"
-#include "rom/ets_sys.h"
+#include "esp32/rom/ets_sys.h"
 
 /** Datasheet can be found here:
  *   http://cdn.sparkfun.com/datasheets/Prototyping/MAX17043-MAX17044.pdf
