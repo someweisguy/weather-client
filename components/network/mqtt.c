@@ -20,16 +20,16 @@ static esp_mqtt_client_config_t config = {};
 // mqtt is connected
 static bool mqtt_is_connected = false;
 
+static char *mqtt_topic_prefix = NULL;
+
 // list of topic subscriptions
 static subscription_data_t subscriptions[10];
 static size_t num_subscriptions = 0;
 
-// list of on connect publishes
+// list of on connect callbacks and the availability message
 static mqtt_callback_t on_connects[10];
 static size_t num_on_connects = 0;
-
-// connect topic and message
-static char *connect_message = NULL;
+static char *availability_message = NULL;
 
 static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 {
@@ -40,10 +40,11 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 
         // send the connect message
         if (config.lwt_topic != NULL)
-            esp_mqtt_client_publish(client, config.lwt_topic, connect_message, strlen(connect_message), 2, true);
+            esp_mqtt_client_publish(client, config.lwt_topic, availability_message, strlen(availability_message), 2, true);
 
         // do on connects
         mqtt_req_t r = {
+            .base = mqtt_topic_prefix,
             .client = &client,
             .content_len = 0,
             .content = NULL,
@@ -65,6 +66,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
             if (strcmp(subscriptions[i].topic, topic) == 0)
             {
                 mqtt_req_t r = {
+                    .base = mqtt_topic_prefix,
                     .client = &(event->client),
                     .content_len = event->data_len,
                     .content = event->data,
@@ -93,7 +95,7 @@ static void mqtt_starter(void *handler_args, esp_event_base_t base, int event_id
     esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, mqtt_starter);
 }
 
-esp_err_t mqtt_start(const char *mqtt_broker)
+esp_err_t mqtt_start(const char *mqtt_broker, const char *mqtt_topic_prefix)
 {
     // config the mqtt client
     config.uri = mqtt_broker;
@@ -144,6 +146,7 @@ esp_err_t mqtt_on_connect(mqtt_callback_t callback)
     if (mqtt_is_connected)
     {
         mqtt_req_t r = {
+            .base = mqtt_topic_prefix,
             .client = &client,
             .content_len = 0,
             .content = NULL,
@@ -164,7 +167,7 @@ esp_err_t mqtt_on_connect(mqtt_callback_t callback)
 
 esp_err_t mqtt_availability(const char *topic, const char *connect_msg, const char *disconnect_msg)
 {
-    connect_message = (char *)connect_msg;
+    availability_message = (char *)connect_msg;
 
     // update the config
     config.lwt_topic = topic;

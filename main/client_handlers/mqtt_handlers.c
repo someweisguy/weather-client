@@ -21,21 +21,8 @@ esp_err_t mqtt_request_handler(mqtt_req_t *r)
 }
 
 
-
-
-
-esp_err_t mqtt_about_handler(mqtt_req_t *r)
+esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
 {
-    // build the response topic
-    char resp_topic[strlen(MQTT_RESP_SUFFIX) + strlen(r->topic) + 1];
-    strcpy(resp_topic, r->topic);
-    strcat(resp_topic, MQTT_RESP_SUFFIX);
-
-    // send the response
-    char *response = about_handler();
-    mqtt_resp_sendstr(r, resp_topic, response, DEFAULT_QOS, false);
-
-    free(response);
 
     return ESP_OK;
 }
@@ -105,21 +92,6 @@ esp_err_t mqtt_data_handler(mqtt_req_t *r)
     mqtt_resp_sendstr(r, resp_topic, response, DEFAULT_QOS, false);
 
     free(response);
-
-    return ESP_OK;
-}
-
-esp_err_t mqtt_restart_handler(mqtt_req_t *r)
-{
-    // build the response topic
-    char resp_topic[strlen(MQTT_RESP_SUFFIX) + strlen(r->topic) + 1];
-    strcpy(resp_topic, r->topic);
-    strcat(resp_topic, MQTT_RESP_SUFFIX);
-
-    char resp_str[RESP_STR_LENGTH];
-    snprintf(resp_str, sizeof(resp_str), RESP_FORMAT, "response", esp_err_to_name(ESP_OK));
-    mqtt_resp_sendstr(r, resp_topic, resp_str, DEFAULT_QOS, false);
-    restart_handler();
 
     return ESP_OK;
 }
