@@ -253,15 +253,15 @@ esp_err_t bme280_get_data(bme280_data_t *data)
     {
         // compensate for pressure at current_elevation
         const uint32_t pressure_sea_level = compensate_pressure(t_fine, adc_P) / 256;
-        const double M = 0.02897,           // molar mass of Eath's air (kg/mol)
-            g = 9.807665,                   // gravitational constant (m/s^2)
-            R = 8.3145,                     // universal gas constant (J/mol*K)
-            K = data->temperature + 273.15; // temperature in Kelvin
+        const double M = 0.02897,                                                 // molar mass of Eath's air (kg/mol)
+            g = 9.807665,                                                         // gravitational constant (m/s^2)
+            R = 8.3145,                                                           // universal gas constant (J/mol*K)
+            K = data->temperature + 273.15;                                       // temperature in Kelvin
         data->pressure = pressure_sea_level * exp((M * g) / (R * K) * elevation); // default Pa
 #ifdef CONFIG_IN_HG
         data->pressure /= 3386.0; // convert to inHg
 #elif defined(CONFIG_MM_HG)
-        data->pressure /= 133.0; // convert to mmHg
+        data->pressure /= 133.0;     // convert to mmHg
 #endif
     }
     else
@@ -281,7 +281,7 @@ esp_err_t bme280_get_data(bme280_data_t *data)
 #ifdef CONFIG_FAHRENHEIT
         data->dew_point = (data->dew_point * 9.0 / 5.0) + 32; // convert to F
 #elif defined(CONFIG_KELVIN)
-        data->dew_point += 273.15; // convert to K
+        data->dew_point += 273.15;   // convert to K
 #endif
     }
     else
