@@ -9,8 +9,8 @@
 #define SYSTEM_WIFI_UP_TIME_KEY "connection_time"
 #define SYSTEM_WIFI_RSSI_KEY "rssi"
 #define SYSTEM_IP_KEY "ip"
-#define SYSTEM_BATT_LIFE_KEY "battery_life"
-#define SYSTEM_BATT_VOLTAGE_KEY "battery_mV"
+#define SYSTEM_BATT_LIFE_KEY "battery"
+#define SYSTEM_BATT_VOLTAGE_KEY "millivolts"
 
 #define JSON_ROOT_BME "climate"
 #define BME_TEMPERATURE_KEY "temperature"
@@ -23,7 +23,7 @@
 #define BME_FILTER_KEY "filter"
 #define BME_ELEVATION_KEY "elevation"
 
-#define JSON_ROOT_PMS "air"
+#define JSON_ROOT_PMS "smoke"
 #define PMS_FAN_UP_TIME_KEY "fan_time"
 #define PMS_CHECKSUM_OK_KEY "checksum_ok"
 #define PMS_STANDARD_PARTICLE_KEY "standard"
