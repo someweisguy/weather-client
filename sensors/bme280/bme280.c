@@ -156,7 +156,7 @@ esp_err_t bme280_reset()
         if (!err)
             err = nvs_commit(nvs);
     }
-    
+
     nvs_close(nvs);
 
     return err;
@@ -233,6 +233,11 @@ esp_err_t bme280_get_data(bme280_data_t *data)
     {
         t_fine = calculate_t_fine(adc_T);
         data->temperature = compensate_temperature(t_fine) / 100.0;
+#ifdef CONFIG_FAHRENHEIT
+        data->temperature = (data->temperature * 9.0 / 5.0) + 32; // convert to F
+#elif defined(CONFIG_KELVIN)
+        data->temperature += 273.15; // convert to K
+#endif
     }
     else
     {
@@ -253,6 +258,11 @@ esp_err_t bme280_get_data(bme280_data_t *data)
             R = 8.3145,                     // universal gas constant (J/mol*K)
             K = data->temperature + 273.15; // temperature in Kelvin
         data->pressure = pressure_sea_level * exp((M * g) / (R * K) * elevation);
+#ifdef CONFIG_IN_HG
+        data->pressure /= 3386.0; // convert to inHg
+#elif defined(CONFIG_MM_HG)
+        data->pressure /= 133.0; // convert to mmHg
+#endif
     }
     else
         data->pressure = NAN;
@@ -268,6 +278,11 @@ esp_err_t bme280_get_data(bme280_data_t *data)
     {
         const double gamma = log(MAX(data->humidity, 0.001) / 100) + ((17.62 * data->temperature) / (243.12 + data->temperature));
         data->dew_point = (243.12 * gamma) / (17.32 - gamma);
+#ifdef CONFIG_FAHRENHEIT
+        data->dew_point = (data->dew_point * 9.0 / 5.0) + 32; // convert to F
+#elif defined(CONFIG_KELVIN)
+        data->dew_point += 273.15; // convert to K
+#endif
     }
     else
         data->dew_point = NAN;
@@ -300,8 +315,8 @@ esp_err_t bme280_set_elevation(int32_t meters)
         err = nvs_commit(nvs);
 
     nvs_close(nvs);
-    
+
     elevation = meters;
-    
+
     return err;
 }

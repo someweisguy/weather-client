@@ -27,5 +27,36 @@ menu "Weather Station Setup"
         default y
         help 
             Enables the HTTP server to serve weather data.
+    
+    choice TEMPERATURE_SCALE
+        prompt "Select which temperature scale to use."
+        default CELSIUS
+        help
+            Select which temperature scale will be reported to clients.
+        
+        config CELSIUS
+            bool "celsius"
+        
+        config FAHRENHEIT
+            bool "fahrenheit"
+        
+        config KELVIN
+            bool "kelvin"
+    
+    endchoice
+
+    choice PRESSURE_SCALE
+        prompt "Select which pressure scale to use."
+        default MM_HG
+        help
+            Select which pressure scale will be reported to clients.
+        
+        config MM_HG
+            bool "mmHg"
+        
+        config IN_HG
+            bool "inHg"
+    
+    endchoice
 
 endmenu
