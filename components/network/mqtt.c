@@ -23,12 +23,20 @@ static bool mqtt_is_connected = false;
 static subscription_data_t subscriptions[10];
 static size_t num_subscriptions = 0;
 
+// connect topic and message
+static char *connect_topic = NULL;
+static char *connect_message = NULL;
+
 static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 {
     if (event->event_id == MQTT_EVENT_CONNECTED)
     {
         for (int i = 0; i < num_subscriptions; ++i)
             esp_mqtt_client_subscribe(event->client, subscriptions[i].topic, subscriptions[i].qos);
+
+        // send the connect message        
+        if (connect_topic != NULL)
+            esp_mqtt_client_publish(client, connect_topic, connect_message, strlen(connect_message), 2, true);
     }
 
     else if (event->event_id == MQTT_EVENT_DATA)
@@ -72,12 +80,16 @@ static void mqtt_starter(void *handler_args, esp_event_base_t base, int event_id
     esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, mqtt_starter);
 }
 
-esp_err_t mqtt_start(const char *mqtt_broker)
+esp_err_t mqtt_start(const char *mqtt_broker, const char *lwt_topic, const char *lwt_msg)
 {
     // config the mqtt client
     const esp_mqtt_client_config_t config = {
         .uri = mqtt_broker,
-        .event_handle = mqtt_event_handler};
+        .event_handle = mqtt_event_handler,
+        .lwt_topic = lwt_topic,
+        .lwt_msg = lwt_msg,
+        .lwt_retain = true,
+        .lwt_qos = 2};
     client = esp_mqtt_client_init(&config);
 
     // start the mqtt client if there is an internet connection
@@ -116,6 +128,11 @@ esp_err_t mqtt_subscribe(const char *topic, int qos, mqtt_callback_t callback)
     }
     else
         return ESP_ERR_INVALID_SIZE;
+}
+
+esp_err_t mqtt_on_connect(const char *topic, const char *msg)
+{
+
 }
 
 esp_err_t mqtt_resp_sendstr(const mqtt_req_t* r, const char *topic, const char *str, int qos, bool retain)
