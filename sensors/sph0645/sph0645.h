@@ -12,7 +12,6 @@ typedef struct
     float min;
     float max;
     uint64_t samples;
-    float latest;
 } sph0645_data_t;
 
 typedef struct

@@ -375,7 +375,6 @@ char *data_handler(const bool clear_data)
         cJSON_AddNumberToObject(sph_data_root, SPH_AVG_KEY, sph_data.avg);
         cJSON_AddNumberToObject(sph_data_root, SPH_MIN_KEY, sph_data.min);
         cJSON_AddNumberToObject(sph_data_root, SPH_MAX_KEY, sph_data.max);
-        cJSON_AddNumberToObject(sph_data_root, SPH_LATEST_KEY, sph_data.latest);
         cJSON_AddNumberToObject(sph_data_root, SPH_NUM_SAMPLES_KEY, sph_data.samples);
     }
 

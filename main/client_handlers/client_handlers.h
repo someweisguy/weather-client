@@ -45,7 +45,6 @@
 #define SPH_AVG_KEY "avg"
 #define SPH_MIN_KEY "min"
 #define SPH_MAX_KEY "max"
-#define SPH_LATEST_KEY "latest"
 #define SPH_NUM_SAMPLES_KEY "num_samples"
 #define SPH_SAMPLE_LEN_KEY "sample_len"
 #define SPH_SAMPLE_PERIOD_KEY "sample_period"
