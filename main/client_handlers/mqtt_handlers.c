@@ -5,11 +5,24 @@
 
 #include "cJSON.h"
 
+
 #define DEFAULT_QOS 1
 #define RESP_STR_LENGTH 64
 #define RESP_FORMAT "{\n\t\"%s\":\t\"%s\"\n}"
 
 static const char* MQTT_RESP_SUFFIX = "/res";
+
+
+esp_err_t mqtt_request_handler(mqtt_req_t *r)
+{
+
+
+    return ESP_OK;
+}
+
+
+
+
 
 esp_err_t mqtt_about_handler(mqtt_req_t *r)
 {

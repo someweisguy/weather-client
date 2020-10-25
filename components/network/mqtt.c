@@ -15,6 +15,7 @@ typedef struct
 } subscription_data_t;
 
 static esp_mqtt_client_handle_t client = NULL;
+static esp_mqtt_client_config_t config = {};
 
 // mqtt is connected
 static bool mqtt_is_connected = false;
@@ -23,8 +24,11 @@ static bool mqtt_is_connected = false;
 static subscription_data_t subscriptions[10];
 static size_t num_subscriptions = 0;
 
+// list of on connect publishes
+static mqtt_callback_t on_connects[10];
+static size_t num_on_connects = 0;
+
 // connect topic and message
-static char *connect_topic = NULL;
 static char *connect_message = NULL;
 
 static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
@@ -34,9 +38,18 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
         for (int i = 0; i < num_subscriptions; ++i)
             esp_mqtt_client_subscribe(event->client, subscriptions[i].topic, subscriptions[i].qos);
 
-        // send the connect message        
-        if (connect_topic != NULL)
-            esp_mqtt_client_publish(client, connect_topic, connect_message, strlen(connect_message), 2, true);
+        // send the connect message
+        if (config.lwt_topic != NULL)
+            esp_mqtt_client_publish(client, config.lwt_topic, connect_message, strlen(connect_message), 2, true);
+
+        // do on connects
+        mqtt_req_t r = {
+            .client = &client,
+            .content_len = 0,
+            .content = NULL,
+            .topic = NULL};
+        for (int i = 0; i < num_on_connects; ++i)
+            on_connects[i](&r);
     }
 
     else if (event->event_id == MQTT_EVENT_DATA)
@@ -66,7 +79,7 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 
     else if (event->event_id == MQTT_EVENT_CONNECTED)
         mqtt_is_connected = true;
-    
+
     else if (event->event_id == MQTT_EVENT_DISCONNECTED)
         mqtt_is_connected = false;
 
@@ -80,16 +93,11 @@ static void mqtt_starter(void *handler_args, esp_event_base_t base, int event_id
     esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, mqtt_starter);
 }
 
-esp_err_t mqtt_start(const char *mqtt_broker, const char *lwt_topic, const char *lwt_msg)
+esp_err_t mqtt_start(const char *mqtt_broker)
 {
     // config the mqtt client
-    const esp_mqtt_client_config_t config = {
-        .uri = mqtt_broker,
-        .event_handle = mqtt_event_handler,
-        .lwt_topic = lwt_topic,
-        .lwt_msg = lwt_msg,
-        .lwt_retain = true,
-        .lwt_qos = 2};
+    config.uri = mqtt_broker;
+    config.event_handle = mqtt_event_handler;
     client = esp_mqtt_client_init(&config);
 
     // start the mqtt client if there is an internet connection
@@ -130,15 +138,45 @@ esp_err_t mqtt_subscribe(const char *topic, int qos, mqtt_callback_t callback)
         return ESP_ERR_INVALID_SIZE;
 }
 
-esp_err_t mqtt_on_connect(const char *topic, const char *msg)
+esp_err_t mqtt_on_connect(mqtt_callback_t callback)
 {
-    connect_topic = (char*) topic;
-    connect_message = (char*) msg;
-    return ESP_OK;
+    // if mqtt is connected do callback now
+    if (mqtt_is_connected)
+    {
+        mqtt_req_t r = {
+            .client = &client,
+            .content_len = 0,
+            .content = NULL,
+            .topic = NULL};
+        callback(&r);
+    }
+
+    // add the subscription to the list
+    if (num_on_connects < sizeof(on_connects) / sizeof(mqtt_callback_t))
+    {
+        on_connects[num_on_connects] = callback;
+        num_on_connects++;
+        return ESP_OK;
+    }
+    else
+        return ESP_ERR_INVALID_SIZE;
 }
 
-esp_err_t mqtt_resp_sendstr(const mqtt_req_t* r, const char *topic, const char *str, int qos, bool retain)
+esp_err_t mqtt_availability(const char *topic, const char *connect_msg, const char *disconnect_msg)
 {
-    const int ret =  esp_mqtt_client_publish(*(r->client), topic, str, strlen(str), qos, retain);
+    connect_message = (char *)connect_msg;
+
+    // update the config
+    config.lwt_topic = topic;
+    config.lwt_msg = disconnect_msg;
+    config.lwt_retain = true;
+    config.lwt_qos = 2;
+
+    return esp_mqtt_set_config(client, &config);
+}
+
+esp_err_t mqtt_resp_sendstr(const mqtt_req_t *r, const char *topic, const char *str, int qos, bool retain)
+{
+    const int ret = esp_mqtt_client_publish(*(r->client), topic, str, strlen(str), qos, retain);
     return ret == -1 ? ESP_FAIL : ESP_OK;
 }

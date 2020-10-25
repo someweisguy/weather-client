@@ -13,12 +13,14 @@ typedef struct
 
 typedef esp_err_t (*mqtt_callback_t)(mqtt_req_t *r);
 
-esp_err_t mqtt_start(const char *mqtt_broker, const char *lwt_topic, const char *lwt_msg);
+esp_err_t mqtt_start(const char *mqtt_broker);
 
 esp_err_t mqtt_stop();
 
 esp_err_t mqtt_subscribe(const char *topic, int qos, mqtt_callback_t callback);
 
-esp_err_t mqtt_on_connect(const char *topic, const char *msg);
+esp_err_t mqtt_on_connect(mqtt_callback_t callback);
+
+esp_err_t mqtt_availability(const char *topic, const char *connect_msg, const char *disconnect_msg);
 
 esp_err_t mqtt_resp_sendstr(const mqtt_req_t* r, const char *topic, const char *str, int qos, bool retain);

@@ -19,6 +19,17 @@
 #include "mqtt.h"
 #include "mqtt_handlers.h"
 
+#define MQTT_BASE_TOPIC "weather-station"
+
+#ifdef CONFIG_OUTSIDE_STATION
+#define MQTT_TOPIC_PREFIX MQTT_BASE_TOPIC "/outside"
+#elif defined(CONFIG_INSIDE_STATION)
+#define MQTT_TOPIC_PREFIX MQTT_BASE_TOPIC "/inside"
+#elif defined(CONFIG_WIND_AND_RAIN_STATION)
+#define MQTT_TOPIC_PREFIX MQTT_BASE_TOPIC "/wind&rain"
+#endif
+
+
 static const char *TAG = "main";
 
 void app_main(void)
@@ -71,20 +82,11 @@ void app_main(void)
 #endif
 
 #ifdef CONFIG_MQTT_BROKER_URI
-
-#ifdef CONFIG_OUTSIDE_STATION
-#define MQTT_CLIENT_NAME "outside"
-#elif defined(CONFIG_INSIDE_STATION)
-#define MQTT_CLIENT_NAME "inside"
-#elif defined(CONFIG_WIND_AND_RAIN_STATION)
-#define MQTT_CLIENT_NAME "wind&rain"
-#endif
     // start mqtt and register handlers
     ESP_LOGI(TAG, "starting mqtt client");
+    mqtt_availability(MQTT_TOPIC_PREFIX "/available", "online", "offline");
     mqtt_start(CONFIG_MQTT_BROKER_URI);
-    mqtt_subscribe("weather-station/" MQTT_CLIENT_NAME "/data", 1, &mqtt_data_handler);
-    mqtt_subscribe("weather-station/" MQTT_CLIENT_NAME "/config", 1, &mqtt_config_handler);
-    mqtt_subscribe("weather-station/" MQTT_CLIENT_NAME "/about", 1, &mqtt_about_handler);
-    mqtt_subscribe("weather-station/" MQTT_CLIENT_NAME "/restart", 1, &mqtt_restart_handler);
+    mqtt_subscribe(MQTT_TOPIC_PREFIX, 1, &mqtt_request_handler);
+    mqtt_subscribe(MQTT_BASE_TOPIC, 1, &mqtt_request_handler);
 #endif
 }
