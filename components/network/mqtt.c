@@ -132,8 +132,8 @@ esp_err_t mqtt_subscribe(const char *topic, int qos, mqtt_callback_t callback)
 
 esp_err_t mqtt_on_connect(const char *topic, const char *msg)
 {
-    connect_topic = topic;
-    connect_message = msg;
+    connect_topic = (char*) topic;
+    connect_message = (char*) msg;
     return ESP_OK;
 }
 
