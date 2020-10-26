@@ -11,11 +11,11 @@
 #define MQTT_CLIENT_NAME "wind_rain"
 #endif
 
-#define MQTT_TOPIC_BASE "weather-station"
-#define MQTT_BASE_TOPIC MQTT_TOPIC_BASE "/" MQTT_CLIENT_NAME
+#define MQTT_TOPIC_BASE         "weather-station"
+#define MQTT_BASE_TOPIC         MQTT_TOPIC_BASE "/" MQTT_CLIENT_NAME
 
-#define MQTT_AVAILABLE_TOPIC    MQTT_BASE_TOPIC "/available"
-#define MQTT_STATE_TOPIC        MQTT_BASE_TOPIC "/state"
+#define MQTT_STATE_TOPIC        MQTT_TOPIC_BASE "/" MQTT_CLIENT_NAME "/state"
+#define MQTT_AVAILABLE_TOPIC(n) MQTT_TOPIC_BASE "/" MQTT_CLIENT_NAME "/" n "/available"
 
 
 esp_err_t mqtt_request_handler(mqtt_req_t *r);

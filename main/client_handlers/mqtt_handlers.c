@@ -35,8 +35,8 @@
 #define VOLUME_SCALE            "dBc"
 #define PM_SCALE                "μg/m³"
 
-#define STATE_TOPIC             (MQTT_TOPIC_BASE "/" MQTT_CLIENT_NAME "/state")
-#define AVAILABLE_TOPIC(n)      (MQTT_TOPIC_BASE "/" MQTT_CLIENT_NAME "/" n "/available")
+#define EXPIRE_AFTER            5 * 60
+
 #define UNIQUE_ID(n)            (MQTT_CLIENT_NAME "_" n)
 #define SENSOR_TOPIC(n)         ("homeassistant/sensor/" n "/" MQTT_CLIENT_NAME "/config")
 #define VALUE_TEMPLATE(a, b)    ("{{ value_json[\"" a "\"][\"" b "\"] }}")
@@ -89,8 +89,8 @@ esp_err_t mqtt_request_handler(mqtt_req_t *r)
     }
 
     // build the reply topic string
-    char reply_topic[strlen(r->client_base) + strlen(r->client_name) + strlen(STATE_TOPIC) + 3];
-    sprintf(reply_topic, "%s/%s/%s", r->client_base, r->client_name, STATE_TOPIC);
+    char reply_topic[strlen(r->client_base) + strlen(r->client_name) + strlen(MQTT_STATE_TOPIC) + 3];
+    sprintf(reply_topic, "%s/%s/%s", r->client_base, r->client_name, MQTT_STATE_TOPIC);
 
     // send the reply back on the state topic
     char *reply = cJSON_PrintUnformatted(reply_root);
@@ -108,11 +108,9 @@ esp_err_t mqtt_request_handler(mqtt_req_t *r)
 esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
 {
     const discovery_string_t rssi = {
-        .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
         .device_class = "signal_strength",
         .force_update = false,
-        .icon = NULL,
         .name = "Signal Strength",
         .state_topic =  MQTT_STATE_TOPIC,
         .unique_id = UNIQUE_ID("rssi"),
@@ -123,11 +121,9 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
 
 #ifdef USE_MAX17043
     const discovery_string_t battery = {
-        .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
         .device_class = "battery",
         .force_update = false,
-        .icon = NULL,
         .name = "Battery Level",
         .state_topic =  MQTT_STATE_TOPIC,
         .unique_id = UNIQUE_ID("battery"),
@@ -139,11 +135,9 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
 
 #ifdef USE_BME280
     const discovery_string_t temperature = {
-        .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
         .device_class = "temperature",
         .force_update = true,
-        .icon = NULL,
         .name = "Temperature",
         .state_topic =  MQTT_STATE_TOPIC,
         .unique_id = UNIQUE_ID("temperature"),
@@ -153,11 +147,9 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
     mqtt_send_discovery_string(SENSOR_TOPIC("temperature"), temperature);
 
     const discovery_string_t humidity = {
-        .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
         .device_class = "humidity",
         .force_update = true,
-        .icon = NULL,
         .name = "Relative Humidity",
         .state_topic =  MQTT_STATE_TOPIC,
         .unique_id = UNIQUE_ID("humidity"),
@@ -167,11 +159,9 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
     mqtt_send_discovery_string(SENSOR_TOPIC("humidity"), humidity);
 
     const discovery_string_t pressure = {
-        .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
         .device_class = "pressure",
         .force_update = true,
-        .icon = NULL,
         .name = "Barometric Pressure",
         .state_topic =  MQTT_STATE_TOPIC,
         .unique_id = UNIQUE_ID("humidity"),
@@ -181,9 +171,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
     mqtt_send_discovery_string(SENSOR_TOPIC("pressure"), pressure);
 
     const discovery_string_t dew_point = {
-        .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
-        .device_class = NULL,
         .force_update = true,
         .icon = "mdi:weather-fog",
         .name = "Dew Point",
@@ -197,9 +185,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
 
 #ifdef USE_PMS5003
     const discovery_string_t pm1 = {
-        .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
-        .device_class = NULL,
         .force_update = true,
         .icon = "mdi:smog",
         .name = "PM1",
@@ -211,9 +197,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
     mqtt_send_discovery_string(SENSOR_TOPIC("pm1"), pm1);
 
     const discovery_string_t pm2_5 = {
-        .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
-        .device_class = NULL,
         .force_update = true,
         .icon = "mdi:smog",
         .name = "PM2.5",
@@ -225,9 +209,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
     mqtt_send_discovery_string(SENSOR_TOPIC("pm2_5"), pm2_5);
 
     const discovery_string_t pm10 = {
-        .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
-        .device_class = NULL,
         .force_update = true,
         .icon = "mdi:smog",
         .name = "PM10",
@@ -241,9 +223,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
 
 #ifdef USE_SPH0645
     const discovery_string_t avg_noise = {
-        .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
-        .device_class = NULL,
         .force_update = true,
         .icon = "mdi:volume-high",
         .name = "Average Noise Pollution",
@@ -255,9 +235,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
     mqtt_send_discovery_string(SENSOR_TOPIC("avg"), avg_noise);
 
     const discovery_string_t min_noise = {
-        .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
-        .device_class = NULL,
         .force_update = true,
         .icon = "mdi:volume-minus",
         .name = "Minimum Noise Pollution",
@@ -269,9 +247,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
     mqtt_send_discovery_string(SENSOR_TOPIC("min"), min_noise);
 
     const discovery_string_t max_noise = {
-        .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
-        .device_class = NULL,
         .force_update = true,
         .icon = "mdi:volume-plus",
         .name = "Maximum Noise Pollution",
@@ -283,9 +259,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
     mqtt_send_discovery_string(SENSOR_TOPIC("max"), max_noise);
 
     const discovery_string_t num_samples = {
-        .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
-        .device_class = NULL,
         .force_update = true,
         .icon = "mdi:counter",
         .name = "Noise Pollution Samples",
