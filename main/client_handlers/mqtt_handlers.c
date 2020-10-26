@@ -268,18 +268,6 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .value_template = VALUE_TEMPLATE2(JSON_ROOT_SPH, SPH_MAX_KEY)
     };
     mqtt_send_discovery_string(SENSOR_TOPIC("max_vol"), max_noise);
-
-    const discovery_string_t num_noise_samples = {
-        .device = DEFAULT_DEVICE,
-        .force_update = true,
-        .icon = "mdi:counter",
-        .name = "Noise Pollution Samples",
-        .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = UNIQUE_ID("noise_samples"),
-        .unit_of_measurement = NULL,
-        .value_template = VALUE_TEMPLATE2(JSON_ROOT_SPH, SPH_NUM_SAMPLES_KEY)
-    };
-    mqtt_send_discovery_string(SENSOR_TOPIC("num_vol_samples"), num_noise_samples);
 #endif // USE_SPH0645
 
     return ESP_OK;
