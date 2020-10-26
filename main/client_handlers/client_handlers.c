@@ -490,7 +490,6 @@ esp_err_t sensors_get_data(cJSON *root)
         cJSON_AddNumberToObject(sph_root, SPH_AVG_KEY, TRUNC2(sph_data.avg));
         cJSON_AddNumberToObject(sph_root, SPH_MIN_KEY, TRUNC2(sph_data.min));
         cJSON_AddNumberToObject(sph_root, SPH_MAX_KEY, TRUNC2(sph_data.max));
-        cJSON_AddNumberToObject(sph_root, SPH_NUM_SAMPLES_KEY, sph_data.samples);
     }
 #endif // USE_SPH0645
 
