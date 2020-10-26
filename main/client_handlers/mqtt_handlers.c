@@ -78,7 +78,8 @@ static char *get_discovery_string(const char *availability_topic,
     cJSON_AddStringToObject(device, "manufacturer", "Mitch Weisbrod");
     cJSON_AddStringToObject(device, "model", MQTT_MODEL_NAME);
     cJSON_AddStringToObject(device, "sw_version", "");
-    cJSON_AddStringToObject(device, "identifiers", __DATE__ __TIME__);
+    // cJSON_AddStringToObject(device, "identifiers", __DATE__ __TIME__); TODO
+    cJSON_AddStringToObject(device, "identifiers", MQTT_CLIENT_NAME); // del me
     if (device_class != NULL)
         cJSON_AddStringToObject(root, "device_class", device_class);
     cJSON_AddBoolToObject(root, "force_update", force_update);
@@ -100,7 +101,6 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
     char *str;
 
 #ifdef USE_BME280
-
 #ifdef CONFIG_CELSIUS
     const char *degrees = "°C";
 #elif defined(CONFIG_FAHRENHEIT)
@@ -113,7 +113,6 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
 #elif defined(CONFIG_IN_HG)
     const char *pressure = "inHg";
 #endif
-
     // temperature
     str = get_discovery_string(MQTT_AVAILABLE_TOPIC,
                                "temperature",
@@ -152,8 +151,27 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
                                "{{ value_json[\"" JSON_ROOT_BME "\"][\"" BME_PRESSURE_KEY "\"] }}");
     mqtt_resp_sendstr(r, HASS_TOPIC("pressure"), str, 2, true);
     free(str);
-
 #endif // USE_BME280
+
+#ifdef USE_PMS5003
+
+#endif // USE_PMS5003
+
+#ifdef USE_SPH0645
+    // avg
+    str = get_discovery_string(MQTT_AVAILABLE_TOPIC,
+                               NULL,
+                               true,
+                               "mdi:volume-high", //icon
+                               "Average Noise Pollution",
+                               MQTT_STATE_TOPIC,
+                               MQTT_CLIENT_NAME "_avg_noise",
+                               "dBc",
+                               "{{ value_json[\"" JSON_ROOT_SPH "\"][\"" SPH_AVG_KEY "\"] }}");
+    mqtt_resp_sendstr(r, HASS_TOPIC("noise_avg"), str, 2, true);
+    free(str);
+
+#endif // USE_SPH0645
 
     return ESP_OK;
 }
