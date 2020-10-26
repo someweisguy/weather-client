@@ -9,12 +9,13 @@ typedef struct
     size_t content_len;
     const char *content;
     const char *topic;
-    const char *base;
+    const char *client_base;
+    const char *client_name;
 } mqtt_req_t;
 
 typedef esp_err_t (*mqtt_callback_t)(mqtt_req_t *r);
 
-esp_err_t mqtt_start(const char *mqtt_broker, const char *mqtt_topic_prefix);
+esp_err_t mqtt_start(const char *mqtt_broker, const char *topic_base, const char *client_name);
 
 esp_err_t mqtt_stop();
 

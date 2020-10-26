@@ -21,6 +21,7 @@ static esp_mqtt_client_config_t config = {};
 static bool mqtt_is_connected = false;
 
 static char *mqtt_topic_prefix = NULL;
+static char *mqtt_client_name = NULL;
 
 // list of topic subscriptions
 static subscription_data_t subscriptions[10];
@@ -44,7 +45,8 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 
         // do on connects
         mqtt_req_t r = {
-            .base = mqtt_topic_prefix,
+            .client_base = mqtt_topic_prefix,
+            .client_name = mqtt_client_name,
             .client = &client,
             .content_len = 0,
             .content = NULL,
@@ -66,7 +68,8 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
             if (strcmp(subscriptions[i].topic, topic) == 0)
             {
                 mqtt_req_t r = {
-                    .base = mqtt_topic_prefix,
+                    .client_base = mqtt_topic_prefix,
+                    .client_name = mqtt_client_name,
                     .client = &(event->client),
                     .content_len = event->data_len,
                     .content = event->data,
@@ -95,12 +98,15 @@ static void mqtt_starter(void *handler_args, esp_event_base_t base, int event_id
     esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, mqtt_starter);
 }
 
-esp_err_t mqtt_start(const char *mqtt_broker, const char *mqtt_topic_prefix)
+esp_err_t mqtt_start(const char *mqtt_broker, const char *topic_base, const char *client_name)
 {
     // config the mqtt client
     config.uri = mqtt_broker;
     config.event_handle = mqtt_event_handler;
     client = esp_mqtt_client_init(&config);
+
+    mqtt_topic_prefix = (char *)topic_base;
+    mqtt_client_name = (char *)client_name;
 
     // start the mqtt client if there is an internet connection
     wlan_data_t wlan_data = {};
@@ -146,7 +152,8 @@ esp_err_t mqtt_on_connect(mqtt_callback_t callback)
     if (mqtt_is_connected)
     {
         mqtt_req_t r = {
-            .base = mqtt_topic_prefix,
+            .client_base = mqtt_topic_prefix,
+            .client_name = mqtt_client_name,
             .client = &client,
             .content_len = 0,
             .content = NULL,

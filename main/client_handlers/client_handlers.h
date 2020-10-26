@@ -1,6 +1,7 @@
 #pragma once
 
 #include "esp_system.h"
+#include "cJSON.h"
 
 #define JSON_DATA_KEY "data"
 #define JSON_CONFIG_KEY "config"
@@ -51,6 +52,14 @@
 #define SPH_SAMPLE_WEIGHTING_KEY "weighting"
 #define SPH_CLEAR_DATA_KEY "clear_data"
 
+
+#define MQTT_STATUS_KEY "status"
+#define MQTT_AWAKE_STATUS "awake"
+#define MQTT_ASLEEP_STATUS "asleep"
+
+#define MQTT_GET_DATA_KEY "get_data"
+#define MQTT_RESET_DATA_KEY "reset_data"
+
 char *about_handler();
 
 esp_err_t config_handler(const char *request);
@@ -58,3 +67,9 @@ esp_err_t config_handler(const char *request);
 char *data_handler(const bool clear_data);
 
 void restart_handler();
+
+esp_err_t sensors_set_status(cJSON *root, bool awake);
+
+esp_err_t sensors_get_data(cJSON *root);
+
+esp_err_t sensors_clear_data(cJSON *root);
