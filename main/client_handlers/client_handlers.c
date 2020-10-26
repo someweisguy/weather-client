@@ -473,24 +473,9 @@ esp_err_t sensors_get_data(cJSON *root)
         cJSON_AddItemToObject(root, JSON_ROOT_PMS, pms_root);
 
         // add the pms5003 data to their root
-        cJSON *pms_standard_node = cJSON_CreateObject();
-        cJSON_AddItemToObject(pms_root, PMS_STANDARD_PARTICLE_KEY, pms_standard_node);
-        cJSON_AddNumberToObject(pms_standard_node, PMS_PM1_KEY, pms_data.concCF1.pm1);
-        cJSON_AddNumberToObject(pms_standard_node, PMS_PM2_5_KEY, pms_data.concCF1.pm2_5);
-        cJSON_AddNumberToObject(pms_standard_node, PMS_PM10_KEY, pms_data.concCF1.pm10);
-        cJSON *pms_atmospheric_node = cJSON_CreateObject();
-        cJSON_AddItemToObject(pms_root, PMS_ATMOSPHERIC_PARTICLE_KEY, pms_atmospheric_node);
-        cJSON_AddNumberToObject(pms_atmospheric_node, PMS_PM1_KEY, pms_data.concAtm.pm1);
-        cJSON_AddNumberToObject(pms_atmospheric_node, PMS_PM2_5_KEY, pms_data.concAtm.pm2_5);
-        cJSON_AddNumberToObject(pms_atmospheric_node, PMS_PM10_KEY, pms_data.concAtm.pm10);
-        cJSON *pms_count_node = cJSON_CreateObject();
-        cJSON_AddItemToObject(pms_root, PMS_COUNT_PER_0_1L_KEY, pms_count_node);
-        cJSON_AddNumberToObject(pms_count_node, PMS_0_3UM_KEY, pms_data.countPer0_1L.um0_3);
-        cJSON_AddNumberToObject(pms_count_node, PMS_0_5UM_KEY, pms_data.countPer0_1L.um0_5);
-        cJSON_AddNumberToObject(pms_count_node, PMS_1_0UM_KEY, pms_data.countPer0_1L.um1_0);
-        cJSON_AddNumberToObject(pms_count_node, PMS_2_5UM_KEY, pms_data.countPer0_1L.um2_5);
-        cJSON_AddNumberToObject(pms_count_node, PMS_5_0UM_KEY, pms_data.countPer0_1L.um5_0);
-        cJSON_AddNumberToObject(pms_count_node, PMS_10_0UM_KEY, pms_data.countPer0_1L.um10_0);
+        cJSON_AddNumberToObject(pms_root, PMS_PM1_KEY, pms_data.concAtm.pm1);
+        cJSON_AddNumberToObject(pms_root, PMS_PM2_5_KEY, pms_data.concAtm.pm2_5);
+        cJSON_AddNumberToObject(pms_root, PMS_PM10_KEY, pms_data.concAtm.pm10);
     }
 #endif // USE_PMS5003
 
