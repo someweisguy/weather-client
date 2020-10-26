@@ -202,24 +202,41 @@ esp_err_t mqtt_send_discovery_string(const char *topic, discovery_string_t disco
     cJSON_AddStringToObject(device, "manufacturer", discovery.device.manufacturer);
     cJSON_AddStringToObject(device, "model", discovery.device.model);
     cJSON_AddStringToObject(device, "sw_version", discovery.device.sw_version);
-    // cJSON_AddStringToObject(device, "identifiers", __DATE__ __TIME__); TODO
-    cJSON_AddStringToObject(device, "identifiers", discovery.device.identifiers); // del me
+    cJSON_AddStringToObject(device, "identifiers", discovery.device.identifiers);
 
-    // add entity information
-    if (discovery.device_class != NULL)
-        cJSON_AddStringToObject(root, "device_class", discovery.device_class);
-    if (discovery.icon != NULL)
-        cJSON_AddStringToObject(root, "icon", discovery.icon);
-    cJSON_AddBoolToObject(root, "force_update", discovery.force_update);
+    // check for required information
+    if (discovery.name == NULL || discovery.state_topic == NULL || discovery.unit_of_measurement == NULL)
+    {
+        ESP_LOGE(TAG, "discovery string is missing required keys");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // Add required entity information
     cJSON_AddStringToObject(root, "name", discovery.name);
     cJSON_AddStringToObject(root, "state_topic", discovery.state_topic);
     cJSON_AddStringToObject(root, "unique_id", discovery.unique_id);
-    cJSON_AddStringToObject(root, "unit_of_measurement", discovery.unit_of_measurement);
+    
+    // add optional entity information
+    if (discovery.availability_topic != NULL)
+        cJSON_AddStringToObject(root, "availability_topic", discovery.availability_topic);
+    if (discovery.device_class != NULL)
+        cJSON_AddStringToObject(root, "device_class", discovery.device_class);
+    if (discovery.expire_after != 0)
+        cJSON_AddNumberToObject(root, "expire_after", discovery.expire_after);
+    if (discovery.icon != NULL)
+        cJSON_AddStringToObject(root, "icon", discovery.icon);
+    if (discovery.force_update == true)
+        cJSON_AddBoolToObject(root, "force_update", discovery.force_update);
+    if (discovery.unit_of_measurement != NULL)
+        cJSON_AddStringToObject(root, "unit_of_measurement", discovery.unit_of_measurement);
     cJSON_AddStringToObject(root, "value_template", discovery.value_template);
 
+    // print and publish
     char *str = cJSON_PrintUnformatted(root);
     esp_mqtt_client_publish(client, topic, str, strlen(str), 2, false);
+
     cJSON_Delete(root);
     free(str);
+
     return ESP_OK;
 }
