@@ -38,7 +38,7 @@
 #define EXPIRE_AFTER            5 * 60
 
 #define UNIQUE_ID(n)            (MQTT_CLIENT_NAME "_" n)
-#define SENSOR_TOPIC(n)         ("homeassistant/sensor/" n "/" MQTT_CLIENT_NAME "/config")
+#define SENSOR_TOPIC(n)         ("homeassistant/sensor/" MQTT_CLIENT_NAME "_" n "/config")
 #define VALUE_TEMPLATE(a, b)    ("{{ value_json[\"" a "\"][\"" b "\"] }}")
 
 #define DEFAULT_DEVICE                      \
@@ -165,7 +165,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .name = "Barometric Pressure",
         .state_topic = MQTT_STATE_TOPIC,
         .unique_id = UNIQUE_ID("pressure"),
-        .unit_of_measurement = PRESSURE_SCALE,
+        //.unit_of_measurement = PRESSURE_SCALE,
         .value_template = VALUE_TEMPLATE(JSON_ROOT_BME, BME_PRESSURE_KEY)
     };
     mqtt_send_discovery_string(SENSOR_TOPIC("pressure"), pressure);
@@ -232,7 +232,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .unit_of_measurement = VOLUME_SCALE,
         .value_template = VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_AVG_KEY)
     };
-    mqtt_send_discovery_string(SENSOR_TOPIC("avg"), avg_noise);
+    mqtt_send_discovery_string(SENSOR_TOPIC("avg_noise"), avg_noise);
 
     const discovery_string_t min_noise = {
         .device = DEFAULT_DEVICE,
@@ -244,7 +244,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .unit_of_measurement = VOLUME_SCALE,
         .value_template = VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_MIN_KEY)
     };
-    mqtt_send_discovery_string(SENSOR_TOPIC("min"), min_noise);
+    mqtt_send_discovery_string(SENSOR_TOPIC("min_noise"), min_noise);
 
     const discovery_string_t max_noise = {
         .device = DEFAULT_DEVICE,
@@ -256,9 +256,9 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .unit_of_measurement = VOLUME_SCALE,
         .value_template = VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_MAX_KEY)
     };
-    mqtt_send_discovery_string(SENSOR_TOPIC("max"), max_noise);
+    mqtt_send_discovery_string(SENSOR_TOPIC("max_noise"), max_noise);
 
-    const discovery_string_t num_samples = {
+    const discovery_string_t num_noise_samples = {
         .device = DEFAULT_DEVICE,
         .force_update = true,
         .icon = "mdi:counter",
@@ -268,7 +268,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .unit_of_measurement = NULL,
         .value_template = VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_NUM_SAMPLES_KEY)
     };
-    mqtt_send_discovery_string(SENSOR_TOPIC("num_samples"), num_samples);
+    mqtt_send_discovery_string(SENSOR_TOPIC("num_noise_samples"), num_noise_samples);
 #endif // USE_SPH0645
 
     return ESP_OK;
