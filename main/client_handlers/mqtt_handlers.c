@@ -163,8 +163,8 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .device_class = "pressure",
         .force_update = true,
         .name = "Barometric Pressure",
-        .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = UNIQUE_ID("humidity"),
+        .state_topic = MQTT_STATE_TOPIC,
+        .unique_id = UNIQUE_ID("pressure"),
         .unit_of_measurement = PRESSURE_SCALE,
         .value_template = VALUE_TEMPLATE(JSON_ROOT_BME, BME_PRESSURE_KEY)
     };
