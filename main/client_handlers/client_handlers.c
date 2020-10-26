@@ -409,11 +409,12 @@ esp_err_t sensors_set_status(cJSON *root, bool awake)
     if (err)
         return err;
 
-    // report status back
-    const char *status = awake ? "ON" : "OFF";
-    cJSON *pms_root = cJSON_AddObjectToObject(root, JSON_ROOT_PMS);
-    cJSON_AddStringToObject(pms_root, PMS_FAN_KEY, status);
 #endif // USE_PMS5003
+
+    
+    // report status back
+    const char *status = awake ? MQTT_ON_STATUS : MQTT_OFF_STATUS;
+    cJSON_AddStringToObject(root, MQTT_STATUS_KEY, status);
 
     return ESP_OK;
 }
