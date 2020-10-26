@@ -16,7 +16,6 @@ typedef struct
 } subscription_data_t;
 
 static esp_mqtt_client_handle_t client = NULL;
-static esp_mqtt_client_config_t config = {};
 
 // mqtt is connected
 static bool mqtt_is_connected = false;
@@ -31,7 +30,6 @@ static size_t num_subscriptions = 0;
 // list of on connect callbacks and the availability message
 static mqtt_callback_t on_connects[10];
 static size_t num_on_connects = 0;
-static char *availability_message = NULL;
 
 static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
 {
@@ -39,10 +37,6 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event)
     {
         for (int i = 0; i < num_subscriptions; ++i)
             esp_mqtt_client_subscribe(event->client, subscriptions[i].topic, subscriptions[i].qos);
-
-        // send the connect message
-        if (config.lwt_topic != NULL)
-            esp_mqtt_client_publish(client, config.lwt_topic, availability_message, strlen(availability_message), 2, true);
 
         // do on connects
         mqtt_req_t r = {
@@ -102,8 +96,10 @@ static void mqtt_starter(void *handler_args, esp_event_base_t base, int event_id
 esp_err_t mqtt_start(const char *mqtt_broker, const char *topic_base, const char *client_name)
 {
     // config the mqtt client
-    config.uri = mqtt_broker;
-    config.event_handle = mqtt_event_handler;
+    const esp_mqtt_client_config_t config = {
+        .uri = mqtt_broker,
+        .event_handle = mqtt_event_handler
+    };
     client = esp_mqtt_client_init(&config);
 
     mqtt_topic_prefix = (char *)topic_base;
@@ -171,19 +167,6 @@ esp_err_t mqtt_on_connect(mqtt_callback_t callback)
     }
     else
         return ESP_ERR_INVALID_SIZE;
-}
-
-esp_err_t mqtt_availability(const char *topic, const char *connect_msg, const char *disconnect_msg)
-{
-    availability_message = (char *)connect_msg;
-
-    // update the config
-    config.lwt_topic = topic;
-    config.lwt_msg = disconnect_msg;
-    config.lwt_retain = true;
-    config.lwt_qos = 2;
-
-    return esp_mqtt_set_config(client, &config);
 }
 
 esp_err_t mqtt_resp_sendstr(const mqtt_req_t *r, const char *topic, const char *str, int qos, bool retain)

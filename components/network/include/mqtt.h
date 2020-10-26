@@ -45,8 +45,6 @@ esp_err_t mqtt_subscribe(const char *topic, int qos, mqtt_callback_t callback);
 
 esp_err_t mqtt_on_connect(mqtt_callback_t callback);
 
-esp_err_t mqtt_availability(const char *topic, const char *connect_msg, const char *disconnect_msg);
-
 esp_err_t mqtt_resp_sendstr(const mqtt_req_t* r, const char *topic, const char *str, int qos, bool retain);
 
 esp_err_t mqtt_send_discovery_string(const char* topic, discovery_string_t discovery);

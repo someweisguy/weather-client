@@ -85,7 +85,6 @@ void app_main(void)
     // start mqtt and register handlers
     ESP_LOGI(TAG, "starting mqtt client");
     mqtt_start(CONFIG_MQTT_BROKER_URI, MQTT_BASE_TOPIC, MQTT_CLIENT_NAME);
-    mqtt_availability(MQTT_BASE_TOPIC "/" MQTT_CLIENT_NAME "/available", "online", "offline");
     mqtt_subscribe(MQTT_BASE_TOPIC "/" MQTT_CLIENT_NAME, 1, &mqtt_request_handler);
     mqtt_subscribe(MQTT_BASE_TOPIC, 1, &mqtt_request_handler);
     mqtt_on_connect(&mqtt_homeassistant_handler);
