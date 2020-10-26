@@ -24,6 +24,7 @@ typedef struct {
     } device;
     char *availability_topic;
     char *device_class;
+    uint64_t expire_after;
     bool force_update;
     char *icon;
     char *name;
