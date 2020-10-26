@@ -196,6 +196,20 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
 #endif // USE_BME280
 
 #ifdef USE_PMS5003
+    const discovery_string_t pm1 = {
+        .availability_topic = MQTT_AVAILABLE_TOPIC,
+        .device = DEFAULT_DEVICE,
+        .device_class = NULL,
+        .force_update = true,
+        .icon = "mdi:smog",
+        .name = "PM1",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = UNIQUE_ID("pm1"),
+        .unit_of_measurement = PM_SCALE,
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_PMS, PMS_PM1_KEY)
+    };
+    mqtt_send_discovery_string(SENSOR_TOPIC("pm1"), pm1);
+
     const discovery_string_t pm2_5 = {
         .availability_topic = MQTT_AVAILABLE_TOPIC,
         .device = DEFAULT_DEVICE,
