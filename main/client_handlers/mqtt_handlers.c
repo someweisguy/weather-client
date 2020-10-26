@@ -2,13 +2,53 @@
 
 #include <string.h>
 #include "client_handlers/client_handlers.h"
-
 #include "cJSON.h"
 
-#define STATE_TOPIC "state"
+// device and model names
+#ifdef CONFIG_OUTSIDE_STATION
+#define DEVICE_NAME             "Outdoor Weather Station"
+#define MODEL_NAME              "Outdoor Model"
+#elif defined(CONFIG_INSIDE_STATION)
+#define DEVICE_NAME             "Indoor Weather Station"
+#define MODEL_NAME              "Indoor Model"
+#elif defined(CONFIG_WIND_AND_RAIN_STATION)
+#define DEVICE_NAME             "Wind & Rain Station"
+#define MODEL_NAME              "Wind & Rain Model"
+#endif
 
-#define DEFAULT_QOS 1
-#define RESP_STR_LENGTH 64
+// sensor measurement scales
+#ifdef CONFIG_CELSIUS
+#define TEMPERATURE_SCALE       "°C"
+#elif defined(CONFIG_FAHRENHEIT)
+#define TEMPERATURE_SCALE       "°F"
+#elif defined(CONFIG_KELVIN)
+#define TEMPERATURE_SCALE       "K"
+#endif
+#ifdef CONFIG_MM_HG
+#define PRESSURE_SCALE          "mmHg"
+#elif defined(CONFIG_IN_HG)
+#define PRESSURE_SCALE          "inHg"
+#endif
+#define SIGNAL_STRENGTH_SCALE   "dB"
+#define BATTERY_SCALE           "%"
+#define HUMIDITY_SCALE          "%"
+#define VOLUME_SCALE            "dBc"
+#define PM_SCALE                "μg/m³"
+
+#define STATE_TOPIC             (MQTT_TOPIC_BASE "/" MQTT_CLIENT_NAME "/state")
+#define AVAILABLE_TOPIC(n)      (MQTT_TOPIC_BASE "/" MQTT_CLIENT_NAME "/" n "/available")
+#define UNIQUE_ID(n)            (MQTT_CLIENT_NAME "_" n)
+#define SENSOR_TOPIC(n)         ("homeassistant/sensor/" n "/" MQTT_CLIENT_NAME "/config")
+#define VALUE_TEMPLATE(a, b)    ("{{ value_json[\"" a "\"][\"" b "\"] }}")
+
+#define DEFAULT_DEVICE                      \
+    {                                       \
+        .name = DEVICE_NAME,                \
+        .manufacturer = "Mitch Weisbrod",   \
+        .model = MODEL_NAME,                \
+        .sw_version = "",                   \
+        .identifiers = MQTT_CLIENT_NAME     \
+    }
 
 esp_err_t mqtt_request_handler(mqtt_req_t *r)
 {
@@ -65,9 +105,6 @@ esp_err_t mqtt_request_handler(mqtt_req_t *r)
     return ESP_OK;
 }
 
-
-
-
 esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
 {
     const discovery_string_t rssi = {
@@ -78,11 +115,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = NULL,
         .name = "Signal Strength",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = MQTT_CLIENT_NAME "_rssi",
-        .unit_of_measurement = "dBm",
-        .value_template = VALUE_TEMPLATE2(JSON_ROOT_SYSTEM, SYSTEM_WIFI_RSSI_KEY)
+        .unique_id = UNIQUE_ID("rssi"),
+        .unit_of_measurement = SIGNAL_STRENGTH_SCALE,
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_SYSTEM, SYSTEM_WIFI_RSSI_KEY)
     };
-    mqtt_send_discovery_string(HASS_TOPIC("rssi"), rssi);
+    mqtt_send_discovery_string(SENSOR_TOPIC("rssi"), rssi);
 
 #ifdef USE_MAX17043
     const discovery_string_t battery = {
@@ -93,11 +130,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = NULL,
         .name = "Battery Level",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = MQTT_CLIENT_NAME "_battery",
-        .unit_of_measurement = "%",
-        .value_template = VALUE_TEMPLATE2(JSON_ROOT_SYSTEM, SYSTEM_BATT_LIFE_KEY)
+        .unique_id = UNIQUE_ID("battery"),
+        .unit_of_measurement = BATTERY_SCALE,
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_SYSTEM, SYSTEM_BATT_LIFE_KEY)
     };
-    mqtt_send_discovery_string(HASS_TOPIC("battery"), battery);
+    mqtt_send_discovery_string(SENSOR_TOPIC("battery"), battery);
 #endif // USE_MAX17043
 
 #ifdef USE_BME280
@@ -109,11 +146,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = NULL,
         .name = "Temperature",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = MQTT_CLIENT_NAME "_temperature",
+        .unique_id = UNIQUE_ID("temperature"),
         .unit_of_measurement = TEMPERATURE_SCALE,
-        .value_template = VALUE_TEMPLATE2(JSON_ROOT_BME, BME_TEMPERATURE_KEY)
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_BME, BME_TEMPERATURE_KEY)
     };
-    mqtt_send_discovery_string(HASS_TOPIC("temperature"), temperature);
+    mqtt_send_discovery_string(SENSOR_TOPIC("temperature"), temperature);
 
     const discovery_string_t humidity = {
         .availability_topic = MQTT_AVAILABLE_TOPIC,
@@ -123,11 +160,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = NULL,
         .name = "Relative Humidity",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = MQTT_CLIENT_NAME "_humidity",
-        .unit_of_measurement = "%",
-        .value_template = VALUE_TEMPLATE2(JSON_ROOT_BME, BME_HUMIDITY_KEY)
+        .unique_id = UNIQUE_ID("humidity"),
+        .unit_of_measurement = HUMIDITY_SCALE,
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_BME, BME_HUMIDITY_KEY)
     };
-    mqtt_send_discovery_string(HASS_TOPIC("humidity"), humidity);
+    mqtt_send_discovery_string(SENSOR_TOPIC("humidity"), humidity);
 
     const discovery_string_t pressure = {
         .availability_topic = MQTT_AVAILABLE_TOPIC,
@@ -137,11 +174,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = NULL,
         .name = "Barometric Pressure",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = MQTT_CLIENT_NAME "_pressure",
+        .unique_id = UNIQUE_ID("humidity"),
         .unit_of_measurement = PRESSURE_SCALE,
-        .value_template = VALUE_TEMPLATE2(JSON_ROOT_BME, BME_PRESSURE_KEY)
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_BME, BME_PRESSURE_KEY)
     };
-    mqtt_send_discovery_string(HASS_TOPIC("pressure"), pressure);
+    mqtt_send_discovery_string(SENSOR_TOPIC("pressure"), pressure);
 
     const discovery_string_t dew_point = {
         .availability_topic = MQTT_AVAILABLE_TOPIC,
@@ -151,11 +188,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = "mdi:weather-fog",
         .name = "Dew Point",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = MQTT_CLIENT_NAME "_dew_point",
+        .unique_id = UNIQUE_ID("dew_point"),
         .unit_of_measurement = TEMPERATURE_SCALE,
-        .value_template = VALUE_TEMPLATE2(JSON_ROOT_BME, BME_DEW_POINT_KEY)
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_BME, BME_DEW_POINT_KEY)
     };
-    mqtt_send_discovery_string(HASS_TOPIC("dew_point"), dew_point);
+    mqtt_send_discovery_string(SENSOR_TOPIC("dew_point"), dew_point);
 #endif // USE_BME280
 
 #ifdef USE_PMS5003
@@ -167,11 +204,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = "mdi:smog",
         .name = "PM2.5",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = MQTT_CLIENT_NAME "_pm2_5",
-        .unit_of_measurement = "μg/m³",
-        .value_template = VALUE_TEMPLATE2(JSON_ROOT_PMS, PMS_PM2_5_KEY)
+        .unique_id = UNIQUE_ID("pm2_5"),
+        .unit_of_measurement = PM_SCALE,
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_PMS, PMS_PM2_5_KEY)
     };
-    mqtt_send_discovery_string(HASS_TOPIC("pm2_5"), pm2_5);
+    mqtt_send_discovery_string(SENSOR_TOPIC("pm2_5"), pm2_5);
 
     const discovery_string_t pm10 = {
         .availability_topic = MQTT_AVAILABLE_TOPIC,
@@ -181,11 +218,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = "mdi:smog",
         .name = "PM10",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = MQTT_CLIENT_NAME "_pm10",
-        .unit_of_measurement = "μg/m³",
-        .value_template = VALUE_TEMPLATE2(JSON_ROOT_PMS, PMS_PM10_KEY)
+        .unique_id = UNIQUE_ID("pm10"),
+        .unit_of_measurement = PM_SCALE,
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_PMS, PMS_PM10_KEY)
     };
-    mqtt_send_discovery_string(HASS_TOPIC("pm10"), pm10);
+    mqtt_send_discovery_string(SENSOR_TOPIC("pm10"), pm10);
 #endif // USE_PMS5003
 
 #ifdef USE_SPH0645
@@ -197,11 +234,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = "mdi:volume-high",
         .name = "Average Noise Pollution",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = MQTT_CLIENT_NAME "_noise_avg",
-        .unit_of_measurement = "dBc",
-        .value_template = VALUE_TEMPLATE2(JSON_ROOT_SPH, SPH_AVG_KEY)
+        .unique_id = UNIQUE_ID("noise_avg"),
+        .unit_of_measurement = VOLUME_SCALE,
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_AVG_KEY)
     };
-    mqtt_send_discovery_string(HASS_TOPIC("avg"), avg_noise);
+    mqtt_send_discovery_string(SENSOR_TOPIC("avg"), avg_noise);
 
     const discovery_string_t min_noise = {
         .availability_topic = MQTT_AVAILABLE_TOPIC,
@@ -211,11 +248,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = "mdi:volume-minus",
         .name = "Minimum Noise Pollution",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = MQTT_CLIENT_NAME "_noise_min",
-        .unit_of_measurement = "dBc",
-        .value_template = VALUE_TEMPLATE2(JSON_ROOT_SPH, SPH_MIN_KEY)
+        .unique_id = UNIQUE_ID("noise_min"),
+        .unit_of_measurement = VOLUME_SCALE,
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_MIN_KEY)
     };
-    mqtt_send_discovery_string(HASS_TOPIC("min"), min_noise);
+    mqtt_send_discovery_string(SENSOR_TOPIC("min"), min_noise);
 
     const discovery_string_t max_noise = {
         .availability_topic = MQTT_AVAILABLE_TOPIC,
@@ -225,11 +262,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = "mdi:volume-plus",
         .name = "Maximum Noise Pollution",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = MQTT_CLIENT_NAME "_noise_max",
-        .unit_of_measurement = "dBc",
-        .value_template = VALUE_TEMPLATE2(JSON_ROOT_SPH, SPH_MAX_KEY)
+        .unique_id = UNIQUE_ID("noise_max"),
+        .unit_of_measurement = VOLUME_SCALE,
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_MAX_KEY)
     };
-    mqtt_send_discovery_string(HASS_TOPIC("max"), max_noise);
+    mqtt_send_discovery_string(SENSOR_TOPIC("max"), max_noise);
 
     const discovery_string_t num_samples = {
         .availability_topic = MQTT_AVAILABLE_TOPIC,
@@ -239,11 +276,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = "mdi:counter",
         .name = "Noise Pollution Samples",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = MQTT_CLIENT_NAME "_noise_samples",
+        .unique_id = UNIQUE_ID("noise_samples"),
         .unit_of_measurement = NULL,
-        .value_template = VALUE_TEMPLATE2(JSON_ROOT_SPH, SPH_NUM_SAMPLES_KEY)
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_NUM_SAMPLES_KEY)
     };
-    mqtt_send_discovery_string(HASS_TOPIC("num_samples"), num_samples);
+    mqtt_send_discovery_string(SENSOR_TOPIC("num_samples"), num_samples);
 #endif // USE_SPH0645
 
     return ESP_OK;
