@@ -162,7 +162,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .name = "Barometric Pressure",
         .state_topic = MQTT_STATE_TOPIC,
         .unique_id = UNIQUE_ID("pressure"),
-        //.unit_of_measurement = PRESSURE_SCALE,
+        .unit_of_measurement = PRESSURE_SCALE,
         .value_template = VALUE_TEMPLATE(JSON_ROOT_BME, BME_PRESSURE_KEY)
     };
     mqtt_send_discovery_string(SENSOR_TOPIC("pressure"), pressure);
@@ -185,7 +185,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .device = DEFAULT_DEVICE,
         .force_update = true,
         .icon = "mdi:fan",
-        .name = "Fan",
+        .name = "Air Quality Sensor",
         .state_topic =  MQTT_STATE_TOPIC,
         .unique_id = UNIQUE_ID("fan"),
         .value_template = VALUE_TEMPLATE(JSON_ROOT_PMS, PMS_FAN_KEY)
@@ -236,11 +236,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = "mdi:volume-high",
         .name = "Average Noise Pollution",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = UNIQUE_ID("noise_avg"),
+        .unique_id = UNIQUE_ID("avg_noise"),
         .unit_of_measurement = VOLUME_SCALE,
         .value_template = VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_AVG_KEY)
     };
-    mqtt_send_discovery_string(SENSOR_TOPIC("avg_noise"), avg_noise);
+    mqtt_send_discovery_string(SENSOR_TOPIC("avg_vol"), avg_noise);
 
     const discovery_string_t min_noise = {
         .device = DEFAULT_DEVICE,
@@ -248,11 +248,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = "mdi:volume-minus",
         .name = "Minimum Noise Pollution",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = UNIQUE_ID("noise_min"),
+        .unique_id = UNIQUE_ID("min_noise"),
         .unit_of_measurement = VOLUME_SCALE,
         .value_template = VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_MIN_KEY)
     };
-    mqtt_send_discovery_string(SENSOR_TOPIC("min_noise"), min_noise);
+    mqtt_send_discovery_string(SENSOR_TOPIC("min_vol"), min_noise);
 
     const discovery_string_t max_noise = {
         .device = DEFAULT_DEVICE,
@@ -260,11 +260,11 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .icon = "mdi:volume-plus",
         .name = "Maximum Noise Pollution",
         .state_topic =  MQTT_STATE_TOPIC,
-        .unique_id = UNIQUE_ID("noise_max"),
+        .unique_id = UNIQUE_ID("max_noise"),
         .unit_of_measurement = VOLUME_SCALE,
         .value_template = VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_MAX_KEY)
     };
-    mqtt_send_discovery_string(SENSOR_TOPIC("max_noise"), max_noise);
+    mqtt_send_discovery_string(SENSOR_TOPIC("max_vol"), max_noise);
 
     const discovery_string_t num_noise_samples = {
         .device = DEFAULT_DEVICE,
@@ -276,7 +276,7 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .unit_of_measurement = NULL,
         .value_template = VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_NUM_SAMPLES_KEY)
     };
-    mqtt_send_discovery_string(SENSOR_TOPIC("num_noise_samples"), num_noise_samples);
+    mqtt_send_discovery_string(SENSOR_TOPIC("num_vol_samples"), num_noise_samples);
 #endif // USE_SPH0645
 
     return ESP_OK;
