@@ -39,6 +39,7 @@
 
 #define UNIQUE_ID(n)            (MQTT_CLIENT_NAME "_" n)
 #define SENSOR_TOPIC(n)         ("homeassistant/sensor/" MQTT_CLIENT_NAME "_" n "/config")
+#define BINARY_SENSOR_TOPIC(n)  ("homeassistant/binary_sensor/" MQTT_CLIENT_NAME "_" n "/config")
 #define VALUE_TEMPLATE(a, b)    ("{{ value_json[\"" a "\"][\"" b "\"] }}")
 
 #define DEFAULT_DEVICE                      \
@@ -88,13 +89,9 @@ esp_err_t mqtt_request_handler(mqtt_req_t *r)
             sensors_set_status(reply_root, false); // sleep the client
     }
 
-    // build the reply topic string
-    char reply_topic[strlen(r->client_base) + strlen(r->client_name) + strlen(MQTT_STATE_TOPIC) + 3];
-    sprintf(reply_topic, "%s/%s/%s", r->client_base, r->client_name, MQTT_STATE_TOPIC);
-
     // send the reply back on the state topic
     char *reply = cJSON_PrintUnformatted(reply_root);
-    mqtt_resp_sendstr(r, reply_topic, reply, 2, false);
+    mqtt_resp_sendstr(r, MQTT_STATE_TOPIC, reply, 2, false);
 
     // free resources
     cJSON_Delete(reply_root);
@@ -184,6 +181,17 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
 #endif // USE_BME280
 
 #ifdef USE_PMS5003
+    const discovery_string_t fan = {
+        .device = DEFAULT_DEVICE,
+        .force_update = true,
+        .icon = "mdi:fan",
+        .name = "Fan",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = UNIQUE_ID("fan"),
+        .value_template = VALUE_TEMPLATE(JSON_ROOT_PMS, PMS_FAN_KEY)
+    };
+    mqtt_send_discovery_string(BINARY_SENSOR_TOPIC("fan"), fan);
+
     const discovery_string_t pm1 = {
         .device = DEFAULT_DEVICE,
         .force_update = true,
