@@ -30,6 +30,10 @@ typedef struct {
     char *unique_id;
     char *unit_of_measurement;
     char *value_template;
+
+    char *payload_on;
+    char *payload_off;
+
 } discovery_string_t;
 
 

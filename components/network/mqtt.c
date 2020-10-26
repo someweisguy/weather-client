@@ -200,7 +200,13 @@ esp_err_t mqtt_send_discovery_string(const char *topic, discovery_string_t disco
         cJSON_AddBoolToObject(root, "force_update", discovery.force_update);
     if (discovery.unit_of_measurement != NULL)
         cJSON_AddStringToObject(root, "unit_of_measurement", discovery.unit_of_measurement);
+    if (discovery.value_template != NULL)
     cJSON_AddStringToObject(root, "value_template", discovery.value_template);
+
+    if (discovery.payload_on != NULL)
+        cJSON_AddStringToObject(root, "payload_on", discovery.payload_on);
+    if (discovery.payload_off != NULL)
+        cJSON_AddStringToObject(root, "payload_off", discovery.payload_off);
 
     // print and publish
     char *str = cJSON_PrintUnformatted(root);
