@@ -55,8 +55,8 @@
 
 
 #define MQTT_STATUS_KEY "status"
-#define MQTT_AWAKE_STATUS "awake"
-#define MQTT_ASLEEP_STATUS "asleep"
+#define MQTT_ON_STATUS "on"
+#define MQTT_OFF_STATUS "off"
 
 #define MQTT_GET_DATA_KEY "get_data"
 #define MQTT_RESET_DATA_KEY "reset_data"
