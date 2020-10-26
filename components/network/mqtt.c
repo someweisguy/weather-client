@@ -205,7 +205,7 @@ esp_err_t mqtt_send_discovery_string(const char *topic, discovery_string_t disco
     cJSON_AddStringToObject(device, "identifiers", discovery.device.identifiers);
 
     // check for required information
-    if (discovery.name == NULL || discovery.state_topic == NULL || discovery.unit_of_measurement == NULL)
+    if (discovery.name == NULL || discovery.state_topic == NULL || discovery.unique_id == NULL)
     {
         ESP_LOGE(TAG, "discovery string is missing required keys");
         return ESP_ERR_INVALID_ARG;
