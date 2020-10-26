@@ -13,6 +13,27 @@ typedef struct
     const char *client_name;
 } mqtt_req_t;
 
+typedef struct {
+    struct 
+    {
+        char *name;
+        char *manufacturer;
+        char *model;
+        char *sw_version;
+        char *identifiers;
+    } device;
+    char *availability_topic;
+    char *device_class;
+    bool force_update;
+    char *icon;
+    char *name;
+    char *state_topic;
+    char *unique_id;
+    char *unit_of_measurement;
+    char *value_template;
+} discovery_string_t;
+
+
 typedef esp_err_t (*mqtt_callback_t)(mqtt_req_t *r);
 
 esp_err_t mqtt_start(const char *mqtt_broker, const char *topic_base, const char *client_name);
@@ -26,3 +47,5 @@ esp_err_t mqtt_on_connect(mqtt_callback_t callback);
 esp_err_t mqtt_availability(const char *topic, const char *connect_msg, const char *disconnect_msg);
 
 esp_err_t mqtt_resp_sendstr(const mqtt_req_t* r, const char *topic, const char *str, int qos, bool retain);
+
+esp_err_t mqtt_send_discovery_string(const char* topic, discovery_string_t discovery);

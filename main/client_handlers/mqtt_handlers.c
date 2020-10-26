@@ -65,112 +65,188 @@ esp_err_t mqtt_request_handler(mqtt_req_t *r)
     return ESP_OK;
 }
 
-static char *get_discovery_string(const char *availability_topic,
-                                  const char *device_class, const bool force_update, const char *icon,
-                                  const char *name, const char *state_topic, const char *unique_id,
-                                  const char *unit_of_measurement, const char *value_template)
-{
-    cJSON *root = cJSON_CreateObject();
 
-    cJSON_AddStringToObject(root, "availability_topic", availability_topic);
-    cJSON *device = cJSON_AddObjectToObject(root, "device");
-    cJSON_AddStringToObject(device, "name", MQTT_DEVICE_NAME);
-    cJSON_AddStringToObject(device, "manufacturer", "Mitch Weisbrod");
-    cJSON_AddStringToObject(device, "model", MQTT_MODEL_NAME);
-    cJSON_AddStringToObject(device, "sw_version", "");
-    // cJSON_AddStringToObject(device, "identifiers", __DATE__ __TIME__); TODO
-    cJSON_AddStringToObject(device, "identifiers", MQTT_CLIENT_NAME); // del me
-    if (device_class != NULL)
-        cJSON_AddStringToObject(root, "device_class", device_class);
-    cJSON_AddBoolToObject(root, "force_update", force_update);
-    if (icon != NULL)
-        cJSON_AddStringToObject(root, "icon", icon);
-    cJSON_AddStringToObject(root, "name", name);
-    cJSON_AddStringToObject(root, "state_topic", state_topic);
-    cJSON_AddStringToObject(root, "unique_id", unique_id);
-    cJSON_AddStringToObject(root, "unit_of_measurement", unit_of_measurement);
-    cJSON_AddStringToObject(root, "value_template", value_template);
 
-    char *str = cJSON_PrintUnformatted(root);
-    cJSON_Delete(root);
-    return str;
-}
 
 esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
 {
-    char *str;
+    const discovery_string_t rssi = {
+        .availability_topic = MQTT_AVAILABLE_TOPIC,
+        .device = DEFAULT_DEVICE,
+        .device_class = "signal_strength",
+        .force_update = false,
+        .icon = NULL,
+        .name = "Signal Strength",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = MQTT_CLIENT_NAME "_rssi",
+        .unit_of_measurement = "dBm",
+        .value_template = VALUE_TEMPLATE2(JSON_ROOT_SYSTEM, SYSTEM_WIFI_RSSI_KEY)
+    };
+    mqtt_send_discovery_string(HASS_TOPIC("rssi"), rssi);
+
+#ifdef USE_MAX17043
+    const discovery_string_t battery = {
+        .availability_topic = MQTT_AVAILABLE_TOPIC,
+        .device = DEFAULT_DEVICE,
+        .device_class = "battery",
+        .force_update = false,
+        .icon = NULL,
+        .name = "Battery Level",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = MQTT_CLIENT_NAME "_battery",
+        .unit_of_measurement = "%",
+        .value_template = VALUE_TEMPLATE2(JSON_ROOT_SYSTEM, SYSTEM_BATT_LIFE_KEY)
+    };
+    mqtt_send_discovery_string(HASS_TOPIC("battery"), battery);
+
+#endif // USE_MAX17043
 
 #ifdef USE_BME280
-#ifdef CONFIG_CELSIUS
-    const char *degrees = "°C";
-#elif defined(CONFIG_FAHRENHEIT)
-    const char *degrees = "°F";
-#elif defined(CONFIG_KELVIN)
-    const char *degrees = "K";
-#endif
-#ifdef CONFIG_MM_HG
-    const char *pressure = "mmHg";
-#elif defined(CONFIG_IN_HG)
-    const char *pressure = "inHg";
-#endif
-    // temperature
-    str = get_discovery_string(MQTT_AVAILABLE_TOPIC,
-                               "temperature",
-                               true,
-                               NULL,
-                               MQTT_CLIENT_NAME_UPPER " Temperature",
-                               MQTT_STATE_TOPIC,
-                               MQTT_CLIENT_NAME "_temperature",
-                               degrees,
-                               "{{ value_json[\"" JSON_ROOT_BME "\"][\"" BME_TEMPERATURE_KEY "\"] }}");
-    mqtt_resp_sendstr(r, HASS_TOPIC("temperature"), str, 2, true);
-    free(str);
+    const discovery_string_t temperature = {
+        .availability_topic = MQTT_AVAILABLE_TOPIC,
+        .device = DEFAULT_DEVICE,
+        .device_class = "temperature",
+        .force_update = true,
+        .icon = NULL,
+        .name = "Temperature",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = MQTT_CLIENT_NAME "_temperature",
+        .unit_of_measurement = TEMPERATURE_SCALE,
+        .value_template = VALUE_TEMPLATE2(JSON_ROOT_BME, BME_TEMPERATURE_KEY)
+    };
+    mqtt_send_discovery_string(HASS_TOPIC("temperature"), temperature);
 
-    // humidity
-    str = get_discovery_string(MQTT_AVAILABLE_TOPIC,
-                               "humidity",
-                               true,
-                               NULL,
-                               MQTT_CLIENT_NAME_UPPER " Relative Humidity",
-                               MQTT_STATE_TOPIC,
-                               MQTT_CLIENT_NAME "_humidity",
-                               "%",
-                               "{{ value_json[\"" JSON_ROOT_BME "\"][\"" BME_HUMIDITY_KEY "\"] }}");
-    mqtt_resp_sendstr(r, HASS_TOPIC("humidity"), str, 2, true);
-    free(str);
+    const discovery_string_t humidity = {
+        .availability_topic = MQTT_AVAILABLE_TOPIC,
+        .device = DEFAULT_DEVICE,
+        .device_class = "humidity",
+        .force_update = true,
+        .icon = NULL,
+        .name = "Relative Humidity",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = MQTT_CLIENT_NAME "_humidity",
+        .unit_of_measurement = "%",
+        .value_template = VALUE_TEMPLATE2(JSON_ROOT_BME, BME_HUMIDITY_KEY)
+    };
+    mqtt_send_discovery_string(HASS_TOPIC("humidity"), humidity);
 
-    // pressure
-    str = get_discovery_string(MQTT_AVAILABLE_TOPIC,
-                               "pressure",
-                               true,
-                               NULL,
-                               "Barometric Pressure",
-                               MQTT_STATE_TOPIC,
-                               MQTT_CLIENT_NAME "_pressure",
-                               pressure,
-                               "{{ value_json[\"" JSON_ROOT_BME "\"][\"" BME_PRESSURE_KEY "\"] }}");
-    mqtt_resp_sendstr(r, HASS_TOPIC("pressure"), str, 2, true);
-    free(str);
+    const discovery_string_t pressure = {
+        .availability_topic = MQTT_AVAILABLE_TOPIC,
+        .device = DEFAULT_DEVICE,
+        .device_class = "pressure",
+        .force_update = true,
+        .icon = NULL,
+        .name = "Barometric Pressure",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = MQTT_CLIENT_NAME "_pressure",
+        .unit_of_measurement = PRESSURE_SCALE,
+        .value_template = VALUE_TEMPLATE2(JSON_ROOT_BME, BME_PRESSURE_KEY)
+    };
+    mqtt_send_discovery_string(HASS_TOPIC("pressure"), pressure);
+
+    const discovery_string_t dew_point = {
+        .availability_topic = MQTT_AVAILABLE_TOPIC,
+        .device = DEFAULT_DEVICE,
+        .device_class = NULL,
+        .force_update = true,
+        .icon = "mdi:weather-fog",
+        .name = "Dew Point",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = MQTT_CLIENT_NAME "_dew_point",
+        .unit_of_measurement = TEMPERATURE_SCALE,
+        .value_template = VALUE_TEMPLATE2(JSON_ROOT_BME, BME_DEW_POINT_KEY)
+    };
+    mqtt_send_discovery_string(HASS_TOPIC("dew_point"), dew_point);
 #endif // USE_BME280
 
 #ifdef USE_PMS5003
+    const discovery_string_t pm2_5 = {
+        .availability_topic = MQTT_AVAILABLE_TOPIC,
+        .device = DEFAULT_DEVICE,
+        .device_class = NULL,
+        .force_update = true,
+        .icon = "mdi:smog",
+        .name = "PM2.5",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = MQTT_CLIENT_NAME "_pm2_5",
+        .unit_of_measurement = "μg/m³",
+        .value_template = VALUE_TEMPLATE2(JSON_ROOT_PMS, PMS_PM2_5_KEY)
+    };
+    mqtt_send_discovery_string(HASS_TOPIC("pm2_5"), pm2_5);
 
+    const discovery_string_t pm10 = {
+        .availability_topic = MQTT_AVAILABLE_TOPIC,
+        .device = DEFAULT_DEVICE,
+        .device_class = NULL,
+        .force_update = true,
+        .icon = "mdi:smog",
+        .name = "PM10",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = MQTT_CLIENT_NAME "_pm10",
+        .unit_of_measurement = "μg/m³",
+        .value_template = VALUE_TEMPLATE2(JSON_ROOT_PMS, PMS_PM10_KEY)
+    };
+    mqtt_send_discovery_string(HASS_TOPIC("pm10"), pm10);
+
+   // TODO: build a value_template macro VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_AVG_KEY)
 #endif // USE_PMS5003
 
 #ifdef USE_SPH0645
-    // avg
-    str = get_discovery_string(MQTT_AVAILABLE_TOPIC,
-                               NULL,
-                               true,
-                               "mdi:volume-high", //icon
-                               "Average Noise Pollution",
-                               MQTT_STATE_TOPIC,
-                               MQTT_CLIENT_NAME "_avg_noise",
-                               "dBc",
-                               "{{ value_json[\"" JSON_ROOT_SPH "\"][\"" SPH_AVG_KEY "\"] }}");
-    mqtt_resp_sendstr(r, HASS_TOPIC("noise_avg"), str, 2, true);
-    free(str);
+    const discovery_string_t avg_noise = {
+        .availability_topic = MQTT_AVAILABLE_TOPIC,
+        .device = DEFAULT_DEVICE,
+        .device_class = NULL,
+        .force_update = true,
+        .icon = "mdi:volume-high",
+        .name = "Average Noise Pollution",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = MQTT_CLIENT_NAME "_noise_avg",
+        .unit_of_measurement = "dBc",
+        .value_template = VALUE_TEMPLATE2(JSON_ROOT_SPH, SPH_AVG_KEY)
+    };
+    mqtt_send_discovery_string(HASS_TOPIC("avg"), avg_noise);
 
+    const discovery_string_t min_noise = {
+        .availability_topic = MQTT_AVAILABLE_TOPIC,
+        .device = DEFAULT_DEVICE,
+        .device_class = NULL,
+        .force_update = true,
+        .icon = "mdi:volume-minus",
+        .name = "Minimum Noise Pollution",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = MQTT_CLIENT_NAME "_noise_min",
+        .unit_of_measurement = "dBc",
+        .value_template = VALUE_TEMPLATE2(JSON_ROOT_SPH, SPH_MIN_KEY)
+    };
+    mqtt_send_discovery_string(HASS_TOPIC("min"), min_noise);
+
+    const discovery_string_t max_noise = {
+        .availability_topic = MQTT_AVAILABLE_TOPIC,
+        .device = DEFAULT_DEVICE,
+        .device_class = NULL,
+        .force_update = true,
+        .icon = "mdi:volume-plus",
+        .name = "Maximum Noise Pollution",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = MQTT_CLIENT_NAME "_noise_max",
+        .unit_of_measurement = "dBc",
+        .value_template = VALUE_TEMPLATE2(JSON_ROOT_SPH, SPH_MAX_KEY)
+    };
+    mqtt_send_discovery_string(HASS_TOPIC("max"), max_noise);
+
+    const discovery_string_t num_samples = {
+        .availability_topic = MQTT_AVAILABLE_TOPIC,
+        .device = DEFAULT_DEVICE,
+        .device_class = NULL,
+        .force_update = true,
+        .icon = "mdi:counter",
+        .name = "Noise Pollution Samples",
+        .state_topic =  MQTT_STATE_TOPIC,
+        .unique_id = MQTT_CLIENT_NAME "_noise_samples",
+        .unit_of_measurement = NULL,
+        .value_template = VALUE_TEMPLATE2(JSON_ROOT_SPH, SPH_NUM_SAMPLES_KEY)
+    };
+    mqtt_send_discovery_string(HASS_TOPIC("num_samples"), num_samples);
 #endif // USE_SPH0645
 
     return ESP_OK;

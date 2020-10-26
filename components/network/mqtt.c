@@ -4,6 +4,7 @@
 
 #include "esp_log.h"
 #include "mqtt_client.h"
+#include "cJSON.h"
 
 static const char *TAG = "mqtt";
 
@@ -189,4 +190,36 @@ esp_err_t mqtt_resp_sendstr(const mqtt_req_t *r, const char *topic, const char *
 {
     const int ret = esp_mqtt_client_publish(*(r->client), topic, str, strlen(str), qos, retain);
     return ret == -1 ? ESP_FAIL : ESP_OK;
+}
+
+esp_err_t mqtt_send_discovery_string(const char *topic, discovery_string_t discovery)
+{
+    cJSON *root = cJSON_CreateObject();
+
+    // add device information
+    cJSON *device = cJSON_AddObjectToObject(root, "device");
+    cJSON_AddStringToObject(device, "name", discovery.device.name);
+    cJSON_AddStringToObject(device, "manufacturer", discovery.device.manufacturer);
+    cJSON_AddStringToObject(device, "model", discovery.device.model);
+    cJSON_AddStringToObject(device, "sw_version", discovery.device.sw_version);
+    // cJSON_AddStringToObject(device, "identifiers", __DATE__ __TIME__); TODO
+    cJSON_AddStringToObject(device, "identifiers", discovery.device.identifiers); // del me
+
+    // add entity information
+    if (discovery.device_class != NULL)
+        cJSON_AddStringToObject(root, "device_class", discovery.device_class);
+    if (discovery.icon != NULL)
+        cJSON_AddStringToObject(root, "icon", discovery.icon);
+    cJSON_AddBoolToObject(root, "force_update", discovery.force_update);
+    cJSON_AddStringToObject(root, "name", discovery.name);
+    cJSON_AddStringToObject(root, "state_topic", discovery.state_topic);
+    cJSON_AddStringToObject(root, "unique_id", discovery.unique_id);
+    cJSON_AddStringToObject(root, "unit_of_measurement", discovery.unit_of_measurement);
+    cJSON_AddStringToObject(root, "value_template", discovery.value_template);
+
+    char *str = cJSON_PrintUnformatted(root);
+    esp_mqtt_client_publish(client, topic, str, strlen(str), 2, false);
+    cJSON_Delete(root);
+    free(str);
+    return ESP_OK;
 }
