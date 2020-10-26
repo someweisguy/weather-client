@@ -98,7 +98,6 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .value_template = VALUE_TEMPLATE2(JSON_ROOT_SYSTEM, SYSTEM_BATT_LIFE_KEY)
     };
     mqtt_send_discovery_string(HASS_TOPIC("battery"), battery);
-
 #endif // USE_MAX17043
 
 #ifdef USE_BME280
@@ -187,8 +186,6 @@ esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
         .value_template = VALUE_TEMPLATE2(JSON_ROOT_PMS, PMS_PM10_KEY)
     };
     mqtt_send_discovery_string(HASS_TOPIC("pm10"), pm10);
-
-   // TODO: build a value_template macro VALUE_TEMPLATE(JSON_ROOT_SPH, SPH_AVG_KEY)
 #endif // USE_PMS5003
 
 #ifdef USE_SPH0645
