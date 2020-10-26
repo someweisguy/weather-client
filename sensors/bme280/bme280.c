@@ -228,11 +228,14 @@ esp_err_t bme280_get_data(bme280_data_t *data)
             adc_H = buf[6] << 8 | buf[7];
     int32_t t_fine; // used to compensate data
 
+    double celsius; // needed for dew point - can't use F or K!
+
     // get temperature value
     if (adc_T != 0x80000)
     {
         t_fine = calculate_t_fine(adc_T);
         data->temperature = compensate_temperature(t_fine) / 100.0; // default C
+        celsius = data->temperature;
 #ifdef CONFIG_FAHRENHEIT
         data->temperature = (data->temperature * 9.0 / 5.0) + 32; // convert to F
 #elif defined(CONFIG_KELVIN)
@@ -276,7 +279,7 @@ esp_err_t bme280_get_data(bme280_data_t *data)
     // calculate the dew point
     if (adc_T != 0x80000 && adc_H != 0x800)
     {
-        const double gamma = log(MAX(data->humidity, 0.001) / 100) + ((17.62 * data->temperature) / (243.12 + data->temperature));
+        const double gamma = log(MAX(data->humidity, 0.001) / 100) + ((17.62 * celsius) / (243.12 + celsius));
         data->dew_point = (243.12 * gamma) / (17.32 - gamma); // default C
 #ifdef CONFIG_FAHRENHEIT
         data->dew_point = (data->dew_point * 9.0 / 5.0) + 32; // convert to F
