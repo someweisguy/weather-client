@@ -29,6 +29,7 @@
 #define PMS_CHECKSUM_OK_KEY "checksum_ok"
 #define PMS_STANDARD_PARTICLE_KEY "standard"
 #define PMS_ATMOSPHERIC_PARTICLE_KEY "atmospheric"
+#define PMS_FAN_KEY "fan"
 #define PMS_PM1_KEY "pm1"
 #define PMS_PM2_5_KEY "pm2_5"
 #define PMS_PM10_KEY "pm10"
