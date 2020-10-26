@@ -60,6 +60,24 @@
 #define MQTT_GET_DATA_KEY "get_data"
 #define MQTT_RESET_DATA_KEY "reset_data"
 
+#ifdef CONFIG_OUTSIDE_STATION
+#define USE_MAX17043
+#define USE_BME280
+#define USE_PMS5003
+#define USE_SPH0645
+#endif
+
+#ifdef CONFIG_INSIDE_STATION
+#define USE_BME280
+#define USE_PMS5003
+// TODO: add CO2 sensor
+#endif
+
+#ifdef CONFIG_WIND_AND_RAIN_STATION
+#define USE_MAX17043
+// TODO: add wind vane and rain gauge
+#endif
+
 char *about_handler();
 
 esp_err_t config_handler(const char *request);

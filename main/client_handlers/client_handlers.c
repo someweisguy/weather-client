@@ -9,23 +9,7 @@
 #include "bme280.h"
 #include "sph0645.h"
 
-#ifdef CONFIG_OUTSIDE_STATION
-#define USE_MAX17043
-#define USE_BME280
-#define USE_PMS5003
-#define USE_SPH0645
-#endif
 
-#ifdef CONFIG_INSIDE_STATION
-#define USE_BME280
-#define USE_PMS5003
-// TODO: add CO2 sensor
-#endif
-
-#ifdef CONFIG_WIND_AND_RAIN_STATION
-#define USE_MAX17043
-// TODO: add wind vane and rain gauge
-#endif
 
 static void restart_task(void *args)
 {
