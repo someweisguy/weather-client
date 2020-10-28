@@ -13,6 +13,8 @@
 
 #define MQTT_TOPIC_BASE         "weather-station"
 #define MQTT_CLIENT_TOPIC       MQTT_TOPIC_BASE "/" MQTT_CLIENT_NAME
+#define MQTT_BIRTH_TOPIC        "homeassistant/status"
+#define MQTT_BIRTH_MESSAGE      "online"
 
 #define MQTT_STATE_TOPIC        MQTT_TOPIC_BASE "/" MQTT_CLIENT_NAME "/state"
 #define MQTT_AVAILABLE_TOPIC(n) MQTT_TOPIC_BASE "/" MQTT_CLIENT_NAME "/" n "/available"

@@ -106,6 +106,16 @@ esp_err_t mqtt_request_handler(mqtt_req_t *r)
 
 esp_err_t mqtt_homeassistant_handler(mqtt_req_t *r)
 {
+    // only send discovery strings on connect and when homeassistant comes online
+    if (r->topic != NULL && strcasecmp(r->topic, MQTT_BIRTH_TOPIC) == 0)
+    {
+        char content[r->content_len + 1];
+        strncpy(content, r->content, r->content_len);
+        if (strcasecmp(content, MQTT_BIRTH_MESSAGE) != 0)
+            return ESP_OK;
+    }
+
+
     const discovery_string_t rssi = {
         .device = DEFAULT_DEVICE,
         .device_class = "signal_strength",

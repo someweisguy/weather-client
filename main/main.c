@@ -76,6 +76,7 @@ void app_main(void)
     mqtt_start(CONFIG_MQTT_BROKER_URI);
     mqtt_subscribe(MQTT_CLIENT_TOPIC, 1, &mqtt_request_handler);
     mqtt_subscribe(MQTT_TOPIC_BASE, 1, &mqtt_request_handler);
+    mqtt_subscribe(MQTT_BIRTH_TOPIC, 1, &mqtt_homeassistant_handler);
     mqtt_on_connect(&mqtt_homeassistant_handler);
 #endif
 }
