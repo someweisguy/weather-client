@@ -2,8 +2,6 @@
 
 #include "client_handlers.h"
 
-#define HTTPD_507 "507 Insufficient Storage"
-
 esp_err_t http_data_handler(httpd_req_t *r)
 {
     // send json back to the client
