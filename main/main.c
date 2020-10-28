@@ -64,9 +64,6 @@ void app_main(void)
     ESP_LOGI(TAG, "starting http server");
     http_start();
     http_register_handler("/", HTTP_GET, &http_data_handler, (void *)0);  // keep data
-    http_register_handler("/", HTTP_POST, &http_data_handler, (void *)1); // clear data
-    http_register_handler("/", HTTP_PUT, &http_config_handler, NULL);
-    http_register_handler("/about", HTTP_GET, &http_about_handler, NULL);
     http_register_handler("/restart", HTTP_GET, &http_restart_handler, NULL);
 #endif
 

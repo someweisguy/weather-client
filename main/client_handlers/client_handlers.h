@@ -71,6 +71,7 @@
 #ifdef CONFIG_INSIDE_STATION
 #define USE_BME280
 #define USE_PMS5003
+#define USE_SPH0645
 // TODO: add CO2 sensor
 #endif
 
@@ -78,10 +79,6 @@
 #define USE_MAX17043
 // TODO: add wind vane and rain gauge
 #endif
-
-char *about_handler();
-
-esp_err_t config_handler(const char *request);
 
 char *data_handler(const bool clear_data);
 
