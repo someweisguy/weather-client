@@ -19,7 +19,11 @@
 #include "mqtt.h"
 #include "mqtt_handlers.h"
 
+#include "wireless.h"
+
 static const char *TAG = "main";
+
+void app_start(struct timeval *tv);
 
 void app_main(void)
 {
@@ -40,11 +44,28 @@ void app_main(void)
             esp_restart();
     }
 
+    wireless_start("192.168.0.2", app_start);
+
     // start serial communications
     i2c_init();
     uart_init();
     i2s_init();
 
+#ifdef CONFIG_USE_HTTP
+    // start http and register handlers
+    ESP_LOGI(TAG, "starting http server");
+    http_start();
+    http_register_handler("/", HTTP_GET, &http_data_handler, (void *)0);  // keep data
+    http_register_handler("/restart", HTTP_GET, &http_restart_handler, NULL);
+#endif
+
+ 
+
+}
+
+void app_start(struct timeval *tv)
+{
+    
     pms5003_reset();
     const pms5003_config_t pms_config = PMS5003_PASSIVE_ASLEEP;
     pms5003_set_config(&pms_config);
@@ -57,23 +78,11 @@ void app_main(void)
     const sph0645_config_t sph_config = SPH0645_DEFAULT_CONFIG;
     sph0645_set_config(&sph_config);
 
-    wlan_start();
 
-#ifdef CONFIG_USE_HTTP
-    // start http and register handlers
-    ESP_LOGI(TAG, "starting http server");
-    http_start();
-    http_register_handler("/", HTTP_GET, &http_data_handler, (void *)0);  // keep data
-    http_register_handler("/restart", HTTP_GET, &http_restart_handler, NULL);
-#endif
 
-#ifdef CONFIG_MQTT_BROKER_URI
-    // start mqtt and register handlers
-    ESP_LOGI(TAG, "starting mqtt client");
-    mqtt_start(CONFIG_MQTT_BROKER_URI);
-    mqtt_subscribe(MQTT_CLIENT_TOPIC, 1, &mqtt_request_handler);
-    mqtt_subscribe(MQTT_TOPIC_BASE, 1, &mqtt_request_handler);
-    mqtt_subscribe(MQTT_BIRTH_TOPIC, 1, &mqtt_homeassistant_handler);
-    mqtt_on_connect(&mqtt_homeassistant_handler);
-#endif
+    while (true)
+    {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        ESP_LOGI(TAG, "Info log message");
+    }
 }

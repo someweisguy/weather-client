@@ -3,6 +3,8 @@ idf_component_register(
         "wlan.c"
         "http.c"
         "mqtt.c"
+        "wireless.c"
+        "smartconfig.c"
     INCLUDE_DIRS 
         "include"
     REQUIRES
