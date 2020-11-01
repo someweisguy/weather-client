@@ -4,8 +4,13 @@
 #define PIN_NUM_TX 17 // Adafruit Feather 32 Default
 #define PIN_NUM_RX 16 // Adafruit Feather 32 Default
 
+static bool started = false;
+
 esp_err_t uart_init()
 {
+	if (started)
+		return ESP_OK;
+
 	// configure the uart port for the pms5003
 	const uart_config_t uart_config = {
 		.baud_rate = 9600,
@@ -17,7 +22,10 @@ esp_err_t uart_init()
 	};
 	uart_param_config(CONFIG_UART_PORT, &uart_config);
 	uart_set_pin(CONFIG_UART_PORT, PIN_NUM_TX, PIN_NUM_RX, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-	return uart_driver_install(CONFIG_UART_PORT, 255, 0, 10, NULL, 0);
+	esp_err_t err = uart_driver_install(CONFIG_UART_PORT, 255, 0, 10, NULL, 0);
+	if (!err)
+		started = true;
+	return err;
 }
 
 esp_err_t uart_deinit()

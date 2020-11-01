@@ -8,6 +8,8 @@
 #define PIN_NUM_SDA 23 // Adafruit Feather 32 Default
 #define PIN_NUM_SCL 22 // Adafruit Feather 32 Default
 
+static bool started = false;
+
 static esp_err_t i2c_master_command(char addr, char reg, void *buf, size_t size,
 									TickType_t timeout, const uint8_t READ_BIT)
 {
@@ -47,7 +49,10 @@ static esp_err_t i2c_master_command(char addr, char reg, void *buf, size_t size,
 }
 
 esp_err_t i2c_init()
-{
+{	
+	if (started)
+		return ESP_OK;
+
 	const i2c_config_t i2c_config = {
 		.mode = I2C_MODE_MASTER, // set to master mode
 		.master = {
@@ -62,6 +67,8 @@ esp_err_t i2c_init()
 	if (err)
 		return err;
 	err = i2c_driver_install(CONFIG_I2C_PORT, i2c_config.mode, 0, 0, 0);
+	if (!err)
+		started = true;
 	return err;
 }
 

@@ -7,8 +7,13 @@
 #define I2S_DATA_IN_PIN_NUM 27
 #define I2S_WORD_SELECT_PIN_NUM 33
 
+static bool started = false;
+
 esp_err_t i2s_init(void)
 {
+    if (started)
+        return ESP_OK;
+
     // install i2s driver
     const i2s_config_t i2s_config = {
         .mode = I2S_MODE_MASTER | I2S_MODE_RX,
@@ -33,6 +38,8 @@ esp_err_t i2s_init(void)
     err = i2s_set_pin(CONFIG_I2S_PORT, &pin_config);
     if (err)
         ESP_LOGE("i2s", "i2s set pin error %x", err);
+
+    started = true;
 
     return ESP_OK;
 }
