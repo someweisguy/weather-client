@@ -106,6 +106,8 @@ static void mic_reader_task(void *arg)
 
 esp_err_t sph0645_reset()
 {
+    i2s_init();
+    
     if (samples == NULL)
     {
         // Discard data to allow for mic startup

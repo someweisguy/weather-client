@@ -14,6 +14,8 @@ static int64_t fan_on_tick = -1;
 
 esp_err_t pms5003_reset()
 {
+    uart_init();
+    
     // reset the gpio
     gpio_reset_pin(PIN_NUM_SET);
     gpio_set_direction(PIN_NUM_SET, GPIO_MODE_INPUT_OUTPUT);

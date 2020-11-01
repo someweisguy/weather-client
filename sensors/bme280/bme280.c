@@ -118,6 +118,8 @@ static esp_err_t wait_for_device(uint8_t bit_to_wait_for)
 
 esp_err_t bme280_reset()
 {
+    i2c_init();
+
     const uint8_t soft_reset_word = 0xb6; // The soft reset word which resets the device using the complete power-on-reset procedure.
     esp_err_t err = i2c_bus_write(I2C_ADDRESS, REG_RESET, &soft_reset_word, 1, DEFAULT_WAIT_TIME);
     if (err)

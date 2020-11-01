@@ -20,6 +20,7 @@
 
 esp_err_t max17043_reset()
 {
+    i2c_init();
     const uint8_t reset_word[2] = {0x54, 0x00}; // power-on reset command
     esp_err_t err = i2c_bus_write_no_ack(DEVICE_ADDRESS, COMMAND_REG, reset_word, 2, DEFAULT_WAIT_TIME);
     ets_delay_us(1000); // delay 1ms for mode transition per datasheet
