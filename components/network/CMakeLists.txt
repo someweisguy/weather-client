@@ -1,14 +1,11 @@
 idf_component_register(
     SRCS 
-        "wlan.c"
-        "http.c"
-        "mqtt.c"
         "wireless.c"
         "smartconfig.c"
     INCLUDE_DIRS 
         "include"
     REQUIRES
-        esp_http_server
+    
     PRIV_REQUIRES
         json
         mqtt
