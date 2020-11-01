@@ -2,8 +2,6 @@ idf_component_register(
         SRCS
                 "main.c"
                 "client_handlers/client_handlers.c"
-                "client_handlers/http_handlers.c"
-                "client_handlers/mqtt_handlers.c"
         INCLUDE_DIRS 
                 "."
                 "client_handlers/"
