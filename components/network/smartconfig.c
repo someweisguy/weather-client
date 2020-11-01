@@ -5,7 +5,7 @@
 #include "mqtt_client.h"
 #include <string.h>
 
-static void event_handler(void *handler_args, esp_event_base_t base, int event_id, void *event_data)
+static void wifi_handler(void *handler_args, esp_event_base_t base, int event_id, void *event_data)
 {
     if (event_id == SC_EVENT_GOT_SSID_PSWD)
     {
@@ -37,6 +37,6 @@ esp_err_t smartconfig_start()
     esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS);
     const smartconfig_start_config_t smartcfg_config = SMARTCONFIG_START_CONFIG_DEFAULT();
     esp_smartconfig_fast_mode(true);
-    esp_event_handler_register(SC_EVENT, ESP_EVENT_ANY_ID, event_handler, NULL);
+    esp_event_handler_register(SC_EVENT, ESP_EVENT_ANY_ID, wifi_handler, NULL);
     return esp_smartconfig_start(&smartcfg_config);
 }

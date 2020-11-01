@@ -6,15 +6,28 @@
 #include "smartconfig.h"
 #include <string.h>
 
-
-typedef struct {
-    const char *mqtt_broker;
+typedef struct
+{
+    char *mqtt_broker;
     sntp_sync_time_cb_t callback;
 } connect_args_t;
 
 static esp_mqtt_client_handle_t mqtt_client = NULL;
 
-static void event_handler(void *handler_args, esp_event_base_t base, int event_id, void *event_data)
+static esp_err_t mqtt_handler(esp_mqtt_event_handle_t event)
+{
+    if (event->event_id == MQTT_EVENT_CONNECTED)
+    {
+        //mqtt_send("online", "Hello world!", 2, 0);
+    }
+    else
+    {
+        printf("Other MQTT event occurred: %i\n", event->event_id);
+    }
+    return ESP_OK;
+}
+
+static void wifi_handler(void *handler_args, esp_event_base_t base, int event_id, void *event_data)
 {
     if (base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
     {
@@ -39,10 +52,7 @@ static void event_handler(void *handler_args, esp_event_base_t base, int event_i
     else if (base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
         // handle connect
-        if (mqtt_client != NULL)
-            // we have connected before
-            esp_mqtt_client_start(mqtt_client);
-        else
+        if (mqtt_client == NULL)
         {
             // this is the first time we're connecting
             // get the connect args
@@ -50,8 +60,8 @@ static void event_handler(void *handler_args, esp_event_base_t base, int event_i
 
             // start the mqtt client
             const esp_mqtt_client_config_t config = {
-                .host = connect_args->mqtt_broker,
-            };
+                .uri = connect_args->mqtt_broker,
+                .event_handle = mqtt_handler};
             mqtt_client = esp_mqtt_client_init(&config);
 
             // connect to the sntp server and synchronize the time
@@ -63,6 +73,7 @@ static void event_handler(void *handler_args, esp_event_base_t base, int event_i
             sntp_init();
         }
 
+        esp_mqtt_client_start(mqtt_client);
     }
 }
 
@@ -78,12 +89,12 @@ esp_err_t wireless_start(const char *mqtt_broker, sntp_sync_time_cb_t callback)
 
     // allocate connect args
     connect_args_t *connect_args = malloc(sizeof(connect_args_t));
-    connect_args->mqtt_broker = mqtt_broker;
+    connect_args->mqtt_broker = strdup(mqtt_broker);
     connect_args->callback = callback;
 
     // register wifi event handlers
-    esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, event_handler, NULL);
-    esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, event_handler, (void *)connect_args);
+    esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_handler, NULL);
+    esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, wifi_handler, (void *)connect_args);
 
     // get wifi credentials from nvs
     wifi_config_t wifi_config = {};
@@ -104,4 +115,13 @@ esp_err_t wireless_start(const char *mqtt_broker, sntp_sync_time_cb_t callback)
         smartconfig_start();
 
     return ESP_OK;
+}
+
+esp_err_t mqtt_send(const char *topic, const char *message, int qos, bool retain)
+{
+    if (mqtt_client == NULL)
+        return ESP_ERR_INVALID_STATE;
+    const int ret = esp_mqtt_client_publish(mqtt_client, topic, message,
+                                            0, qos, retain);
+    return ret == -1 ? ESP_FAIL : ESP_OK;
 }
