@@ -1,5 +1,4 @@
 build
 sdkconfig.old
-secrets*
 .idea
-__pycache__
+.vscode
