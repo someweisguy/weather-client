@@ -7,10 +7,7 @@
 
 #include "wireless.h"
 
-#include "bme280.h"
-#include "max17043.h"
-#include "pms5003.h"
-#include "sph0645.h"
+
 
 static const char *TAG = "main";
 
@@ -33,22 +30,6 @@ void app_main(void)
 
     wireless_start("mqtt://192.168.0.2");
     // TODO: send discovery strings
-
-    // init sensors
-    pms5003_reset();
-    const pms5003_config_t pms_config = PMS5003_PASSIVE_ASLEEP;
-    pms5003_set_config(&pms_config);
-
-    bme280_reset();
-    const bme280_config_t bme_config = BME280_WEATHER_MONITORING;
-    bme280_set_config(&bme_config);
-    const double elevation = wireless_get_elevation();
-    bme280_set_elevation(elevation);
-
-    sph0645_reset();
-    const sph0645_config_t sph_config = SPH0645_DEFAULT_CONFIG;
-    sph0645_set_config(&sph_config);
-
 
     // configure a periodic timer for every 5 minutes
     esp_timer_init();
