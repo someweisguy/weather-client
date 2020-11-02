@@ -134,14 +134,6 @@ CONFIG_IN_HG=y
 # end of Weather Station Setup
 
 #
-# Serial Configuration
-#
-CONFIG_I2C_PORT=1
-CONFIG_UART_PORT=1
-CONFIG_I2S_PORT=0
-# end of Serial Configuration
-
-#
 # Compiler options
 #
 CONFIG_COMPILER_OPTIMIZATION_DEFAULT=y
