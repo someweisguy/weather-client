@@ -14,7 +14,6 @@ void timer_callback(void *args);
 
 void app_main(void)
 {
-    // create default event loop
     esp_event_loop_create_default();
 
     // init non-volatile storage
@@ -28,10 +27,10 @@ void app_main(void)
     }
 
     // start wireless (blocks) and sensors
-    wireless_start("mqtt://192.168.0.2");
+    wireless_start(CONFIG_MQTT_BROKER_URI);
     sensors_start(NULL);
 
-    // configure a periodic timer for every 5 minutes
+    // configure and create a periodic timer
     esp_timer_init();
     const esp_timer_create_args_t timer_args = {
         .callback = timer_callback};
@@ -45,7 +44,7 @@ void app_main(void)
     vTaskDelay(ms_to_wakeup / portTICK_PERIOD_MS);
 
     // start the periodic timer and call the callback
-    esp_timer_start_periodic(main_timer, 5 * 60 * 1000 * 1000);
+    esp_timer_start_periodic(main_timer, 5 * 60 * 1000 * 1000); // 5 minutes
     timer_callback(NULL);
 }
 
