@@ -135,7 +135,7 @@ esp_err_t mqtt_publish(const char *topic, const char *message, int qos, bool ret
 
 esp_err_t mqtt_publish_json(const char *topic, cJSON *json, int qos, bool retain)
 {
-    const char *message = cJSON_PrintUnformatted(json);
+    char *message = cJSON_PrintUnformatted(json);
     const esp_err_t err = mqtt_publish(topic, message, qos, retain);
     free(message);
     return err;
