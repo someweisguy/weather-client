@@ -70,8 +70,7 @@ static void wifi_handler(void *handler_args, esp_event_base_t base, int event_id
             // connect to the sntp server and synchronize the time
             sntp_set_time_sync_notification_cb(sntp_callback);
             sntp_setoperatingmode(SNTP_OPMODE_POLL);
-            sntp_setservername(0, "pool.ntp.org");
-            sntp_set_sync_interval(60 * 1000); // 1 minute
+            sntp_setservername(0, "time.google.com");
             sntp_init();
         }
 
