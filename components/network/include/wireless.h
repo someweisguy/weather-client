@@ -39,6 +39,7 @@ typedef struct
         struct
         {
             char *icon;
+            char *unit_of_measurement;
         } sensor;
         struct
         {
