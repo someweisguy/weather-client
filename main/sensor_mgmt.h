@@ -6,6 +6,7 @@
 #ifdef CONFIG_OUTSIDE_STATION
 #define DEVICE_NAME "Outdoor Weather Station"
 #define MODEL_NAME "Outdoor Model"
+#define CLIENT_NAME "outside"
 #define USE_MAX17043
 #define USE_BME280
 #define USE_PMS5003
@@ -13,6 +14,7 @@
 #elif defined(CONFIG_INSIDE_STATION)
 #define DEVICE_NAME "Indoor Weather Station"
 #define MODEL_NAME "Indoor Model"
+#define CLIENT_NAME "inside"
 #define USE_BME280
 #define USE_PMS5003
 #define USE_SPH0645
@@ -20,6 +22,7 @@
 #elif defined(CONFIG_WIND_AND_RAIN_STATION)
 #define DEVICE_NAME "Wind & Rain Station"
 #define MODEL_NAME "Wind & Rain Model"
+#define CLIENT_NAME "wind_rain"
 #define USE_MAX17043
 // TODO: add wind vane and rain gauge
 #endif
@@ -42,16 +45,6 @@
 #define HUMIDITY_SCALE "%"
 #define NOISE_SCALE "dBc"
 #define PM_SCALE "μg/m³"
-
-#define DEFAULT_DEVICE                    \
-    {                                     \
-        .identifiers = MODEL_NAME         \
-        .manufacturer = "Mitch Weisbrod", \
-        .model = MODEL_NAME,              \
-        .name = DEVICE_NAME,              \
-        .sw_version = "",                 \
-    }
-
 
 void sensors_start();
 
