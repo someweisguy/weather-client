@@ -23,6 +23,8 @@
 #define JSON_PM2_5_KEY "pm2_5"
 #define JSON_PM10_KEY "pm10"
 #define JSON_FAN_KEY "fan"
+#define JSON_FAN_ON_VALUE "on"
+#define JSON_FAN_OFF_VALUE "off"
 // sph0645 json keys
 #define JSON_AVG_NOISE_KEY "avg_noise"
 #define JSON_MIN_NOISE_KEY "min_noise"
@@ -249,6 +251,7 @@ void sensors_wakeup(cJSON* json) {
     pms_config.sleep = 1;  // wakeup
     err = pms5003_set_config(&pms_config);
     if (err) break;
+    cJSON_AddStringToObject(json, JSON_FAN_KEY, JSON_FAN_ON_VALUE);
   } while (false);
 #endif  // USE_PMS5003
 }
@@ -304,6 +307,7 @@ void sensors_sleep(cJSON* json) {
     pms_config.sleep = 1;  // wakeup
     err = pms5003_set_config(&pms_config);
     if (err) break;
+    cJSON_AddStringToObject(json, JSON_FAN_KEY, JSON_FAN_OFF_VALUE);
   } while (false);
 #endif  // USE_PMS5003
 }
