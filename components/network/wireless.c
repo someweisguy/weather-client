@@ -217,10 +217,12 @@ double wireless_get_elevation() {
   return elevation;
 }
 
-esp_err_t mqtt_publish_discovery(mqtt_discovery_t discovery) {
+esp_err_t mqtt_publish_discovery(const mqtt_discovery_t *discovery) {
+  if (discovery == NULL) return ESP_OK;
+
   // declare format string and get the type string
   const char *fmt = DISCOVERY_PREFIX "/%s/%s/config", *type;
-  switch (discovery.type) {
+  switch (discovery->type) {
     case MQTT_SENSOR:
       type = "sensor";
       break;
@@ -232,11 +234,11 @@ esp_err_t mqtt_publish_discovery(mqtt_discovery_t discovery) {
   }
 
   // build the publish topic
-  char topic[strlen(fmt) + strlen(type) + strlen(discovery.unique_id)];
-  sprintf(topic, fmt, type, discovery.unique_id);
+  char topic[strlen(fmt) + strlen(type) + strlen(discovery->unique_id)];
+  sprintf(topic, fmt, type, discovery->unique_id);
 
   // start building the discovery json
-  if (discovery.state_topic == NULL) return ESP_ERR_INVALID_ARG;
+  if (discovery->state_topic == NULL) return ESP_ERR_INVALID_ARG;
   cJSON *json = cJSON_CreateObject();
 
   // TODO

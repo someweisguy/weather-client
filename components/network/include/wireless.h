@@ -53,4 +53,4 @@ double wireless_get_elevation();
 
 int8_t wireless_get_rssi();
 
-esp_err_t mqtt_publish_discovery(mqtt_discovery_t discovery);
+esp_err_t mqtt_publish_discovery(const mqtt_discovery_t *discovery);
