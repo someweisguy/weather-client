@@ -8,9 +8,9 @@
 #include "wireless.h"
 
 // wifi json keys
-#define JSON_RSSI_KEY "signal_strength"
+#define JSON_SIGNAL_STRENGTH_KEY "signal_strength"
 // max17043 json keys
-#define JSON_BATT_KEY "battery"
+#define JSON_BATTERY_KEY "battery"
 // bme280 json keys
 #define JSON_TEMPERATURE_KEY "temperature"
 #define JSON_HUMIDITY_KEY "humidity"
@@ -58,7 +58,7 @@ void sensors_start()
         .sensor = {
             .unit_of_measurement = SIGNAL_STRENGTH_SCALE,
         },
-        .value_template = VALUE_TEMPLATE(JSON_RSSI_KEY)};
+        .value_template = VALUE_TEMPLATE(JSON_SIGNAL_STRENGTH_KEY)};
     mqtt_publish_discovery(SENSOR_TOPIC("signal_strength"), signal_strength);
 
 #ifdef USE_BME280
@@ -127,7 +127,7 @@ void sensors_get_data(cJSON *json)
 
     // get wifi rssi
     const int8_t rssi = wireless_get_rssi();
-    cJSON_AddNumberToObject(json, JSON_RSSI_KEY, rssi);
+    cJSON_AddNumberToObject(json, JSON_SIGNAL_STRENGTH_KEY, rssi);
 
 #ifdef USE_MAX17043
     do
@@ -137,7 +137,7 @@ void sensors_get_data(cJSON *json)
         if (err)
             break;
         const uint8_t battery = (uint8_t)data.battery_life;
-        cJSON_AddNumberToObject(json, JSON_BATT_KEY, battery);
+        cJSON_AddNumberToObject(json, JSON_BATTERY_KEY, battery);
     } while (false);
 #endif // USE_MAX17043
 
