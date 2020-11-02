@@ -219,6 +219,10 @@ double wireless_get_elevation() {
 
 esp_err_t mqtt_publish_discovery(const mqtt_discovery_t *discovery) {
   if (discovery == NULL) return ESP_OK;
+  if (discovery->state_topic == NULL) {
+    ESP_LOGE(TAG, "discovery missing required keys");
+    return ESP_ERR_INVALID_ARG;
+  }
 
   // declare format string and get the type string
   const char *fmt = DISCOVERY_PREFIX "/%s/%s/config", *type;
@@ -238,12 +242,65 @@ esp_err_t mqtt_publish_discovery(const mqtt_discovery_t *discovery) {
   sprintf(topic, fmt, type, discovery->unique_id);
 
   // start building the discovery json
-  if (discovery->state_topic == NULL) return ESP_ERR_INVALID_ARG;
   cJSON *json = cJSON_CreateObject();
 
-  // TODO
+  // add required options
+  cJSON_AddStringToObject(json, "state_topic", discovery->state_topic);
 
-  esp_err_t err = mqtt_publish_json(topic, json, 2, true);
+  // add device information
+  cJSON *device = cJSON_CreateObject();
+  if (discovery->device.name != NULL)
+    cJSON_AddStringToObject(device, "name", discovery->device.name);
+  if (discovery->device.manufacturer != NULL)
+    cJSON_AddStringToObject(device, "manufacturer",
+                            discovery->device.manufacturer);
+  if (discovery->device.model != NULL)
+    cJSON_AddStringToObject(device, "model", discovery->device.model);
+  if (discovery->device.sw_version != NULL)
+    cJSON_AddStringToObject(device, "sw_version", discovery->device.sw_version);
+  if (discovery->device.identifiers != NULL)
+    cJSON_AddStringToObject(device, "identifiers",
+                            discovery->device.identifiers);
+  if (cJSON_GetArraySize(device) > 0)
+    cJSON_AddItemToObject(json, "device", device);
+
+  // add entity information
+  if (discovery->name != NULL)
+    cJSON_AddStringToObject(json, "name", discovery->name);
+  if (discovery->unique_id != NULL)
+    cJSON_AddStringToObject(json, "unique_id", discovery->unique_id);
+
+  if (discovery->availability_topic != NULL)
+    cJSON_AddStringToObject(json, "availability_topic",
+                            discovery->availability_topic);
+  if (discovery->device_class != NULL)
+    cJSON_AddStringToObject(json, "device_class", discovery->device_class);
+  if (discovery->expire_after != 0)
+    cJSON_AddNumberToObject(json, "expire_after", discovery->expire_after);
+  if (discovery->force_update == true)
+    cJSON_AddBoolToObject(json, "force_update", discovery->force_update);
+  if (discovery->value_template != NULL)
+    cJSON_AddStringToObject(json, "value_template", discovery->value_template);
+
+  // add device type dependent options
+  if (discovery->type == MQTT_SENSOR) {
+    // add sensor options
+    if (discovery->sensor.unit_of_measurement != NULL)
+      cJSON_AddStringToObject(json, "unit_of_measurement",
+                              discovery->sensor.unit_of_measurement);
+    if (discovery->sensor.icon != NULL)
+      cJSON_AddStringToObject(json, "icon", discovery->sensor.icon);
+  } else if (discovery->type == MQTT_BINARY_SENSOR) {
+    // add binary sensor options
+    if (discovery->binary_sensor.payload_on != NULL)
+      cJSON_AddStringToObject(json, "payload_on",
+                              discovery->binary_sensor.payload_on);
+    if (discovery->binary_sensor.payload_off != NULL)
+      cJSON_AddStringToObject(json, "payload_off",
+                              discovery->binary_sensor.payload_off);
+  }
+
+  esp_err_t err = mqtt_publish_json(topic, json, 2, false);
   cJSON_Delete(json);
   return err;
 }
