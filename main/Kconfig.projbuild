@@ -21,12 +21,6 @@ menu "Weather Station Setup"
         string "MQTT broker URI."
         help
             Define a MQTT broker to connect to. Leaving this blank disables MQTT.
-
-    config USE_HTTP
-        bool "Use HTTP server as a host handler."
-        default y
-        help 
-            Enables the HTTP server to serve weather data.
     
     choice TEMPERATURE_SCALE
         prompt "Select which temperature scale to use."
