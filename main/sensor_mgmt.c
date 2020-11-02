@@ -23,8 +23,24 @@
 // TODO: add wind vane and rain gauge
 #endif
 
-#define JSON_RSSI_KEY "signal_strength"
-#define JSON_BATT_KEY "battery"
+// wifi json keys
+#define JSON_RSSI_KEY           "signal_strength"
+// max17043 json keys
+#define JSON_BATT_KEY           "battery"
+// bme280 json keys
+#define JSON_TEMPERATURE_KEY    "temperature"
+#define JSON_HUMIDITY_KEY       "humidity"
+#define JSON_PRESSURE_KEY       "pressure"
+#define JSON_DEW_POINT_KEY      "dew_point"
+// pms5003 json keys
+#define JSON_PM1_KEY            "pm1"
+#define JSON_PM2_5_KEY          "pm2_5"
+#define JSON_PM10_KEY           "pm10"
+#define JSON_FAN_KEY            "fan"
+// sph0645 json keys
+#define JSON_AVG_NOISE_KEY      "avg_noise"
+#define JSON_MIN_NOISE_KEY      "min_noise"
+#define JSON_MAX_NOISE_KEY      "max_noise"
 
 void sensors_start(cJSON *json)
 {
@@ -104,7 +120,7 @@ void sensors_get_data(cJSON *json)
         err = max17043_get_data(&data);
         if (err)
             break;
-        const uint8_t battery = (uint8_t) data.battery_life;
+        const uint8_t battery = (uint8_t)data.battery_life;
         cJSON_AddNumberToObject(json, JSON_BATT_KEY, battery);
     } while (false);
 #endif // USE_MAX17043
