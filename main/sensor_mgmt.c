@@ -185,7 +185,11 @@ void sensors_start() {
        .name = "Air Quality Sensor Fan",
        .state_topic = STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_FAN_KEY),
-       .binary_sensor = {},
+       .binary_sensor =
+           {
+               .payload_on = JSON_FAN_ON_VALUE,
+               .payload_off = JSON_FAN_OFF_VALUE,
+           },
        .value_template = VALUE_TEMPLATE(JSON_FAN_KEY)},
   };
   for (int i = 0; i < sizeof(pms5003_discovery) / sizeof(mqtt_discovery_t); ++i)
@@ -268,16 +272,15 @@ void sensors_get_data(cJSON* json) {
     max17043_data_t data;
     err = max17043_get_data(&data);
     if (err) break;
-    const uint8_t battery = (uint8_t)data.battery_life;
-    cJSON_AddNumberToObject(json, JSON_BATTERY_KEY, battery);
+    cJSON_AddNumberToObject(json, JSON_BATTERY_KEY, (int)data.battery_life);
   } while (false);
 #endif  // USE_MAX17043
 
 #ifdef USE_BME280
   do {
-    bme280_data_t data;
     err = bme280_force_measurement();
     if (err) break;
+    bme280_data_t data;
     err = bme280_get_data(&data);
     if (err) break;
     cJSON_AddNumberToObject(json, JSON_TEMPERATURE_KEY,
@@ -289,11 +292,26 @@ void sensors_get_data(cJSON* json) {
 #endif  // USE BME280
 
 #ifdef USE_PMS5003
-
+  do {
+    pms5003_data_t data;
+    err = pms5003_get_data(&data);
+    if (err || !data.checksum_ok) break;
+    cJSON_AddNumberToObject(json, JSON_PM1_KEY, data.concAtm.pm1);
+    cJSON_AddNumberToObject(json, JSON_PM2_5_KEY, data.concAtm.pm2_5);
+    cJSON_AddNumberToObject(json, JSON_PM10_KEY, data.concAtm.pm10);
+  } while (false);
 #endif  // USE_PMS5003
 
 #ifdef USE_SPH0645
-
+  do {
+    sph0645_data_t data;
+    err = sph0645_get_data(&data);
+    sph0645_reset();
+    if (err) break;
+    cJSON_AddNumberToObject(json, JSON_AVG_NOISE_KEY, TRUNCATE(data.avg));
+    cJSON_AddNumberToObject(json, JSON_MIN_NOISE_KEY, TRUNCATE(data.min));
+    cJSON_AddNumberToObject(json, JSON_MAX_NOISE_KEY, TRUNCATE(data.max));
+  } while (false);
 #endif  // USE_PMS5003
 }
 
