@@ -27,17 +27,40 @@
 #define JSON_MIN_NOISE_KEY "min_noise"
 #define JSON_MAX_NOISE_KEY "max_noise"
 
-#define UNIQUE_ID(n) (MQTT_CLIENT_NAME "_" n)
-#define SENSOR_TOPIC(n) ("homeassistant/sensor/" MQTT_CLIENT_NAME "_" n "/config")
-#define BINARY_SENSOR_TOPIC(n) ("homeassistant/binary_sensor/" MQTT_CLIENT_NAME "_" n "/config")
-#define VALUE_TEMPLATE1(a) ("{{ value_json['" a "'] }}")
-#define VALUE_TEMPLATE2(a, b) ("{{ value_json['" a "']['" b "'] }}")
+#define STATE_TOPIC ("weather-station/" CLIENT_NAME)
+#define UNIQUE_ID(n) (CLIENT_NAME "_" n)
+#define SENSOR_TOPIC(n) ("homeassistant/sensor/" CLIENT_NAME "_" n "/config")
+#define BINARY_SENSOR_TOPIC(n) ("homeassistant/binary_sensor/" CLIENT_NAME "_" n "/config")
+#define VALUE_TEMPLATE(a) ("{{ value_json['" a "'] }}")
 
 #define TRUNCATE(n) (((int64_t)(n * 100)) / 100)
+
+#define DEFAULT_DEVICE                    \
+    {                                     \
+        .identifiers = MODEL_NAME,        \
+        .manufacturer = "Mitch Weisbrod", \
+        .model = MODEL_NAME,              \
+        .name = DEVICE_NAME,              \
+        .sw_version = ""                  \
+    }
 
 void sensors_start()
 {
     esp_err_t err = ESP_OK;
+
+    const mqtt_discovery_t signal_strength = {
+        .type = MQTT_SENSOR,
+        .device = DEFAULT_DEVICE,
+        .device_class = "signal_strength",
+        .name = "Signal Strength",
+        .state_topic = STATE_TOPIC,
+        .unique_id = UNIQUE_ID("signal_strength"),
+        .sensor = {
+            .unit_of_measurement = SIGNAL_STRENGTH_SCALE,
+        },
+        .value_template = VALUE_TEMPLATE(JSON_RSSI_KEY)};
+    mqtt_publish_discovery(SENSOR_TOPIC("signal_strength"), signal_strength);
+
 #ifdef USE_BME280
     do
     {
