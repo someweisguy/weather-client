@@ -17,8 +17,6 @@
 #define REG_TRIM_T1_TO_H1 0x88
 #define REG_TRIM_H2_TO_H6 0xe1
 
-#define ELEVATION_NVS_PAGE "bme"
-#define ELEVATION_NVS_KEY "elevation"
 #define MEASURING_BIT 8
 #define IM_UPDATE_BIT 1
 
@@ -26,7 +24,7 @@
 
 #define MAX(a, b) (a > b ? a : b)
 
-static int32_t elevation; // The elevation of the weather station (meters). Used to compensate pressure at current elevation from sea level.
+static double elevation; // The elevation of the weather station (meters). Used to compensate pressure at current elevation from sea level.
 
 static struct
 {
@@ -143,23 +141,6 @@ esp_err_t bme280_reset()
     dig.h4 = buf[28] << 4 | (buf[29] & 0x0f);
     dig.h5 = buf[30] << 4 | buf[29] >> 4;
     dig.h6 = buf[31];
-
-    // load elevation from nvs
-    nvs_handle_t nvs;
-    err = nvs_open(ELEVATION_NVS_PAGE, NVS_READWRITE, &nvs);
-    if (err)
-        return err;
-    err = nvs_get_i32(nvs, ELEVATION_NVS_KEY, &elevation);
-    if (err == ESP_ERR_NVS_NOT_FOUND)
-    {
-        // elevation hasn't been initialized in nvs yet
-        elevation = 0; // default is sea level
-        err = nvs_set_i32(nvs, ELEVATION_NVS_KEY, elevation);
-        if (!err)
-            err = nvs_commit(nvs);
-    }
-
-    nvs_close(nvs);
 
     return err;
 }
@@ -301,28 +282,12 @@ esp_err_t bme280_get_chip_id(uint8_t *chip_id)
     return i2c_bus_write(I2C_ADDRESS, REG_CHIP_ID, chip_id, 1, DEFAULT_WAIT_TIME);
 }
 
-int32_t bme280_get_elevation()
+double bme280_get_elevation()
 {
     return elevation;
 }
 
-esp_err_t bme280_set_elevation(int32_t meters)
+void bme280_set_elevation(int32_t meters)
 {
-    // avoid unecessary nvs read/write
-    if (meters == elevation)
-        return ESP_OK;
-
-    nvs_handle_t nvs;
-    esp_err_t err = nvs_open(ELEVATION_NVS_PAGE, NVS_READWRITE, &nvs);
-    if (err)
-        return err;
-    err = nvs_set_i32(nvs, ELEVATION_NVS_KEY, meters);
-    if (!err)
-        err = nvs_commit(nvs);
-
-    nvs_close(nvs);
-
     elevation = meters;
-
-    return err;
 }

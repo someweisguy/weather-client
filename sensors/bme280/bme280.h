@@ -84,5 +84,5 @@ esp_err_t bme280_get_data(bme280_data_t *data);
 
 esp_err_t bme280_get_chip_id(uint8_t *chip_id);
 
-int32_t bme280_get_elevation();
-esp_err_t bme280_set_elevation(int32_t meters);
+double bme280_get_elevation();
+void bme280_set_elevation(int32_t meters);
