@@ -1,10 +1,10 @@
 #include "bme280.h"
 
+#include "i2c.h"
+#include "nvs.h"
+#include "nvs_flash.h"
 #include <math.h>
 #include <string.h>
-#include "i2c.h"
-#include "nvs_flash.h"
-#include "nvs.h"
 
 #define I2C_ADDRESS 0x76
 #define REG_CHIP_ID 0xd0
@@ -230,18 +230,19 @@ esp_err_t bme280_get_data(bme280_data_t *data)
             adc_H = buf[6] << 8 | buf[7];
     int32_t t_fine; // used to compensate data
 
-    double celsius; // needed for dew point - can't use F or K!
+    double celsius; // needed for dew point and pressure
 
     // get temperature value
     if (adc_T != 0x80000)
     {
         t_fine = calculate_t_fine(adc_T);
-        data->temperature = compensate_temperature(t_fine) / 100.0; // default C
-        celsius = data->temperature;
-#ifdef CONFIG_FAHRENHEIT
-        data->temperature = (data->temperature * 9.0 / 5.0) + 32; // convert to F
+        celsius = compensate_temperature(t_fine) / 100.0; // default C
+#ifdef CONFIG_CELSIUS
+        data->temperature = celsius;
+#elif defined(CONFIG_FAHRENHEIT)
+        data->temperature = (celsius * 9.0 / 5.0) + 32; // convert to F
 #elif defined(CONFIG_KELVIN)
-        data->temperature += 273.15; // convert to K
+        data->temperature = celsius + 273.15; // convert to K
 #endif
     }
     else
@@ -261,7 +262,7 @@ esp_err_t bme280_get_data(bme280_data_t *data)
         const double M = 0.02897,                                                 // molar mass of Eath's air (kg/mol)
             g = 9.807665,                                                         // gravitational constant (m/s^2)
             R = 8.3145,                                                           // universal gas constant (J/mol*K)
-            K = data->temperature + 273.15;                                       // temperature in Kelvin
+            K = celsius + 273.15;                                                 // temperature in Kelvin
         data->pressure = pressure_sea_level * exp((M * g) / (R * K) * elevation); // default Pa
 #ifdef CONFIG_IN_HG
         data->pressure /= 3386.0; // convert to inHg
