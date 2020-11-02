@@ -1,13 +1,12 @@
+#include "cJSON.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "nvs_flash.h"
-#include <sys/time.h>
-
+#include "sensor_mgmt.h"
 #include "wireless.h"
-
-
+#include <sys/time.h>
 
 static const char *TAG = "main";
 
@@ -28,8 +27,9 @@ void app_main(void)
             esp_restart();
     }
 
+    // start wireless (blocks) and sensors
     wireless_start("mqtt://192.168.0.2");
-    // TODO: send discovery strings
+    sensors_start(NULL);
 
     // configure a periodic timer for every 5 minutes
     esp_timer_init();
@@ -51,13 +51,29 @@ void app_main(void)
 
 void timer_callback(void *args)
 {
-    // wake up sensors
     TickType_t wake_tick = xTaskGetTickCount();
+
+    // wake up sensors and report results
+    cJSON *json = cJSON_CreateObject();
+    sensors_wakeup(json);
+    mqtt_publish_json("test", json, 2, false);
+    cJSON_Delete(json);
     ESP_LOGI(TAG, "Woke up!");
-    mqtt_publish("test", "Woke up!", 2, false);
 
     // wait 32 seconds
     vTaskDelayUntil(&wake_tick, (32 * 1000) / portTICK_PERIOD_MS);
+
+    // get data and report results
+    json = cJSON_CreateObject();
+    sensors_get_data(json);
+    mqtt_publish_json("test", json, 2, false);
+    cJSON_Delete(json);
     ESP_LOGI(TAG, "Took data!");
-    mqtt_publish("test", "Took data!", 2, false);
+
+    // sleep sensors and report results
+    json = cJSON_CreateObject();
+    sensors_sleep(json);
+    mqtt_publish_json("test", json, 2, false);
+    cJSON_Delete(json);
+    ESP_LOGI(TAG, "Went to sleep!");
 }
