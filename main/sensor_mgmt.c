@@ -8,20 +8,7 @@
 #include "sph0645.h"
 #include "wireless.h"
 
-#ifdef CONFIG_OUTSIDE_STATION
-#define USE_MAX17043
-#define USE_BME280
-#define USE_PMS5003
-#define USE_SPH0645
-#elif defined(CONFIG_INSIDE_STATION)
-#define USE_BME280
-#define USE_PMS5003
-#define USE_SPH0645
-// TODO: add CO2 sensor
-#elif defined(CONFIG_WIND_AND_RAIN_STATION)
-#define USE_MAX17043
-// TODO: add wind vane and rain gauge
-#endif
+
 
 // wifi json keys
 #define JSON_RSSI_KEY           "signal_strength"
@@ -32,6 +19,7 @@
 #define JSON_HUMIDITY_KEY       "humidity"
 #define JSON_PRESSURE_KEY       "pressure"
 #define JSON_DEW_POINT_KEY      "dew_point"
+#define JSON_ELEVATION_KEY      "elevation"
 // pms5003 json keys
 #define JSON_PM1_KEY            "pm1"
 #define JSON_PM2_5_KEY          "pm2_5"
@@ -41,6 +29,8 @@
 #define JSON_AVG_NOISE_KEY      "avg_noise"
 #define JSON_MIN_NOISE_KEY      "min_noise"
 #define JSON_MAX_NOISE_KEY      "max_noise"
+
+#define TRUNCATE(n)             (((int64_t)(n * 100)) / 100)
 
 void sensors_start(cJSON *json)
 {
@@ -124,6 +114,25 @@ void sensors_get_data(cJSON *json)
         cJSON_AddNumberToObject(json, JSON_BATT_KEY, battery);
     } while (false);
 #endif // USE_MAX17043
+
+#ifdef USE_BME280
+    do
+    {
+        bme280_data_t data;
+        err = bme280_force_measurement();
+        if (err)
+            break;
+        err = bme280_get_data(&data);
+        if (err)
+            break;
+        cJSON_AddNumberToObject(json, JSON_TEMPERATURE_KEY, TRUNCATE(data.temperature));
+        cJSON_AddNumberToObject(json, JSON_HUMIDITY_KEY, TRUNCATE(data.humidity));
+        cJSON_AddNumberToObject(json, JSON_PRESSURE_KEY, TRUNCATE(data.pressure));
+        cJSON_AddNumberToObject(json, JSON_DEW_POINT_KEY, TRUNCATE(data.dew_point));
+        cJSON_AddNumberToObject(json, JSON_ELEVATION_KEY, TRUNCATE(bme280_get_elevation()));
+    } while (false);
+#endif // USE BME280
+
 }
 
 void sensors_sleep(cJSON *json)
