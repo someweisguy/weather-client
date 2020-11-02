@@ -226,7 +226,7 @@ void sensors_start() {
        .device = DEFAULT_DEVICE,
        .name = "Maximum Noise",
        .state_topic = STATE_TOPIC,
-       .unique_id = UNIQUE_ID(JSON_MIN_NOISE_KEY),
+       .unique_id = UNIQUE_ID(JSON_MAX_NOISE_KEY),
        .sensor =
            {
                .icon = "mdi:volume-plus",
