@@ -227,3 +227,17 @@ double wireless_get_elevation()
 
     return elevation;
 }
+
+esp_err_t mqtt_publish_discovery(const char *topic, mqtt_discovery_t discovery)
+{
+    cJSON *json = cJSON_CreateObject();
+
+    if (discovery.state_topic == NULL)
+        return ESP_ERR_INVALID_ARG;
+
+    // TODO
+
+    esp_err_t err = mqtt_publish_json(topic, json, 2, true);
+    cJSON_Delete(json);
+    return err;
+}
