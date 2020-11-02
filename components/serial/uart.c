@@ -1,6 +1,7 @@
 #include "uart.h"
 #include "driver/uart.h"
 
+#define CONFIG_UART_PORT 1 // default UART port
 #define PIN_NUM_TX 17 // Adafruit Feather 32 Default
 #define PIN_NUM_RX 16 // Adafruit Feather 32 Default
 

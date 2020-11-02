@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "driver/i2s.h"
 
+#define CONFIG_I2S_PORT 0 // default I2S port
 #define I2S_BIT_CLOCK_PIN_NUM 12
 #define I2S_DATA_IN_PIN_NUM 27
 #define I2S_WORD_SELECT_PIN_NUM 33

@@ -5,6 +5,7 @@
 #define READ 1
 #define WRITE_NO_ACK 2
 
+#define CONFIG_I2C_PORT 1 // default I2C port
 #define PIN_NUM_SDA 23 // Adafruit Feather 32 Default
 #define PIN_NUM_SCL 22 // Adafruit Feather 32 Default
 
