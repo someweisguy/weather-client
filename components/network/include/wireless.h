@@ -1,8 +1,11 @@
 #pragma once
 
 #include "esp_system.h"
-#include "esp_sntp.h"
 
-esp_err_t wireless_start(const char *mqtt_broker, sntp_sync_time_cb_t callback);
+esp_err_t wireless_start(const char *mqtt_broker);
 
-esp_err_t mqtt_send(const char *topic, const char *message, int qos, bool retain);
+esp_err_t mqtt_publish(const char *topic, const char *message, int qos, bool retain);
+
+double wireless_get_elevation();
+
+int8_t wireless_get_rssi();
