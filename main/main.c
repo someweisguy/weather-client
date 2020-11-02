@@ -27,7 +27,7 @@ void app_main(void) {
 
   // start wireless (blocks) and sensors
   wireless_start(CONFIG_MQTT_BROKER_URI);
-  sensors_start(NULL);
+  sensors_start();
 
   // configure and create a periodic timer
   esp_timer_init();
@@ -40,8 +40,7 @@ void app_main(void) {
   gettimeofday(&tv, NULL);
   time_t ms_to_wakeup =
       (300 - tv.tv_sec % 300 - 1 - 32) * 1000 + (1000 - (tv.tv_usec / 1000));
-  if (ms_to_wakeup < 0) ms_to_wakeup += 5 * 60 * 1000;
-  // ms_to_wakeup += ms_to_wakeup < 0 ? 5 * 60 * 1000 : 0; // add 5 minutes
+  if (ms_to_wakeup < 10) ms_to_wakeup += 5 * 60 * 1000;
   vTaskDelay(ms_to_wakeup / portTICK_PERIOD_MS);
 
   // start the periodic timer and call the callback
@@ -57,7 +56,7 @@ void timer_callback(void *args) {
   sensors_wakeup(json);
   mqtt_publish_json("test", json, 2, false);
   cJSON_Delete(json);
-  ESP_LOGI(TAG, "Woke up!");
+  ESP_LOGI(TAG, "woke up");
 
   // wait 32 seconds
   vTaskDelayUntil(&wake_tick, (32 * 1000) / portTICK_PERIOD_MS);
@@ -67,12 +66,12 @@ void timer_callback(void *args) {
   sensors_get_data(json);
   mqtt_publish_json("test", json, 2, false);
   cJSON_Delete(json);
-  ESP_LOGI(TAG, "Took data!");
+  ESP_LOGI(TAG, "got data");
 
   // sleep sensors and report results
   json = cJSON_CreateObject();
   sensors_sleep(json);
   mqtt_publish_json("test", json, 2, false);
   cJSON_Delete(json);
-  ESP_LOGI(TAG, "Went to sleep!");
+  ESP_LOGI(TAG, "went to sleep");
 }
