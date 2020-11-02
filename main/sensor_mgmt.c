@@ -34,10 +34,10 @@
 
 #define TRUNCATE(n) (((int64_t)(n * 100)) / 100)
 
-#define DEFAULT_DEVICE                                           \
-  {                                                              \
-    .identifiers = MODEL_NAME, .manufacturer = "Mitch Weisbrod", \
-    .model = MODEL_NAME, .name = DEVICE_NAME, .sw_version = ""   \
+#define DEFAULT_DEVICE                                             \
+  {                                                                \
+    .identifiers = "MODEL_NAME", .manufacturer = "Mitch Weisbrod", \
+    .model = MODEL_NAME, .name = DEVICE_NAME, .sw_version = ""     \
   }
 
 void sensors_start() {
@@ -198,10 +198,48 @@ void sensors_start() {
     err = sph0645_set_config(&sph_config);
     if (err) break;
   } while (false);
+
+  const mqtt_discovery_t sph0645_discovery[] = {
+      {.type = MQTT_SENSOR,
+       .device = DEFAULT_DEVICE,
+       .name = "Average Noise",
+       .state_topic = STATE_TOPIC,
+       .unique_id = UNIQUE_ID(JSON_AVG_NOISE_KEY),
+       .sensor =
+           {
+               .icon = "mdi:volume-high",
+               .unit_of_measurement = NOISE_SCALE,
+           },
+       .value_template = VALUE_TEMPLATE(JSON_AVG_NOISE_KEY)},
+      {.type = MQTT_SENSOR,
+       .device = DEFAULT_DEVICE,
+       .name = "Minimum Noise",
+       .state_topic = STATE_TOPIC,
+       .unique_id = UNIQUE_ID(JSON_MIN_NOISE_KEY),
+       .sensor =
+           {
+               .icon = "mdi:volume-minus",
+               .unit_of_measurement = NOISE_SCALE,
+           },
+       .value_template = VALUE_TEMPLATE(JSON_MIN_NOISE_KEY)},
+      {.type = MQTT_SENSOR,
+       .device = DEFAULT_DEVICE,
+       .name = "Maximum Noise",
+       .state_topic = STATE_TOPIC,
+       .unique_id = UNIQUE_ID(JSON_MIN_NOISE_KEY),
+       .sensor =
+           {
+               .icon = "mdi:volume-plus",
+               .unit_of_measurement = NOISE_SCALE,
+           },
+       .value_template = VALUE_TEMPLATE(JSON_MAX_NOISE_KEY)},
+  };
+  for (int i = 0; i < sizeof(sph0645_discovery) / sizeof(mqtt_discovery_t); ++i)
+    mqtt_publish_discovery(&sph0645_discovery[i]);
 #endif  // USE_SPH0645
 }
 
-void sensors_wakeup(cJSON *json) {
+void sensors_wakeup(cJSON* json) {
   esp_err_t err = ESP_OK;
 #ifdef USE_PMS5003
   do {
@@ -215,7 +253,7 @@ void sensors_wakeup(cJSON *json) {
 #endif  // USE_PMS5003
 }
 
-void sensors_get_data(cJSON *json) {
+void sensors_get_data(cJSON* json) {
   esp_err_t err = ESP_OK;
 
   // get wifi rssi
@@ -256,7 +294,7 @@ void sensors_get_data(cJSON *json) {
 #endif  // USE_PMS5003
 }
 
-void sensors_sleep(cJSON *json) {
+void sensors_sleep(cJSON* json) {
   esp_err_t err = ESP_OK;
 #ifdef USE_PMS5003
   do {
