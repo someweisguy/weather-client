@@ -80,12 +80,7 @@
 // TODO: add wind vane and rain gauge
 #endif
 
-char *data_handler(const bool clear_data);
-
-void restart_handler();
 
 esp_err_t sensors_set_status(cJSON *root, bool awake);
 
 esp_err_t sensors_get_data(cJSON *root);
-
-esp_err_t sensors_clear_data(cJSON *root);
