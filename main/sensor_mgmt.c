@@ -1,5 +1,7 @@
 #include "sensor_mgmt.h"
 
+#include <string.h>
+
 #include "bme280.h"
 #include "cJSON.h"
 #include "max17043.h"
@@ -16,7 +18,6 @@
 #define JSON_HUMIDITY_KEY "humidity"
 #define JSON_PRESSURE_KEY "pressure"
 #define JSON_DEW_POINT_KEY "dew_point"
-#define JSON_ELEVATION_KEY "elevation"
 // pms5003 json keys
 #define JSON_PM1_KEY "pm1"
 #define JSON_PM2_5_KEY "pm2_5"
@@ -29,10 +30,6 @@
 
 #define STATE_TOPIC ("weather-station/" CLIENT_NAME)
 #define UNIQUE_ID(n) (CLIENT_NAME "_" n)
-#define SENSOR_TOPIC(n) \
-  "test"  //("homeassistant/sensor/" CLIENT_NAME "_" n "/config")
-#define BINARY_SENSOR_TOPIC(n) \
-  ("homeassistant/binary_sensor/" CLIENT_NAME "_" n "/config")
 #define VALUE_TEMPLATE(a) ("{{ value_json['" a "'] }}")
 
 #define TRUNCATE(n) (((int64_t)(n * 100)) / 100)
@@ -58,7 +55,23 @@ void sensors_start() {
               .unit_of_measurement = SIGNAL_STRENGTH_SCALE,
           },
       .value_template = VALUE_TEMPLATE(JSON_SIGNAL_STRENGTH_KEY)};
-  mqtt_publish_discovery(SENSOR_TOPIC("signal_strength"), signal_strength);
+  mqtt_publish_discovery(&signal_strength);
+
+#ifdef USE_MAX17043
+  const mqtt_discovery_t battery = {
+      .type = MQTT_SENSOR,
+      .device = DEFAULT_DEVICE,
+      .device_class = "battery",
+      .name = "Battery Level",
+      .state_topic = STATE_TOPIC,
+      .unique_id = UNIQUE_ID("battery"),
+      .sensor =
+          {
+              .unit_of_measurement = BATTERY_SCALE,
+          },
+      .value_template = VALUE_TEMPLATE(JSON_BATTERY_KEY)};
+  mqtt_publish_discovery(&battery);
+#endif  // USE_MAX17043
 
 #ifdef USE_BME280
   do {
@@ -70,6 +83,56 @@ void sensors_start() {
     const double elevation = wireless_get_elevation();
     bme280_set_elevation(elevation);
   } while (false);
+
+  const mqtt_discovery_t bme280_discovery[] = {
+      {.type = MQTT_SENSOR,
+       .device = DEFAULT_DEVICE,
+       .device_class = JSON_TEMPERATURE_KEY,
+       .name = "Temperature",
+       .state_topic = STATE_TOPIC,
+       .unique_id = UNIQUE_ID(JSON_TEMPERATURE_KEY),
+       .sensor =
+           {
+               .unit_of_measurement = TEMPERATURE_SCALE,
+           },
+       .value_template = VALUE_TEMPLATE(JSON_TEMPERATURE_KEY)},
+      {.type = MQTT_SENSOR,
+       .device = DEFAULT_DEVICE,
+       .device_class = JSON_HUMIDITY_KEY,
+       .name = "Humidity",
+       .state_topic = STATE_TOPIC,
+       .unique_id = UNIQUE_ID(JSON_HUMIDITY_KEY),
+       .sensor =
+           {
+               .unit_of_measurement = HUMIDITY_SCALE,
+           },
+       .value_template = VALUE_TEMPLATE(JSON_HUMIDITY_KEY)},
+      {.type = MQTT_SENSOR,
+       .device = DEFAULT_DEVICE,
+       .device_class = JSON_PRESSURE_KEY,
+       .name = "Pressure",
+       .state_topic = STATE_TOPIC,
+       .unique_id = UNIQUE_ID(JSON_PRESSURE_KEY),
+       .sensor =
+           {
+               .unit_of_measurement = PRESSURE_SCALE,
+           },
+       .value_template = VALUE_TEMPLATE(JSON_PRESSURE_KEY)},
+      {.type = MQTT_SENSOR,
+       .device = DEFAULT_DEVICE,
+       .name = "Dew Point",
+       .state_topic = STATE_TOPIC,
+       .unique_id = UNIQUE_ID(JSON_DEW_POINT_KEY),
+       .sensor =
+           {
+               .icon = "mdi:weather-fog",
+               .unit_of_measurement = TEMPERATURE_SCALE,
+           },
+       .value_template = VALUE_TEMPLATE(JSON_DEW_POINT_KEY)},
+  };
+  for (int i = 0; i < sizeof(bme280_discovery) / sizeof(mqtt_discovery_t); ++i)
+    mqtt_publish_discovery(&bme280_discovery[i]);
+
 #endif  // USE BME280
 
 #ifdef USE_PMS5003
@@ -80,6 +143,51 @@ void sensors_start() {
     err = pms5003_set_config(&pms_config);
     if (err) break;
   } while (false);
+
+  const mqtt_discovery_t pms5003_discovery[] = {
+      {.type = MQTT_SENSOR,
+       .device = DEFAULT_DEVICE,
+       .name = "PM1",
+       .state_topic = STATE_TOPIC,
+       .unique_id = UNIQUE_ID(JSON_PM1_KEY),
+       .sensor =
+           {
+               .icon = "mdi:smog",
+               .unit_of_measurement = PM_SCALE,
+           },
+       .value_template = VALUE_TEMPLATE(JSON_PM1_KEY)},
+      {.type = MQTT_SENSOR,
+       .device = DEFAULT_DEVICE,
+       .name = "PM2.5",
+       .state_topic = STATE_TOPIC,
+       .unique_id = UNIQUE_ID(JSON_PM2_5_KEY),
+       .sensor =
+           {
+               .icon = "mdi:smog",
+               .unit_of_measurement = PM_SCALE,
+           },
+       .value_template = VALUE_TEMPLATE(JSON_PM2_5_KEY)},
+      {.type = MQTT_SENSOR,
+       .device = DEFAULT_DEVICE,
+       .name = "PM10",
+       .state_topic = STATE_TOPIC,
+       .unique_id = UNIQUE_ID(JSON_PM10_KEY),
+       .sensor =
+           {
+               .icon = "mdi:smog",
+               .unit_of_measurement = PM_SCALE,
+           },
+       .value_template = VALUE_TEMPLATE(JSON_PM10_KEY)},
+      {.type = MQTT_BINARY_SENSOR,
+       .device = DEFAULT_DEVICE,
+       .name = "Air Quality Sensor Fan",
+       .state_topic = STATE_TOPIC,
+       .unique_id = UNIQUE_ID(JSON_FAN_KEY),
+       .binary_sensor = {},
+       .value_template = VALUE_TEMPLATE(JSON_FAN_KEY)},
+  };
+  for (int i = 0; i < sizeof(pms5003_discovery) / sizeof(mqtt_discovery_t); ++i)
+    mqtt_publish_discovery(&pms5003_discovery[i]);
 #endif  // USE PMS_5003
 
 #ifdef USE_SPH0645
@@ -136,8 +244,6 @@ void sensors_get_data(cJSON *json) {
     cJSON_AddNumberToObject(json, JSON_HUMIDITY_KEY, TRUNCATE(data.humidity));
     cJSON_AddNumberToObject(json, JSON_PRESSURE_KEY, TRUNCATE(data.pressure));
     cJSON_AddNumberToObject(json, JSON_DEW_POINT_KEY, TRUNCATE(data.dew_point));
-    cJSON_AddNumberToObject(json, JSON_ELEVATION_KEY,
-                            TRUNCATE(bme280_get_elevation()));
   } while (false);
 #endif  // USE BME280
 
