@@ -7,6 +7,7 @@ idf_component_register(
     REQUIRES
     
     PRIV_REQUIRES
+        esp_http_client
         json
         mqtt
 )
