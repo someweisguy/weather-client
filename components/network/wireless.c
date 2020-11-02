@@ -10,6 +10,8 @@
 #include "mqtt_client.h"
 #include "smartconfig.h"
 
+#define DISCOVERY_PREFIX "homeassistant"
+
 static const char *TAG = "wireless";
 
 typedef struct {
@@ -174,8 +176,8 @@ double wireless_get_elevation() {
 
     // configure the second http request
     const char *url_format =
-        "https://nationalmap.gov/epqs/"
-        "pqs.php?x=%.6f&y=%.6f&units=Meters&output=json";
+        "https://nationalmap.gov/epqs/pqs.php?"
+        "x=%.6f&y=%.6f&units=Meters&output=json";
     char url[strlen(url_format) + (11 * 2)];
     sprintf(url, url_format, longitude, latitude);
     err = esp_http_client_set_url(client, url);
@@ -210,14 +212,32 @@ double wireless_get_elevation() {
   esp_http_client_close(client);
   esp_http_client_cleanup(client);
 
+  ESP_LOGI(TAG, "got elevation: %.2fm", elevation);
+
   return elevation;
 }
 
-esp_err_t mqtt_publish_discovery(const char *topic,
-                                 mqtt_discovery_t discovery) {
-  cJSON *json = cJSON_CreateObject();
+esp_err_t mqtt_publish_discovery(mqtt_discovery_t discovery) {
+  // declare format string and get the type string
+  const char *fmt = DISCOVERY_PREFIX "/%s/%s/config", *type;
+  switch (discovery.type) {
+    case MQTT_SENSOR:
+      type = "sensor";
+      break;
+    case MQTT_BINARY_SENSOR:
+      type = "binary_sensor";
+      break;
+    default:
+      return ESP_ERR_INVALID_ARG;
+  }
 
+  // build the publish topic
+  char topic[strlen(fmt) + strlen(type) + strlen(discovery.unique_id)];
+  sprintf(topic, fmt, type, discovery.unique_id);
+
+  // start building the discovery json
   if (discovery.state_topic == NULL) return ESP_ERR_INVALID_ARG;
+  cJSON *json = cJSON_CreateObject();
 
   // TODO
 
