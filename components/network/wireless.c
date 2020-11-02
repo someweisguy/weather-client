@@ -15,6 +15,7 @@ typedef struct
 
 static esp_mqtt_client_handle_t mqtt_client = NULL;
 static TaskHandle_t calling_task = NULL;
+static bool mqtt_is_connected = false;
 
 static void sntp_callback(struct timeval *tv)
 {
@@ -25,7 +26,12 @@ static esp_err_t mqtt_handler(esp_mqtt_event_handle_t event)
 {
     if (event->event_id == MQTT_EVENT_CONNECTED)
     {
-        //mqtt_publish("online", "Hello world!", 2, 0);
+        mqtt_is_connected = true;
+        //mqtt_publish("online", "Hello world!", 2, false);
+    }
+    else if (event->event_id == MQTT_EVENT_DISCONNECTED)
+    {
+        mqtt_is_connected = false;
     }
     return ESP_OK;
 }
@@ -34,12 +40,10 @@ static void wifi_handler(void *handler_args, esp_event_base_t base, int event_id
 {
     if (base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
     {
-        // handle sta start
         esp_wifi_connect();
     }
     else if (base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
     {
-        // handle disconnect
         const wifi_event_sta_disconnected_t *wifi_data = event_data;
 
         // if bad password start smart config
@@ -54,7 +58,6 @@ static void wifi_handler(void *handler_args, esp_event_base_t base, int event_id
     }
     else if (base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
-        // handle connect
         if (mqtt_client == NULL)
         {
             // this is the first time we're connecting
