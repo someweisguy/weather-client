@@ -54,7 +54,7 @@ void timer_callback(void *args) {
   // wake up sensors and report results
   cJSON *json = cJSON_CreateObject();
   sensors_wakeup(json);
-  mqtt_publish_json(MQTT_STATE_TOPIC, json, 2, false);
+  mqtt_publish_json(MQTT_CONFIG_STATE_TOPIC, json, 2, false);
   cJSON_Delete(json);
   ESP_LOGI(TAG, "woke up");
 
@@ -64,8 +64,14 @@ void timer_callback(void *args) {
   // get data and report results
   json = cJSON_CreateObject();
   sensors_get_data(json);
-  sensors_sleep(json);
-  mqtt_publish_json(MQTT_STATE_TOPIC, json, 2, false);
+  mqtt_publish_json(MQTT_DATA_STATE_TOPIC, json, 2, false);
   cJSON_Delete(json);
-  ESP_LOGI(TAG, "got data and went to sleep");
+  ESP_LOGI(TAG, "got data");
+
+  // put sensors to sleep and report results
+  json = cJSON_CreateObject();
+  sensors_sleep(json);
+  mqtt_publish(MQTT_CONFIG_STATE_TOPIC, json, 2, false);
+  cJSON_Delete(json);
+  ESP_LOGI(TAG, "went to sleep");
 }
