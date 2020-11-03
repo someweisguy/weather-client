@@ -71,7 +71,7 @@ void timer_callback(void *args) {
   // put sensors to sleep and report results
   json = cJSON_CreateObject();
   sensors_sleep(json);
-  mqtt_publish(MQTT_CONFIG_STATE_TOPIC, json, 2, false);
+  mqtt_publish_json(MQTT_CONFIG_STATE_TOPIC, json, 2, false);
   cJSON_Delete(json);
   ESP_LOGI(TAG, "went to sleep");
 }
