@@ -53,8 +53,7 @@ __asm__(
     "    madd.s  f6, f3, f5   \n"  //   f6 += f3 * f5; // coeffs.a2 * w1
     "    mov.s   f7, f6       \n"  //   f7 = f6; // b0 assumed 1.0
     "    madd.s  f7, f0, f4   \n"  //   f7 += f0 * f4; // coeffs.b1 * w0
-    "    madd.s  f7, f1, f5   \n"  //   f7 += f1 * f5; // coeffs.b2 * w1 ->
-                                   //   result
+    "    madd.s  f7, f1, f5   \n"  //   f7 += f1 * f5; // coeffs.b2 * w1 -> rslt
     "    ssip    f7, a3, 4    \n"  //   *output++ = f7;
     "    mov.s   f5, f4       \n"  //   f5 = f4; // w1 = w0
     "    mov.s   f4, f6       \n"  //   f4 = f6; // w0 = f6
