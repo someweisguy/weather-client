@@ -46,6 +46,8 @@
 #define NOISE_SCALE "dBc"
 #define PM_SCALE "μg/m³"
 
+#define MQTT_STATE_TOPIC ("weather-station/" CLIENT_NAME)
+
 void sensors_start();
 
 void sensors_wakeup(cJSON *json);

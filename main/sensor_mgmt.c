@@ -30,7 +30,7 @@
 #define JSON_MIN_NOISE_KEY "min_noise"
 #define JSON_MAX_NOISE_KEY "max_noise"
 
-#define STATE_TOPIC ("weather-station/" CLIENT_NAME)
+#define STATE_TOPIC MQTT_STATE_TOPIC
 #define UNIQUE_ID(n) (CLIENT_NAME "_" n)
 #define VALUE_TEMPLATE(a) ("{{ value_json['" a "'] }}")
 
@@ -38,7 +38,7 @@
 
 #define DEFAULT_DEVICE                                             \
   {                                                                \
-    .identifiers = "MODEL_NAME", .manufacturer = "Mitch Weisbrod", \
+    .identifiers = MODEL_NAME, .manufacturer = "Mitch Weisbrod", \
     .model = MODEL_NAME, .name = DEVICE_NAME, .sw_version = ""     \
   }
 
@@ -77,8 +77,7 @@ void sensors_start() {
 
 #ifdef USE_BME280
   do {
-    err = bme280_reset();
-    if (err) break;
+    bme280_reset();
     const bme280_config_t bme_config = BME280_WEATHER_MONITORING;
     err = bme280_set_config(&bme_config);
     if (err) break;
@@ -112,6 +111,9 @@ void sensors_start() {
       {.type = MQTT_SENSOR,
        .device = DEFAULT_DEVICE,
        .device_class = JSON_PRESSURE_KEY,
+       //.json_atr
+       //.json_attributes_template = VALUE_TEMPLATE(JSON_ELEVATION_KEY),
+       //.json_attributes_topic = STATE_TOPIC,
        .name = "Pressure",
        .state_topic = STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_PRESSURE_KEY),
@@ -139,8 +141,7 @@ void sensors_start() {
 
 #ifdef USE_PMS5003
   do {
-    err = pms5003_reset();
-    if (err) break;
+    pms5003_reset();
     const pms5003_config_t pms_config = PMS5003_PASSIVE_ASLEEP;
     err = pms5003_set_config(&pms_config);
     if (err) break;
@@ -149,6 +150,7 @@ void sensors_start() {
   const mqtt_discovery_t pms5003_discovery[] = {
       {.type = MQTT_SENSOR,
        .device = DEFAULT_DEVICE,
+       .force_update = true,
        .name = "PM1",
        .state_topic = STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_PM1_KEY),
@@ -160,6 +162,7 @@ void sensors_start() {
        .value_template = VALUE_TEMPLATE(JSON_PM1_KEY)},
       {.type = MQTT_SENSOR,
        .device = DEFAULT_DEVICE,
+       .force_update = true,
        .name = "PM2.5",
        .state_topic = STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_PM2_5_KEY),
@@ -171,6 +174,7 @@ void sensors_start() {
        .value_template = VALUE_TEMPLATE(JSON_PM2_5_KEY)},
       {.type = MQTT_SENSOR,
        .device = DEFAULT_DEVICE,
+       .force_update = true,
        .name = "PM10",
        .state_topic = STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_PM10_KEY),
@@ -182,6 +186,7 @@ void sensors_start() {
        .value_template = VALUE_TEMPLATE(JSON_PM10_KEY)},
       {.type = MQTT_BINARY_SENSOR,
        .device = DEFAULT_DEVICE,
+       .force_update = true,
        .name = "Air Quality Sensor Fan",
        .state_topic = STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_FAN_KEY),
@@ -198,8 +203,7 @@ void sensors_start() {
 
 #ifdef USE_SPH0645
   do {
-    err = sph0645_reset();
-    if (err) break;
+    sph0645_reset();
     const sph0645_config_t sph_config = SPH0645_DEFAULT_CONFIG;
     err = sph0645_set_config(&sph_config);
     if (err) break;
