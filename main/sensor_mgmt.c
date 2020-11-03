@@ -34,7 +34,7 @@
 #define UNIQUE_ID(n) (CLIENT_NAME "_" n)
 #define VALUE_TEMPLATE(a) ("{{ value_json['" a "'] }}")
 
-#define TRUNCATE(n) (((int64_t)(n * 100)) / 100)
+#define TRUNCATE(n) (((int64_t)(n * 100)) / 100.0)
 
 #define DEFAULT_DEVICE                                             \
   {                                                                \
@@ -310,7 +310,7 @@ void sensors_get_data(cJSON* json) {
   do {
     sph0645_data_t data;
     err = sph0645_get_data(&data);
-    sph0645_reset();
+    sph0645_clear_data();
     if (err) break;
     cJSON_AddNumberToObject(json, JSON_AVG_NOISE_KEY, TRUNCATE(data.avg));
     cJSON_AddNumberToObject(json, JSON_MIN_NOISE_KEY, TRUNCATE(data.min));
