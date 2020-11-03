@@ -31,9 +31,7 @@ esp_err_t i2s_init(void) {
                                        .ws_io_num = I2S_WORD_SELECT_PIN_NUM,
                                        .data_out_num = I2S_PIN_NO_CHANGE,
                                        .data_in_num = I2S_DATA_IN_PIN_NUM};
-
-  err = i2s_set_pin(CONFIG_I2S_PORT, &pin_config);
-  if (err) ESP_LOGE("i2s", "i2s set pin error %x", err);
+  i2s_set_pin(CONFIG_I2S_PORT, &pin_config);
 
   started = true;
 
