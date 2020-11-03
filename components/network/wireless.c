@@ -300,7 +300,7 @@ esp_err_t mqtt_publish_discovery(const mqtt_discovery_t *discovery) {
                               discovery->binary_sensor.payload_off);
   }
 
-  esp_err_t err = mqtt_publish_json(topic, json, 2, false);
+  esp_err_t err = mqtt_publish_json(topic, json, 2, true);
   cJSON_Delete(json);
   return err;
 }
