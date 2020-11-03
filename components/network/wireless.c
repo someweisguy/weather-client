@@ -147,7 +147,7 @@ double wireless_get_elevation() {
   esp_http_client_config_t config = {.url = "http://ipinfo.io/json"};
   esp_http_client_handle_t client = esp_http_client_init(&config);
 
-  double elevation = 0;
+  double elevation = CONFIG_DEFAULT_ELEVATION_METERS;
   do {
     // send the first http request
     float latitude, longitude;

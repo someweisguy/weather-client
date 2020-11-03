@@ -130,6 +130,7 @@ CONFIG_FAHRENHEIT=y
 # CONFIG_KELVIN is not set
 # CONFIG_MM_HG is not set
 CONFIG_IN_HG=y
+CONFIG_DEFAULT_ELEVATION_METERS=0
 # end of Weather Station Setup
 
 #

@@ -53,4 +53,10 @@ menu "Weather Station Setup"
     
     endchoice
 
+    config DEFAULT_ELEVATION_METERS
+        int "Default elevation in meters"
+        default 0
+        help
+            Set the elevation in meters for use with barometer measurements.
+
 endmenu
