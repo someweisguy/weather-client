@@ -30,7 +30,6 @@
 #define JSON_MIN_NOISE_KEY "min_noise"
 #define JSON_MAX_NOISE_KEY "max_noise"
 
-#define STATE_TOPIC MQTT_STATE_TOPIC
 #define UNIQUE_ID(n) (CLIENT_NAME "_" n)
 #define VALUE_TEMPLATE(a) ("{{ value_json['" a "'] }}")
 
@@ -50,7 +49,7 @@ void sensors_start() {
       .device = DEFAULT_DEVICE,
       .device_class = "signal_strength",
       .name = "Signal Strength",
-      .state_topic = STATE_TOPIC,
+      .state_topic = MQTT_DATA_STATE_TOPIC,
       .unique_id = UNIQUE_ID("signal_strength"),
       .sensor =
           {
@@ -65,7 +64,7 @@ void sensors_start() {
       .device = DEFAULT_DEVICE,
       .device_class = "battery",
       .name = "Battery Level",
-      .state_topic = STATE_TOPIC,
+      .state_topic = MQTT_DATA_STATE_TOPIC,
       .unique_id = UNIQUE_ID("battery"),
       .sensor =
           {
@@ -91,7 +90,7 @@ void sensors_start() {
        .device_class = JSON_TEMPERATURE_KEY,
        .force_update = true,
        .name = "Temperature",
-       .state_topic = STATE_TOPIC,
+       .state_topic = MQTT_DATA_STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_TEMPERATURE_KEY),
        .sensor =
            {
@@ -103,7 +102,7 @@ void sensors_start() {
        .device_class = JSON_HUMIDITY_KEY,
        .force_update = true,
        .name = "Humidity",
-       .state_topic = STATE_TOPIC,
+       .state_topic = MQTT_DATA_STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_HUMIDITY_KEY),
        .sensor =
            {
@@ -118,7 +117,7 @@ void sensors_start() {
        //.json_attributes_template = VALUE_TEMPLATE(JSON_ELEVATION_KEY),
        //.json_attributes_topic = STATE_TOPIC,
        .name = "Pressure",
-       .state_topic = STATE_TOPIC,
+       .state_topic = MQTT_DATA_STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_PRESSURE_KEY),
        .sensor =
            {
@@ -129,7 +128,7 @@ void sensors_start() {
        .device = DEFAULT_DEVICE,
        .force_update = true,
        .name = "Dew Point",
-       .state_topic = STATE_TOPIC,
+       .state_topic = MQTT_DATA_STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_DEW_POINT_KEY),
        .sensor =
            {
@@ -156,7 +155,7 @@ void sensors_start() {
        .device = DEFAULT_DEVICE,
        .force_update = true,
        .name = "PM1",
-       .state_topic = STATE_TOPIC,
+       .state_topic = MQTT_DATA_STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_PM1_KEY),
        .sensor =
            {
@@ -168,7 +167,7 @@ void sensors_start() {
        .device = DEFAULT_DEVICE,
        .force_update = true,
        .name = "PM2.5",
-       .state_topic = STATE_TOPIC,
+       .state_topic = MQTT_DATA_STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_PM2_5_KEY),
        .sensor =
            {
@@ -180,7 +179,7 @@ void sensors_start() {
        .device = DEFAULT_DEVICE,
        .force_update = true,
        .name = "PM10",
-       .state_topic = STATE_TOPIC,
+       .state_topic = MQTT_DATA_STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_PM10_KEY),
        .sensor =
            {
@@ -191,7 +190,7 @@ void sensors_start() {
       {.type = MQTT_BINARY_SENSOR,
        .device = DEFAULT_DEVICE,
        .name = "Air Quality Sensor Fan",
-       .state_topic = STATE_TOPIC,
+       .state_topic = MQTT_CONFIG_STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_FAN_KEY),
        .binary_sensor =
            {
@@ -217,7 +216,7 @@ void sensors_start() {
        .device = DEFAULT_DEVICE,
        .force_update = true,
        .name = "Average Noise",
-       .state_topic = STATE_TOPIC,
+       .state_topic = MQTT_DATA_STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_AVG_NOISE_KEY),
        .sensor =
            {
@@ -229,7 +228,7 @@ void sensors_start() {
        .device = DEFAULT_DEVICE,
        .force_update = true,
        .name = "Minimum Noise",
-       .state_topic = STATE_TOPIC,
+       .state_topic = MQTT_DATA_STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_MIN_NOISE_KEY),
        .sensor =
            {
@@ -241,7 +240,7 @@ void sensors_start() {
        .device = DEFAULT_DEVICE,
        .force_update = true,
        .name = "Maximum Noise",
-       .state_topic = STATE_TOPIC,
+       .state_topic = MQTT_DATA_STATE_TOPIC,
        .unique_id = UNIQUE_ID(JSON_MAX_NOISE_KEY),
        .sensor =
            {
@@ -332,7 +331,7 @@ void sensors_sleep(cJSON* json) {
     pms5003_config_t pms_config;
     err = pms5003_get_config(&pms_config);
     if (err) break;
-    pms_config.sleep = 1;  // wakeup
+    pms_config.sleep = 0;  // sleep
     err = pms5003_set_config(&pms_config);
     if (err) break;
     cJSON_AddStringToObject(json, JSON_FAN_KEY, JSON_FAN_OFF_VALUE);

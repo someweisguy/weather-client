@@ -46,7 +46,8 @@
 #define NOISE_SCALE "dBc"
 #define PM_SCALE "μg/m³"
 
-#define MQTT_STATE_TOPIC ("weather-station/" CLIENT_NAME)
+#define MQTT_DATA_STATE_TOPIC ("weather-station/" CLIENT_NAME "/data")
+#define MQTT_CONFIG_STATE_TOPIC ("weather-station/" CLIENT_NAME "/config")
 
 void sensors_start();
 
