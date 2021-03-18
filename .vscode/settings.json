@@ -1,0 +1,26 @@
+{
+  "C_Cpp.clang_format_style": "Visual Studio",
+  "editor.formatOnSave": false,
+  "[cpp]": {
+    "editor.quickSuggestions": true
+  },
+  "[c]": {
+    "editor.quickSuggestions": true
+  },
+  "C_Cpp.intelliSenseEngine": "Tag Parser",
+  "idf.portWin": "COM4",
+  "idf.adapterTargetName": "esp32",
+  "idf.openOcdConfigs": [
+    "interface/ftdi/esp32_devkitj_v1.cfg",
+    "target/esp32.cfg"
+  ],
+  "idf.flashType": "UART",
+  "idf.flashBaudRate": "1000000",
+  "files.associations": {
+    "*.inc": "c",
+    "esp_intr_alloc.h": "c",
+    "future": "c",
+    "mutex": "c",
+    "condition_variable": "c"
+  }
+}
