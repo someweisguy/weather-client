@@ -98,6 +98,19 @@ private:
     return H;
   }
 
+  esp_err_t wait_bme_ready() const {
+    // wait until the chip is done processing data
+    uint8_t status;
+    do {
+      esp_err_t err = serial_i2c_read(i2c_address, STATUS_REGISTER, &status, 1,
+        100 / portTICK_PERIOD_MS);
+      if (err) return err;
+      status &= 0x9; // only read bit 0 and 3
+    } while (status);
+    
+    return ESP_OK;
+  }
+
 public:
   bme280_t(const uint8_t i2c_address, const double elevation) : Sensor("bme280"),
       i2c_address(i2c_address), elevation(elevation) {
@@ -169,12 +182,8 @@ public:
       100 / portTICK_PERIOD_MS);
     if (err) return err;
 
-    // wait until the chip is done resetting
-    uint8_t status;
-    do {
-      err = serial_i2c_read(i2c_address, 0xf3, &status, 1, 
-        100 / portTICK_PERIOD_MS);
-      if (err) return err;
+    err = wait_bme_ready();
+    if (err) return err;
       status &= 0x9; // only read bit 0 and 3
     } while (status);
 
@@ -240,12 +249,8 @@ public:
       &ctrl_meas_cmd, 1, true, 100 / portTICK_PERIOD_MS);
     if (err) return err;
 
-    // wait until the chip is done processing data
-    uint8_t status;
-    do {
-      err = serial_i2c_read(i2c_address, 0xf3, &status, 1, 
-        100 / portTICK_PERIOD_MS);
-      if (err) return err;
+    err = wait_bme_ready();
+    if (err) return err;
       status &= 0x9; // only read bit 0 and 3
     } while (status);
 
