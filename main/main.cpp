@@ -35,6 +35,7 @@ static inline int time_to_next_state_us() {
 
 extern "C" void app_main(void) {
   // initialize serial services
+  // TODO: move individual serial start functions to sensor init
   esp_err_t err = serial_start();
   if (err) {
     ESP_LOGE(TAG, "Unable to start serial drivers. Restarting...");
@@ -49,7 +50,7 @@ extern "C" void app_main(void) {
       xTaskGetCurrentTaskHandle(), 0, NULL);
 
     ESP_LOGI(TAG, "Initializing sensors...");
-    for (const Sensor *sensor : sensors) {
+    for (Sensor *sensor : sensors) {
       err = sensor->setup();
       if (err) {
         ESP_LOGE(TAG, "An error occurred initializing sensors. Restarting...");
@@ -81,6 +82,8 @@ extern "C" void app_main(void) {
 
     // build the device config for discovery
     cJSON *device = cJSON_CreateObject();
+    cJSON_AddStringToObject(device, "manufacturer", "Mitch Weisbrod");
+    // TODO: identifiers, model, name, sw_version
     
     ESP_LOGI(TAG, "Sending discovery MQTT strings...");
     for (Sensor *sensor : sensors) {
@@ -142,7 +145,7 @@ extern "C" void app_main(void) {
     xTaskCreate(wireless_connect_task, "wireless_connect_task", 4096,
       xTaskGetCurrentTaskHandle(), 0, NULL);
 
-    // create json payload
+    // create json data payload
     cJSON *json = cJSON_CreateObject();
 
     // wait until measurement window
