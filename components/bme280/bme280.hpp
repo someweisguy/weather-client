@@ -237,8 +237,7 @@ public:
     // sets forced mode, which forces a data measurement
     const uint8_t ctrl_meas_cmd = 0x25;
     esp_err_t err = serial_i2c_write(i2c_address, CTRL_MEAS_REGISTER, 
-      reinterpret_cast<void *>(const_cast<uint8_t *>(&ctrl_meas_cmd)), 1, true, 
-      100 / portTICK_PERIOD_MS);
+      &ctrl_meas_cmd, 1, true, 100 / portTICK_PERIOD_MS);
     if (err) return err;
 
     // wait until the chip is done processing data
