@@ -42,6 +42,25 @@ extern "C" void app_main(void) {
     esp_restart();
   }
 
+  for (Sensor *sensor : sensors) {
+    sensor->setup();
+    vTaskDelay(1);
+    sensor->ready();
+  }
+
+  vTaskDelay(1);
+
+  ESP_LOGI(TAG, "gettint data)");
+  cJSON *j = cJSON_CreateObject();
+  for (Sensor *sensor : sensors) {
+    sensor->get_data(j);
+  }
+  char *c = cJSON_Print(j);
+  ESP_LOGI(TAG, "%s", c);
+
+  vTaskDelay(15000 / portTICK_PERIOD_MS);
+
+
   if (!device_is_setup) {
     ESP_LOGI(TAG, "Doing initial device setup");
 
@@ -129,7 +148,7 @@ extern "C" void app_main(void) {
   } else {
     ESP_LOGI(TAG, "Waking up sensors");
     for (Sensor *sensor : sensors) {
-      err = sensor->wake_up();
+      err = sensor->ready();
       if (err) {
         ESP_LOGE(TAG, "An error occurred waking up %s.", 
           sensor->get_name());

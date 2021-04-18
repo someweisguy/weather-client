@@ -205,7 +205,7 @@ public:
     return ESP_OK;
   }
 
-  esp_err_t wake_up() {
+  esp_err_t ready() {
     // read the calibration data
     esp_err_t err = serial_i2c_read(i2c_address, T1_TRIM_REGISTER, &(dig.t1),
       24, 100 / portTICK_PERIOD_MS);

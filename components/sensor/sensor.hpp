@@ -80,7 +80,7 @@ public:
     return ESP_OK;
   }
 
-  virtual esp_err_t wake_up() {
+  virtual esp_err_t ready() {
     return ESP_OK;
   }
 
