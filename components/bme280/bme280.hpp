@@ -166,6 +166,15 @@ public:
       100 / portTICK_PERIOD_MS);
     if (err) return err;
 
+    // wait until the chip is done resetting
+    uint8_t status;
+    do {
+      err = serial_i2c_read(i2c_address, 0xf3, &status, 1, 
+        100 / portTICK_PERIOD_MS);
+      if (err) return err;
+      status &= 0x9; // only read bit 0 and 3
+    } while (status);
+
     // write config register
     // sets normal mode measurements to 1000ms, iir off, i2c mode on
     const uint8_t config_cmd = 0x80;
