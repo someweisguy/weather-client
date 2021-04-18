@@ -48,78 +48,66 @@ private:
   } dig;
 
 public:
-  bme280_t(const uint8_t i2c_address, const double elevation) : Sensor(4),
+  bme280_t(const uint8_t i2c_address, const double elevation) : Sensor("bme280"),
       i2c_address(i2c_address), elevation(elevation) {
-
-    // temperature value
-    int topic_num = 0;
-    this->discover_topics[topic_num] = "test/temperature/config";
-    this->discover_strings[topic_num] = cJSON_CreateObject();
-    cJSON_AddStringToObject(this->discover_strings[topic_num], "device_class", "temperature");
-    this->init_sensor_discovery(this->discover_strings[topic_num], 
-      310, 
-      true,
-      "icon",
-      "temperature",
-      2,
-      "state_topic",
-      "unique_id",
-      "F",
-      "{{ json.temperature }}"
-    );
-
-    // humidity value
-    topic_num++;
-    this->discover_topics[topic_num] = "test/humidity/config";
-    this->discover_strings[topic_num] = cJSON_CreateObject();
-    cJSON_AddStringToObject(this->discover_strings[topic_num], "device_class", "humidity");
-    this->init_sensor_discovery(this->discover_strings[topic_num], 
-      310, 
-      true,
-      "icon",
-      "humidity",
-      2,
-      "state_topic",
-      "unique_id",
-      "%",
-      "{{ json.humidity }}"
-    );
-
-    // pressure value
-    topic_num++;
-    this->discover_topics[topic_num] = "test/pressure/config";
-    this->discover_strings[topic_num] = cJSON_CreateObject();
-    cJSON_AddStringToObject(this->discover_strings[topic_num], "device_class", "pressure");
-    this->init_sensor_discovery(this->discover_strings[topic_num], 
-      310, 
-      true,
-      "icon",
-      "pressure",
-      2,
-      "state_topic",
-      "unique_id",
-      "inHg",
-      "{{ json.pressure }}"
-    );
-
-    // dew point value
-    topic_num++;
-    this->discover_topics[topic_num] = "test/dew_point/config";
-    this->discover_strings[topic_num] = cJSON_CreateObject();
-    this->init_sensor_discovery(this->discover_strings[topic_num], 
-      310, 
-      true,
-      "icon",
-      "dew point",
-      2,
-      "state_topic",
-      "unique_id",
-      "F",
-      "{{ json.dew_point }}"
-    );
-
-
-
+    this->discovery = new discovery_t[4] {
+      {
+        .topic = "test/temperature/config",
+        .config = {
+          .expire_after = 310,
+          .force_update = true,
+          .icon = "icon_temperature",
+          .name = "temperature",
+          .qos = 2,
+          .state_topic = "state_topic",
+          .unique_id = "unique_id",
+          .unit_of_measurement = "F",
+          .value_template = "{{ json.temperature }}"
+        }
+      },
+      {
+        .topic = "test/humidity/config",
+        .config = {
+          .expire_after = 310,
+          .force_update = true,
+          .icon = "icon_humidity",
+          .name = "humidity",
+          .qos = 2,
+          .state_topic = "state_topic",
+          .unique_id = "unique_id",
+          .unit_of_measurement = "%",
+          .value_template = "{{ json.humidity }}"
+        }
+      },
+      {
+        .topic = "test/pressure/config",
+        .config = {
+          .expire_after = 310,
+          .force_update = true,
+          .icon = "icon_pressure",
+          .name = "pressure",
+          .qos = 2,
+          .state_topic = "state_topic",
+          .unique_id = "unique_id",
+          .unit_of_measurement = "inHg",
+          .value_template = "{{ json.pressure }}"
+        }
+      },
+      {
+        .topic = "test/dew_point/config",
+        .config = {
+          .expire_after = 310,
+          .force_update = true,
+          .icon = "icon_dew_point",
+          .name = "dew_point",
+          .qos = 2,
+          .state_topic = "state_topic",
+          .unique_id = "unique_id",
+          .unit_of_measurement = "F",
+          .value_template = "{{ json.dew_point }}"
+        }
+      }
+    };
   };
 
   esp_err_t setup() const {
