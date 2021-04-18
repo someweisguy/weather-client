@@ -8,65 +8,87 @@
 #define JSON_KV(key, value) "\"" #key "\": " #value "," 
 
 class Sensor {
-protected:
-  // TODO: name
-  int num_discover_strings;
-  const char **discover_topics;
-  cJSON **discover_strings;
+private:
+  const char **config_topics;
+  cJSON **config_jsons;
 
-  void init_sensor_discovery(cJSON* json, int expire_after, bool force_update, 
-      const char *icon, const char *name, int qos, const char *state_topic, 
-      const char *unique_id, const char *unit_of_measurement, 
-      const char *value_template) {
-    cJSON_AddNumberToObject(json, "expire_after", expire_after);
-    cJSON_AddBoolToObject(json, "force_update", force_update);
-    cJSON_AddStringToObject(json, "icon", icon);
-    cJSON_AddStringToObject(json, "name", name);
-    cJSON_AddNumberToObject(json, "qos", qos);
-    cJSON_AddStringToObject(json, "state_topic", state_topic);
-    cJSON_AddStringToObject(json, "unique_id", unique_id);
-    cJSON_AddStringToObject(json, "unit_of_measurement", unit_of_measurement);
-    cJSON_AddStringToObject(json, "value_template", value_template);
-  }
+protected:
+  struct discovery_t {
+    const char *topic;
+    struct {
+      int expire_after;
+      bool force_update;
+      const char *icon;
+      const char *name;
+      int qos;
+      const char *state_topic;
+      const char *unique_id;
+      const char *unit_of_measurement;
+      const char *value_template;
+    } config;
+  };
+  const discovery_t *discovery;
+  const char *name;
 
 public:
-  Sensor(const int num_discover_strings) : num_discover_strings(num_discover_strings) {
-    this->discover_topics = new const char*[this->num_discover_strings];
-    this->discover_strings = new cJSON*[this->num_discover_strings];
-    for (int i = 0; i < num_discover_strings; ++i) {
-      this->discover_topics[i] = nullptr;
-      this->discover_topics[i] = nullptr;
-    }
+  Sensor(const char* name) : name(name) {
+    // do nothing...
   }
 
   ~Sensor() {
-    delete[] this->discover_topics;
-    delete[] this->discover_strings;
+    delete[] this->discovery;
+    if (this->config_topics) delete[] this->config_topics;
+    if (this->config_jsons) delete[] this->config_jsons;
   }
 
-  int get_discovery(const char **&config_topic, cJSON **&json) const {
-    config_topic = (this->discover_topics);
-    json = (this->discover_strings);
+  const char *get_name() const {
+    return this->name;
+  }
 
-    // check that the discover strings are set up properly
-    int actual_num = this->num_discover_strings;
-    for (int i = 0; i < this->num_discover_strings; ++i) {
-      if (this->discover_topics[i] == nullptr || this->discover_strings[i] == nullptr) {
-        actual_num = i;
-        ESP_LOGW("sensor", "Discovery strings not setup in sensor!");
-        break;
-      }
+  int get_discovery(const char **&config_topics, cJSON **&config_jsons) {
+    // get the number of discovery topics
+    const int num_configs = sizeof(this->discovery);
+    
+    // allocate space for discovery topics and json objects
+    this->config_topics = new const char*[num_configs];
+    this->config_jsons = new cJSON*[num_configs];
+
+    for (int i = 0; i < num_configs; ++i) {
+      // copy the pointer to the discovery topic to the topic buffer
+      this->config_topics[i] = this->discovery[i].topic;
+
+      // create the json object and fill it with required params
+      this->config_jsons[i] = cJSON_CreateObject();
+      cJSON_AddNumberToObject(this->config_jsons[i], "expire_after", this->discovery[i].config.expire_after);
+      cJSON_AddBoolToObject(this->config_jsons[i], "force_update", this->discovery[i].config.force_update);
+      cJSON_AddStringToObject(this->config_jsons[i], "icon", this->discovery[i].config.icon);
+      cJSON_AddStringToObject(this->config_jsons[i], "name", this->discovery[i].config.name);
+      cJSON_AddNumberToObject(this->config_jsons[i], "qos", this->discovery[i].config.qos);
+      cJSON_AddStringToObject(this->config_jsons[i], "state_topic", this->discovery[i].config.state_topic);
+      cJSON_AddStringToObject(this->config_jsons[i], "unique_id", this->discovery[i].config.unique_id);
+      cJSON_AddStringToObject(this->config_jsons[i], "unit_of_measurement", this->discovery[i].config.unit_of_measurement);
+      cJSON_AddStringToObject(this->config_jsons[i], "value_template", this->discovery[i].config.value_template);
     }
 
-    return actual_num;
+    // copy the pointers to the arg references and return num_configs
+    config_topics = this->config_topics;
+    config_jsons = this->config_jsons;
+    return num_configs;
   }
 
   virtual esp_err_t setup() const {
     return ESP_OK;
   }
 
+  virtual esp_err_t wake_up() const {
+    return ESP_OK;
+  }
 
   virtual esp_err_t get_data(cJSON *json) const {
+    return ESP_OK;
+  }
+
+  virtual esp_err_t sleep() const {
     return ESP_OK;
   }
 };
