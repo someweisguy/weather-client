@@ -76,19 +76,19 @@ public:
     return num_configs;
   }
 
-  virtual esp_err_t setup() const {
+  virtual esp_err_t setup() {
     return ESP_OK;
   }
 
-  virtual esp_err_t wake_up() const {
+  virtual esp_err_t wake_up() {
     return ESP_OK;
   }
 
-  virtual esp_err_t get_data(cJSON *json) const {
+  virtual esp_err_t get_data(cJSON *json) {
     return ESP_OK;
   }
 
-  virtual esp_err_t sleep() const {
+  virtual esp_err_t sleep() {
     return ESP_OK;
   }
 };
