@@ -14,10 +14,10 @@
 
 static const char *TAG = "main";
 RTC_DATA_ATTR bool device_is_setup;
-RTC_DATA_ATTR double latitude, longitude, elevation;
+RTC_DATA_ATTR double latitude, longitude, elevation_m;
 RTC_DATA_ATTR time_t last_time_sync_ts;
 
-static Sensor *sensors[] = { new bme280_t(0x76, elevation)};
+static Sensor *sensors[] = { new bme280_t(0x76, elevation_m)};
 
 static void wireless_connect_task(void *args) {
   const TaskHandle_t calling_task = args;
@@ -42,23 +42,23 @@ extern "C" void app_main(void) {
     esp_restart();
   }
 
-  for (Sensor *sensor : sensors) {
-    sensor->setup();
-    vTaskDelay(1);
-    sensor->ready();
-  }
+  // for (Sensor *sensor : sensors) {
+  //   sensor->setup();
+  //   vTaskDelay(1);
+  //   sensor->ready();
+  // }
 
-  vTaskDelay(1);
+  // vTaskDelay(1);
 
-  ESP_LOGI(TAG, "gettint data)");
-  cJSON *j = cJSON_CreateObject();
-  for (Sensor *sensor : sensors) {
-    sensor->get_data(j);
-  }
-  char *c = cJSON_Print(j);
-  ESP_LOGI(TAG, "%s", c);
+  // ESP_LOGI(TAG, "gettint data)");
+  // cJSON *j = cJSON_CreateObject();
+  // for (Sensor *sensor : sensors) {
+  //   sensor->get_data(j);
+  // }
+  // char *c = cJSON_Print(j);
+  // ESP_LOGI(TAG, "%s", c);
 
-  vTaskDelay(15000 / portTICK_PERIOD_MS);
+  // vTaskDelay(15000 / portTICK_PERIOD_MS);
 
 
   if (!device_is_setup) {
@@ -93,7 +93,7 @@ extern "C" void app_main(void) {
     time(&last_time_sync_ts);
 
     ESP_LOGI(TAG, "Getting location...");
-    err = wireless_get_location(&latitude, &longitude, &elevation);
+    err = wireless_get_location(&latitude, &longitude, &elevation_m);
     if (err) {
       ESP_LOGE(TAG, "Unable to get location. Restarting...");
       esp_restart();
@@ -129,15 +129,16 @@ extern "C" void app_main(void) {
 
     // send lat/long/elev and restart reason
     const esp_reset_reason_t reset_reason = esp_reset_reason();
+    const double elevation_ft = elevation_m * 3.28084;
     ESP_LOGI(TAG, "Reset reason: %i", reset_reason);
-    ESP_LOGI(TAG, "Latitude: %.2f, Longitude: %.2f, Elevation: %.2fm",
-      latitude, longitude, elevation);
+    ESP_LOGI(TAG, "Latitude: %.2f, Longitude: %.2f, Elevation: %.2f ft",
+      latitude, longitude, elevation_ft);
 
     // build data json object
     cJSON *data = cJSON_CreateObject();
     cJSON_AddNumberToObject(data, "latitude", latitude);
     cJSON_AddNumberToObject(data, "longitude", longitude);
-    cJSON_AddNumberToObject(data, "elevation", elevation * 3.28084);
+    cJSON_AddNumberToObject(data, "elevation", elevation_ft);
     cJSON_AddNumberToObject(data, "reset", reset_reason);
 
     wireless_publish(DATA_TOPIC, data, 2, false, 5000 / portTICK_PERIOD_MS);
