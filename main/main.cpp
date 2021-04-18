@@ -125,7 +125,13 @@ extern "C" void app_main(void) {
     device_is_setup = true;
   } else {
     ESP_LOGI(TAG, "Waking up sensors");
-    // TODO
+    for (Sensor *sensor : sensors) {
+      err = sensor->wake_up();
+      if (err) {
+        ESP_LOGE(TAG, "An error occurred waking up %s.", 
+          sensor->get_name());
+      }
+    }
 
     // wait until 15s before measurement to start wifi and mqtt
     const int wifi_time_ms = 15 * 1000;
@@ -145,7 +151,13 @@ extern "C" void app_main(void) {
 
     // get sensor data
     ESP_LOGI(TAG, "Getting sensor data...");
-    // TODO
+    for (Sensor *sensor : sensors) {
+      err = sensor->get_data(json);
+      if (err) {
+        ESP_LOGE(TAG, "An error occurred getting data from %s.", 
+          sensor->get_name());
+      }
+    }
 
     // wait until wifi is connected
     xTaskNotifyWait(0, -1, (uint32_t *)&err, portMAX_DELAY);
