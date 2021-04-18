@@ -24,28 +24,26 @@ private:
 
 
   struct {
-    uint16_t t1 : 16;
-    int16_t t2  : 16;
-    int16_t t3  : 16;
+    uint16_t t1;
+    int16_t t2;
+    int16_t t3;
 
-    uint16_t p1 : 16;
-    int16_t p2  : 16;
-    int16_t p3  : 16;
-    int16_t p4  : 16;
-    int16_t p5  : 16;
-    int16_t p6  : 16;
-    int16_t p7  : 16;
-    int16_t p8  : 16;
-    int16_t p9  : 16;
+    uint16_t p1;
+    int16_t p2;
+    int16_t p3;
+    int16_t p4 ;
+    int16_t p5;
+    int16_t p6;
+    int16_t p7;
+    int16_t p8;
+    int16_t p9;
 
-    uint8_t : 8;
-
-    uint8_t h1 : 8;
-    int16_t h2 : 16;
-    uint8_t h3 : 8;
-    int16_t h4 : 12; // h4 is little endian!
-    int16_t h5 : 12;
-    int8_t h6  : 8;
+    uint8_t h1;
+    int16_t h2;
+    uint8_t h3;
+    int16_t h4; // little endian, 12 bits long
+    int16_t h5; // shares nibble with h4, 12 bits long
+    int8_t h6;
   } dig;
 
   int32_t get_t_fine(const int32_t adc_T) const {
@@ -204,16 +202,27 @@ public:
 
   esp_err_t wake_up() {
     // read the calibration data
-    esp_err_t err = serial_i2c_read(i2c_address, CALIBRATION_REGISTER_0,
-      &dig, 26, 100 / portTICK_PERIOD_MS);
+    esp_err_t err = serial_i2c_read(i2c_address, T1_TRIM_REGISTER, &(dig.t1),
+      24, 100 / portTICK_PERIOD_MS);
     if (err) return err;
-    err = serial_i2c_read(i2c_address, CALIBRATION_REGISTER_1, &dig + 26, 
-      7, 100 / portTICK_PERIOD_MS);
+    err = serial_i2c_read(i2c_address, H1_TRIM_REGISTER, &(dig.h1), 1, 
+      100 / portTICK_PERIOD_MS);
+    err = serial_i2c_read(i2c_address, H2_TRIM_REGISTER, &(dig.h2), 3, 
+      100 / portTICK_PERIOD_MS);
+    if (err) return err;
+    err = serial_i2c_read(i2c_address, H4_TRIM_REGISTER, &(dig.h4), 2, 
+      100 / portTICK_PERIOD_MS);
+    if (err) return err;
+    err = serial_i2c_read(i2c_address, H5_TRIM_REGISTER, &(dig.h5), 2, 
+      100 / portTICK_PERIOD_MS);
+    if (err) return err;
+    err = serial_i2c_read(i2c_address, H6_TRIM_REGISTER, &(dig.h6), 1, 
+      100 / portTICK_PERIOD_MS);
     if (err) return err;
     
-    // dig.h4 is big endian - flip it around
-    const char *const raw_calibration = reinterpret_cast<char*>(&dig);
-    dig.h4 = raw_calibration[28] << 4 | (raw_calibration[29] & 0xf);
+    // h4 is little endian, h5 shares 4 bits with h4, and both are 12 bits long
+    dig.h4 = ((((dig.h4 & 0xf00) >> 4) | (dig.h4 << 8)) >> 4) & 0xfff;
+    dig.h5 = (dig.h5 >> 4) & 0xfff;
 
     return ESP_OK;
   }
