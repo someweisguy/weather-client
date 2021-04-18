@@ -94,9 +94,9 @@ esp_err_t serial_i2c_read(char addr, char reg, void *buf, size_t size,
   return i2c_cmd(addr, reg, buf, size, true, false, timeout);
 }
 
-esp_err_t serial_i2c_write(char addr, char reg, void *buf, size_t size, bool ack_en,
+esp_err_t serial_i2c_write(char addr, char reg, const void *buf, size_t size, bool ack_en,
     TickType_t timeout) {
-  return i2c_cmd(addr, reg, buf, size, false, ack_en, timeout);
+  return i2c_cmd(addr, reg, (void *)buf, size, false, ack_en, timeout);
 }
 
 esp_err_t serial_uart_read(void *buf, size_t size, TickType_t timeout) {
