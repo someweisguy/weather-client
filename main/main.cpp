@@ -13,7 +13,7 @@
 #include "bme280.hpp"
 
 static const char *TAG = "main";
-RTC_DATA_ATTR enum device_state_t { INIT = 0, WAKE, READ } device_state;
+RTC_DATA_ATTR bool device_is_setup;
 RTC_DATA_ATTR double latitude, longitude, elevation;
 RTC_DATA_ATTR time_t last_time_sync_ts;
 
@@ -22,7 +22,7 @@ static Sensor *sensors[] = { new bme280_t(0x76, elevation)};
 static void wireless_connect_task(void *args) {
   const TaskHandle_t calling_task = args;
   const esp_err_t err = wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER,
-    10000 / portTICK_PERIOD_MS);
+    15000 / portTICK_PERIOD_MS);
   xTaskNotify(calling_task, err, eSetValueWithOverwrite);
   vTaskDelete(NULL);
 }
@@ -41,8 +41,8 @@ extern "C" void app_main(void) {
     esp_restart();
   }
 
-  if (device_state == INIT) {
-    ESP_LOGI(TAG, "Device state is INIT");
+  if (!device_is_setup) {
+    ESP_LOGI(TAG, "Doing initial device setup");
 
     ESP_LOGI(TAG, "Connecting to wireless services...");
     xTaskCreate(wireless_connect_task, "wireless_connect_task", 4096,
@@ -102,6 +102,7 @@ extern "C" void app_main(void) {
     ESP_LOGI(TAG, "Latitude: %.2f, Longitude: %.2f, Elevation: %.2fm",
       latitude, longitude, elevation);
 
+    // build data json object
     cJSON *data = cJSON_CreateObject();
     cJSON_AddNumberToObject(data, "latitude", latitude);
     cJSON_AddNumberToObject(data, "longitude", longitude);
@@ -111,30 +112,34 @@ extern "C" void app_main(void) {
     wireless_publish(DATA_TOPIC, data, 2, false, 5000 / portTICK_PERIOD_MS);
 
     wireless_stop(5000 / portTICK_PERIOD_MS);
-  } else if (device_state == WAKE) {
-    ESP_LOGI(TAG, "Device state is WAKE");
 
-    // wake up air quality sensor
-
+    device_is_setup = true;
   } else {
-    ESP_LOGI(TAG, "Device state is READ");
+    ESP_LOGI(TAG, "Device is awake");
 
-    // connect to wifi
+    // wake up sensors
+    // TODO
+
+    // wait until 15s before measurement to start wifi and mqtt
+    const int wifi_time_ms = 15 * 1000;
+    int wait_time_ms = (time_to_next_state_us() / 1000) - wifi_time_ms;
+    vTaskDelay(wait_time_ms / portTICK_PERIOD_MS);
+
+    // connect to wifi and mqtt
     xTaskCreate(wireless_connect_task, "wireless_connect_task", 4096,
       xTaskGetCurrentTaskHandle(), 0, NULL);
-    
+
     // create json payload
     cJSON *json = cJSON_CreateObject();
 
     // wait until measurement window
-    const int wait_time_ms = time_to_next_state_us() / 1000;
+    wait_time_ms = time_to_next_state_us() / 1000;
     vTaskDelay(wait_time_ms / portTICK_PERIOD_MS);
 
     // get sensor data
     ESP_LOGI(TAG, "Getting sensor data...");
-    vTaskDelay(1);
-    // TODO:
-    
+    // TODO
+
     // wait until wifi is connected
     xTaskNotifyWait(0, -1, (uint32_t *)&err, portMAX_DELAY);
     if (!err) {
@@ -161,23 +166,9 @@ extern "C" void app_main(void) {
     }
   }
 
-  // set the next device state
-  if (device_state == WAKE) device_state = READ;
-  else device_state = WAKE;
-
   ESP_LOGI(TAG, "Going to sleep...");
-
-  // calculate time to next wakeup
-  int sleep_time_us = time_to_next_state_us();
-  if (device_state == WAKE) {
-    // wake 32s early for air quality sensor
-    const int wake_early_s = 32;
-    sleep_time_us -= wake_early_s * 1e6;
-  } else {
-    // wake 10s early to connect to wifi and mqtt
-    const int wake_early_s = 10;
-    sleep_time_us -= wake_early_s * 1e6;
-  }
+  const int wake_early_us = 32 * 1e6; 
+  int sleep_time_us = time_to_next_state_us() - wake_early_us;
   if (sleep_time_us < 10000) {
     // not enough time - skip this measurement period
     sleep_time_us += 5 * 60 * 1e6;
