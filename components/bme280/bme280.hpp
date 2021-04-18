@@ -14,9 +14,9 @@ private:
   const double elevation;
 
   const static uint8_t RESET_REGISTER = 0xe0;
-  const static uint8_t REG_TRIM_T1_TO_H1 = 0x88;
-  const static uint8_t REG_TRIM_H2_TO_H6 = 0xe1;
-  const static uint8_t REG_DATA_START = 0xf7;
+  const static uint8_t CALIBRATION_REGISTER_0 = 0x88;
+  const static uint8_t CALIBRATION_REGISTER_1 = 0xe1;
+  const static uint8_t DATA_START_REGISTER = 0xf7;
   const static uint8_t CONFIG_REGISTER = 0xf5;
   const static uint8_t CTRL_HUM_REGISTER = 0xf2;
   const static uint8_t CTRL_MEAS_REGISTER = 0xf4;
@@ -24,26 +24,28 @@ private:
 
 
   struct {
-    uint16_t t1;
-    int16_t t2;
-    int16_t t3;
+    uint16_t t1 : 16;
+    int16_t t2  : 16;
+    int16_t t3  : 16;
 
-    uint16_t p1;
-    int16_t p2;
-    int16_t p3;
-    int16_t p4;
-    int16_t p5;
-    int16_t p6;
-    int16_t p7;
-    int16_t p8;
-    int16_t p9;
+    uint16_t p1 : 16;
+    int16_t p2  : 16;
+    int16_t p3  : 16;
+    int16_t p4  : 16;
+    int16_t p5  : 16;
+    int16_t p6  : 16;
+    int16_t p7  : 16;
+    int16_t p8  : 16;
+    int16_t p9  : 16;
 
-    uint8_t h1;
-    int16_t h2;
-    uint8_t h3;
-    int16_t h4;
-    int16_t h5;
-    int8_t h6;
+    uint8_t : 8;
+
+    uint8_t h1 : 8;
+    int16_t h2 : 16;
+    uint8_t h3 : 8;
+    int16_t h4 : 12; // h4 is little endian!
+    int16_t h5 : 12;
+    int8_t h6  : 8;
   } dig;
 
   int32_t get_t_fine(const int32_t adc_T) const {
@@ -192,20 +194,17 @@ public:
   }
 
   esp_err_t wake_up() {
-    // read the trimming parameters and copy them to memory
-    char buf[32];
-    esp_err_t err = serial_i2c_read(this->i2c_address, REG_TRIM_T1_TO_H1, buf, 25, 
-      3000 / portTICK_PERIOD_MS);
+    // read the calibration data
+    esp_err_t err = serial_i2c_read(i2c_address, CALIBRATION_REGISTER_0,
+      &dig, 26, 100 / portTICK_PERIOD_MS);
     if (err) return err;
-    err = serial_i2c_read(this->i2c_address, REG_TRIM_H2_TO_H6, buf + 25, 7, 
-      3000 / portTICK_PERIOD_MS);
+    err = serial_i2c_read(i2c_address, CALIBRATION_REGISTER_1, &dig + 26, 
+      7, 100 / portTICK_PERIOD_MS);
     if (err) return err;
-    memcpy((void*)&(this->dig), buf, 25);
-    dig.h2 = buf[26] << 8 | buf[25];
-    dig.h3 = buf[27];
-    dig.h4 = buf[28] << 4 | (buf[29] & 0xf);
-    dig.h5 = buf[30] << 4 | buf[29] >> 4;
-    dig.h6 = buf[31];
+    
+    // dig.h4 is big endian - flip it around
+    const char *const raw_calibration = reinterpret_cast<char*>(&dig);
+    dig.h4 = raw_calibration[28] << 4 | (raw_calibration[29] & 0xf);
 
     return ESP_OK;
   }
