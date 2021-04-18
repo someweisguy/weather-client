@@ -10,21 +10,21 @@
 class bme280_t : public Sensor {
 private:
   const uint8_t i2c_address;
-  const double elevation;
+  const double elevation_m;
 
   // bme280 register addresses
-  const static uint8_t RESET_REGISTER = 0xe0;
-  const static uint8_t T1_TRIM_REGISTER = 0x88;
-  const static uint8_t H1_TRIM_REGISTER = 0xa1;
-  const static uint8_t H2_TRIM_REGISTER = 0xe1;
-  const static uint8_t H4_TRIM_REGISTER = 0xe4;
-  const static uint8_t H5_TRIM_REGISTER = 0xe5;
-  const static uint8_t H6_TRIM_REGISTER = 0xe7;
-  const static uint8_t DATA_START_REGISTER = 0xf7;
-  const static uint8_t CONFIG_REGISTER = 0xf5;
-  const static uint8_t CTRL_HUM_REGISTER = 0xf2;
-  const static uint8_t CTRL_MEAS_REGISTER = 0xf4;
-  const static uint8_t STATUS_REGISTER = 0xf3;
+  const static uint8_t RESET_REGISTER       = 0xe0;
+  const static uint8_t T1_TRIM_REGISTER     = 0x88;
+  const static uint8_t H1_TRIM_REGISTER     = 0xa1;
+  const static uint8_t H2_TRIM_REGISTER     = 0xe1;
+  const static uint8_t H4_TRIM_REGISTER     = 0xe4;
+  const static uint8_t H5_TRIM_REGISTER     = 0xe5;
+  const static uint8_t H6_TRIM_REGISTER     = 0xe7;
+  const static uint8_t DATA_START_REGISTER  = 0xf7;
+  const static uint8_t CONFIG_REGISTER      = 0xf5;
+  const static uint8_t CTRL_HUM_REGISTER    = 0xf2;
+  const static uint8_t CTRL_MEAS_REGISTER   = 0xf4;
+  const static uint8_t STATUS_REGISTER      = 0xf3;
 
 
   struct {
@@ -112,8 +112,8 @@ private:
   }
 
 public:
-  bme280_t(const uint8_t i2c_address, const double elevation) : Sensor("bme280"),
-      i2c_address(i2c_address), elevation(elevation) {
+  bme280_t(const uint8_t i2c_address, const double elevation_m) : Sensor("bme280"),
+      i2c_address(i2c_address), elevation_m(elevation_m) {
     this->discovery = new discovery_t[4] {
       {
         .topic = "test/temperature/config",
@@ -176,39 +176,33 @@ public:
 
   esp_err_t setup() {
     // soft reset the chip
-    const uint8_t rst_cmd = 0xb6;
-    esp_err_t err = serial_i2c_write(i2c_address, RESET_REGISTER, 
-      reinterpret_cast<void *>(const_cast<uint8_t *>(&rst_cmd)), 1, true, 
-      100 / portTICK_PERIOD_MS);
+    const uint8_t reset_cmd = 0xb6;
+    esp_err_t err = serial_i2c_write(i2c_address, RESET_REGISTER, &reset_cmd, 
+      1, true, 100 / portTICK_PERIOD_MS);
     if (err) return err;
 
     err = wait_bme_ready();
     if (err) return err;
-      status &= 0x9; // only read bit 0 and 3
-    } while (status);
 
     // write config register
     // sets normal mode measurements to 1000ms, iir off, i2c mode on
     const uint8_t config_cmd = 0x80;
-    err = serial_i2c_write(i2c_address, CONFIG_REGISTER, 
-      reinterpret_cast<void *>(const_cast<uint8_t *>(&config_cmd)), 1, true, 
+    err = serial_i2c_write(i2c_address, CONFIG_REGISTER, &config_cmd, 1, true, 
       100 / portTICK_PERIOD_MS);
     if (err) return err;
 
     // write ctrl_hum register
     // sets humidity oversampling to x1
     const uint8_t ctrl_hum_cmd = 0x1;
-    err = serial_i2c_write(i2c_address, CTRL_HUM_REGISTER, 
-      reinterpret_cast<void *>(const_cast<uint8_t *>(&ctrl_hum_cmd)), 1, true, 
-      100 / portTICK_PERIOD_MS);
+    err = serial_i2c_write(i2c_address, CTRL_HUM_REGISTER, &ctrl_hum_cmd, 1, 
+      true, 100 / portTICK_PERIOD_MS);
     if (err) return err;
 
     // write ctrl_meas register (must be done after writing ctrl_hum)
     // sets pressure and temperature oversampling to x1 and enables sleep mode
     const uint8_t ctrl_meas_cmd = 0x24;
-    err = serial_i2c_write(i2c_address, CONFIG_REGISTER, 
-      reinterpret_cast<void *>(const_cast<uint8_t *>(&ctrl_meas_cmd)), 1, true, 
-      100 / portTICK_PERIOD_MS);
+    err = serial_i2c_write(i2c_address, CONFIG_REGISTER, &ctrl_meas_cmd, 1,
+      true, 100 / portTICK_PERIOD_MS);
     if (err) return err;
     
     return ESP_OK;
@@ -251,64 +245,74 @@ public:
 
     err = wait_bme_ready();
     if (err) return err;
-      status &= 0x9; // only read bit 0 and 3
-    } while (status);
 
     // get uncompensated data from the device
-    // TODO: rename buf to something more descriptive
-    uint8_t buf[8];
-    err = serial_i2c_read(this->i2c_address, DATA_START_REGISTER, buf, 8, 
+    uint8_t raw_data[8];
+    err = serial_i2c_read(i2c_address, DATA_START_REGISTER, raw_data, 8, 
       100 / portTICK_PERIOD_MS);
     if (err) return err;
-    
-    // swap the endianness and align
-    // TODO: can we clean this up? make this a struct?
-    int32_t adc_P = buf[0] << 12 | buf[1] << 4 | buf[2] >> 4,
-            adc_T = buf[3] << 12 | buf[4] << 4 | buf[5] >> 4,
-            adc_H = buf[6] << 8 | buf[7];
 
-    int32_t t_fine;  // needed to compensate data
+    // swap endianness and align
+    int32_t adc_P = (raw_data[0] << 16 | raw_data[1] << 8 | raw_data[2]) >> 4;
+    int32_t adc_T = (raw_data[3] << 16 | raw_data[4] << 8 | raw_data[5]) >> 4;
+    int32_t adc_H = raw_data[6] << 8 | raw_data[7];
+
+    const int32_t t_fine = get_t_fine(adc_T);  // needed to compensate data
     double celsius, humidity; // needed for dew point and pressure
 
     // get temperature value
     if (adc_T != 0x80000) {
-      t_fine = this->get_t_fine(adc_T);
-      celsius = compensate_temperature(t_fine) / 100.0;
-      double temperature = (celsius * 9.0 / 5.0) + 32;
-      temperature = ceil(temperature * 100.0) / 100.0; // round to 2 decimal places
+      double temperature = compensate_temperature(t_fine) / 100.0; // C
+      celsius = temperature;
+
+      // convert to F and round to 2 decimal places
+      temperature = (temperature * 9.0 / 5.0) + 32;
+      temperature = ceil(temperature * 100.0) / 100.0;
+
       cJSON_AddNumberToObject(json, "temperature", temperature);
     } else {
-      // temperature sampling must be turned on to get valid data
+      // temperature sampling must be turned on
       return ESP_ERR_INVALID_STATE;
     }
 
     // get pressure value
     if (adc_P != 0x80000) {
-      // compensate for pressure at current_elevation
-      const uint32_t pressure_sea_level = compensate_pressure(t_fine, adc_P) / 256;
-      const double M = 0.02897,  // molar mass of Eath's air (kg/mol)
-          g = 9.807665,          // gravitational constant (m/s^2)
-          R = 8.3145,            // universal gas constant (J/mol*K)
-          K = celsius + 273.15;  // temperature in Kelvin
-      double pressure = pressure_sea_level * exp((M * g) / (R * K) * elevation); // default Pa
-      pressure /= 3386.0;  // convert to inHg
-      pressure = ceil(pressure * 100.0) / 100.0; // round to 2 decimal places
+      double pressure = compensate_pressure(t_fine, adc_P) / 256; // Pa
+
+      // convert pressure at sea level to pressure at current elevation_m
+      const double M = 0.02897,          // molar mass of Eath's air (kg/mol)
+                   g = 9.807665,         // gravitational constant (m/s^2)
+                   R = 8.314462,         // universal gas constant (J/mol*K)
+                   K = celsius + 273.15; // temperature in Kelvin
+      pressure = pressure * exp((M * g) / (R * K) * elevation_m);
+      
+      // convert to inHg and round to 2 decimal places
+      pressure /= 3386.3886666667;
+      pressure = ceil(pressure * 100.0) / 100.0;
+      
       cJSON_AddNumberToObject(json, "pressure", pressure);
     }
 
     // get humidity value
     if (adc_H != 0x800) {
       humidity = compensate_humidity(t_fine, adc_H) / 1024.0;
-      humidity = ceil(humidity * 100.0) / 100.0; // round to 2 decimal places
+
+      // round to 2 decimal places
+      humidity = ceil(humidity * 100.0) / 100.0;
+
       cJSON_AddNumberToObject(json, "humidity", humidity);
     }
 
     // calculate the dew point
     if (adc_T != 0x80000 && adc_H != 0x800) {
-      const double gamma = log(fmax(humidity, DBL_MIN) / 100) + ((17.62 * celsius) / (243.12 + celsius));
-      double dew_point = (243.12 * gamma) / (17.32 - gamma);
-      dew_point = (dew_point * 9.0 / 5.0) + 32; // convert to F
-      dew_point = ceil(dew_point * 100.0) / 100.0; // round to 2 decimal places
+      const double gamma = log(fmax(humidity, DBL_MIN) / 100.0) 
+        + ((17.62 * celsius) / (243.12 + celsius));
+      double dew_point = (243.12 * gamma) / (17.32 - gamma); // C
+      
+      // convert to F and round to 2 decimal places
+      dew_point = (dew_point * 9.0 / 5.0) + 32;
+      dew_point = ceil(dew_point * 100.0) / 100.0;
+      
       cJSON_AddNumberToObject(json, "dew_point", dew_point);
     } 
 
@@ -316,6 +320,7 @@ public:
   }
 
   esp_err_t sleep() {
+    // don't need to do anything here - automatically returns to sleep mode
     return ESP_OK;
   }  
 };
