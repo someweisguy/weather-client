@@ -7,15 +7,19 @@
 #include "serial.h"
 #include <string.h>
 
-class bme280_t : public Sensor
-{
+class bme280_t : public Sensor {
 private:
   const uint8_t i2c_address;
   const double elevation;
 
+  // bme280 register addresses
   const static uint8_t RESET_REGISTER = 0xe0;
-  const static uint8_t CALIBRATION_REGISTER_0 = 0x88;
-  const static uint8_t CALIBRATION_REGISTER_1 = 0xe1;
+  const static uint8_t T1_TRIM_REGISTER = 0x88;
+  const static uint8_t H1_TRIM_REGISTER = 0xa1;
+  const static uint8_t H2_TRIM_REGISTER = 0xe1;
+  const static uint8_t H4_TRIM_REGISTER = 0xe4;
+  const static uint8_t H5_TRIM_REGISTER = 0xe5;
+  const static uint8_t H6_TRIM_REGISTER = 0xe7;
   const static uint8_t DATA_START_REGISTER = 0xf7;
   const static uint8_t CONFIG_REGISTER = 0xf5;
   const static uint8_t CTRL_HUM_REGISTER = 0xf2;
@@ -37,6 +41,7 @@ private:
     int16_t p7;
     int16_t p8;
     int16_t p9;
+
 
     uint8_t h1;
     int16_t h2;
@@ -197,7 +202,7 @@ public:
       100 / portTICK_PERIOD_MS);
     if (err) return err;
     
-    return err;
+    return ESP_OK;
   }
 
   esp_err_t wake_up() {
@@ -221,7 +226,7 @@ public:
     if (err) return err;
     
     // h4 is little endian, h5 shares 4 bits with h4, and both are 12 bits long
-    dig.h4 = ((((dig.h4 & 0xf00) >> 4) | (dig.h4 << 8)) >> 4) & 0xfff;
+    dig.h4 = (((dig.h4 & 0xfff) >> 8) | (dig.h4 << 4)) & 0xfff;
     dig.h5 = (dig.h5 >> 4) & 0xfff;
 
     return ESP_OK;
@@ -246,25 +251,27 @@ public:
     } while (status);
 
     // get uncompensated data from the device
+    // TODO: rename buf to something more descriptive
     uint8_t buf[8];
-    err = serial_i2c_read(this->i2c_address, REG_DATA_START, buf, 8, 
-      3000 / portTICK_PERIOD_MS);
+    err = serial_i2c_read(this->i2c_address, DATA_START_REGISTER, buf, 8, 
+      100 / portTICK_PERIOD_MS);
     if (err) return err;
     
     // swap the endianness and align
+    // TODO: can we clean this up? make this a struct?
     int32_t adc_P = buf[0] << 12 | buf[1] << 4 | buf[2] >> 4,
             adc_T = buf[3] << 12 | buf[4] << 4 | buf[5] >> 4,
             adc_H = buf[6] << 8 | buf[7];
-    int32_t t_fine;  // used to compensate data
 
-    double celsius; // needed for dew point and pressure
-    double humidity; // needed for dew point
+    int32_t t_fine;  // needed to compensate data
+    double celsius, humidity; // needed for dew point and pressure
 
     // get temperature value
     if (adc_T != 0x80000) {
       t_fine = this->get_t_fine(adc_T);
-      celsius = compensate_temperature(t_fine) / 100.0;  // default C
+      celsius = compensate_temperature(t_fine) / 100.0;
       double temperature = (celsius * 9.0 / 5.0) + 32;
+      temperature = ceil(temperature * 100.0) / 100.0; // round to 2 decimal places
       cJSON_AddNumberToObject(json, "temperature", temperature);
     } else {
       // temperature sampling must be turned on to get valid data
@@ -281,12 +288,14 @@ public:
           K = celsius + 273.15;  // temperature in Kelvin
       double pressure = pressure_sea_level * exp((M * g) / (R * K) * elevation); // default Pa
       pressure /= 3386.0;  // convert to inHg
+      pressure = ceil(pressure * 100.0) / 100.0; // round to 2 decimal places
       cJSON_AddNumberToObject(json, "pressure", pressure);
     }
 
     // get humidity value
     if (adc_H != 0x800) {
       humidity = compensate_humidity(t_fine, adc_H) / 1024.0;
+      humidity = ceil(humidity * 100.0) / 100.0; // round to 2 decimal places
       cJSON_AddNumberToObject(json, "humidity", humidity);
     }
 
@@ -295,6 +304,8 @@ public:
       const double gamma = log(fmax(humidity, DBL_MIN) / 100) + ((17.62 * celsius) / (243.12 + celsius));
       double dew_point = (243.12 * gamma) / (17.32 - gamma);
       dew_point = (dew_point * 9.0 / 5.0) + 32; // convert to F
+      dew_point = ceil(dew_point * 100.0) / 100.0; // round to 2 decimal places
+      cJSON_AddNumberToObject(json, "dew_point", dew_point);
     } 
 
     return ESP_OK;
