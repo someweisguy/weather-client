@@ -78,16 +78,24 @@ extern "C" void app_main(void) {
       ESP_LOGE(TAG, "Unable to get location. Restarting...");
       esp_restart();
     }
+
+    // build the device config for discovery
+    cJSON *device = cJSON_CreateObject();
     
     ESP_LOGI(TAG, "Sending discovery MQTT strings...");
-    for (const Sensor *sensor : sensors) {
-      cJSON **json_objects;
+    for (Sensor *sensor : sensors) {
+      cJSON **config_jsons;
       const char **config_topics;
-      const int num_topics = sensor->get_discovery(config_topics, json_objects);
-      // attach device JSON
-      for (int i = 0; i < num_topics; ++i) {
-        ESP_LOGI(TAG, "Config Topic %i", i);
-        err = wireless_publish(config_topics[i], json_objects[i], 2, false, 
+      const int num_topics = sensor->get_discovery(config_topics, config_jsons);
+
+      // ensure sensors have discovery topics
+      if (num_topics == 0) ESP_LOGW(TAG, "Sensor %s doesn't have any discovery topics!", 
+        sensor->get_name());
+
+      // publish each discovery topic
+      for (int i = 0; i < num_topics; ++i) { 
+        cJSON_AddItemReferenceToObject(config_jsons[i], "device", device);
+        err = wireless_publish(config_topics[i], config_jsons[i], 2, false, 
           5000 / portTICK_PERIOD_MS);
         if (err) {
           ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
@@ -95,6 +103,7 @@ extern "C" void app_main(void) {
         }
       }
     }
+    cJSON_Delete(device);
 
     // send lat/long/elev and restart reason
     const esp_reset_reason_t reset_reason = esp_reset_reason();
@@ -115,9 +124,7 @@ extern "C" void app_main(void) {
 
     device_is_setup = true;
   } else {
-    ESP_LOGI(TAG, "Device is awake");
-
-    // wake up sensors
+    ESP_LOGI(TAG, "Waking up sensors");
     // TODO
 
     // wait until 15s before measurement to start wifi and mqtt
