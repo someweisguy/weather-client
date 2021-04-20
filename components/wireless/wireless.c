@@ -317,32 +317,18 @@ esp_err_t wireless_get_location(double *latitude, double *longitude,
   return ESP_OK;
 }
 
-esp_err_t wireless_get_data(cJSON *json) {
-  esp_err_t err = ESP_OK;
-
-  // get the current ip address and convert it to a string
-  esp_netif_ip_info_t ip_info;
-  err |= esp_netif_get_ip_info(netif, &ip_info);
-  if (!err) {
-    char ip_str[16];
-    const uint8_t *ip_arr = (uint8_t *)&ip_info.ip;
-    snprintf(ip_str, sizeof(ip_str), "%d.%d.%d.%d", ip_arr[0], ip_arr[1],
-      ip_arr[2], ip_arr[3]);
-    cJSON_AddStringToObject(json, "ip", ip_str);
-  } else {
-    ESP_LOGE(TAG, "Unable to get IP");
-  }
-  
+esp_err_t wireless_get_rssi(int *rssi) {
   // get the wireless antenna rssi
   wifi_ap_record_t ap_info;
-  err |= esp_wifi_sta_get_ap_info(&ap_info);
+  esp_err_t err = esp_wifi_sta_get_ap_info(&ap_info);
   if (!err) {
-    cJSON_AddNumberToObject(json, "rssi", ap_info.rssi);
+    *rssi = ap_info.rssi;
   } else {
     ESP_LOGE(TAG, "Unable to get RSSI");
+    return err;
   }
   
-  return err;
+  return ESP_OK;
 }
 
 esp_err_t wireless_publish(const char *topic, cJSON* json, int qos, 
