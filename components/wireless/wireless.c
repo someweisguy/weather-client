@@ -369,3 +369,34 @@ esp_err_t wireless_publish(const char *topic, cJSON* json, int qos,
   
   return ESP_OK;
 }
+
+esp_err_t wireless_discover(const discovery_t *discovery, int qos, bool retain,
+    TickType_t timeout) {
+  if (discovery == NULL) return ESP_ERR_INVALID_ARG;  
+
+  // create the json object and fill it with required params
+  cJSON *json = cJSON_CreateObject();
+  cJSON_AddNumberToObject(json, "expire_after", discovery->config.expire_after);
+  cJSON_AddBoolToObject(json, "force_update", discovery->config.force_update);
+  cJSON_AddStringToObject(json, "icon", discovery->config.icon);
+  cJSON_AddStringToObject(json, "name", discovery->config.name);
+  cJSON_AddNumberToObject(json, "qos", discovery->config.qos);
+  cJSON_AddStringToObject(json, "state_topic", discovery->config.state_topic);
+  cJSON_AddStringToObject(json, "unique_id", discovery->config.unique_id);
+  cJSON_AddStringToObject(json, "unit_of_measurement", discovery->config.unit_of_measurement);
+  cJSON_AddStringToObject(json, "value_template", discovery->config.value_template);
+
+  // handle the optional params
+  if (discovery->device_class != NULL) {
+    cJSON_AddStringToObject(json, "device_class", discovery->device_class);
+  }
+
+  // TODO: add device, state_topic, etc.
+
+  // publish the discovery
+  esp_err_t err = wireless_publish(discovery->topic, json, qos, retain, 
+    timeout);
+  cJSON_Delete(json);
+
+  return err;
+}

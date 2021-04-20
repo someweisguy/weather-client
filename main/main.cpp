@@ -106,18 +106,11 @@ extern "C" void app_main(void) {
     
     ESP_LOGI(TAG, "Sending discovery MQTT strings...");
     for (Sensor *sensor : sensors) {
-      cJSON **config_jsons;
-      const char **config_topics;
-      const int num_topics = sensor->get_discovery(config_topics, config_jsons);
-
-      // ensure sensors have discovery topics
-      if (num_topics == 0) ESP_LOGW(TAG, "Sensor %s doesn't have any discovery topics!", 
-        sensor->get_name());
-
       // publish each discovery topic
-      for (int i = 0; i < num_topics; ++i) { 
-        cJSON_AddItemReferenceToObject(config_jsons[i], "device", device);
-        err = wireless_publish(config_topics[i], config_jsons[i], 2, false, 
+      discovery_t *discoveries;
+      const int num_discoveries = sensor->get_discovery(discoveries);
+      for (int i = 0; i < num_discoveries; ++i) { 
+        err = wireless_discover(&(discoveries[i]), 2, false, 
           5000 / portTICK_PERIOD_MS);
         if (err) {
           ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
@@ -185,8 +178,12 @@ extern "C" void app_main(void) {
     // wait until wifi is connected
     xTaskNotifyWait(0, -1, (uint32_t *)&err, portMAX_DELAY);
     if (!err) {
-      // get information about the wifi connection
-      wireless_get_data(json);
+      // get information about the wifi signal strength
+      int signal_strength;
+      err = wireless_get_rssi(&signal_strength);
+      if (!err) {
+        cJSON_AddNumberToObject(json, SIGNAL_STRENGTH_KEY, signal_strength);
+      }
 
       // publish data to mqtt broker
       wireless_publish(DATA_TOPIC, json, 2, false, 10000 / portTICK_PERIOD_MS);
