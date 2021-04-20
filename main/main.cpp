@@ -66,7 +66,7 @@ extern "C" void app_main(void) {
 
     ESP_LOGI(TAG, "Connecting to wireless services...");
     xTaskCreate(wireless_connect_task, "wireless_connect_task", 4096,
-      xTaskGetCurrentTaskHandle(), 0, NULL);
+      xTaskGetCurrentTaskHandle(), 0, nullptr);
 
     ESP_LOGI(TAG, "Initializing sensors...");
     for (Sensor *sensor : sensors) {
@@ -78,7 +78,7 @@ extern "C" void app_main(void) {
     }
 
     // wait for wifi to connect
-    xTaskNotifyWait(0, -1, (uint32_t *)&err, portMAX_DELAY);
+    xTaskNotifyWait(0, -1, reinterpret_cast<uint32_t *>(&err), portMAX_DELAY);
     if (err) {
       ESP_LOGE(TAG, "Unable to connect to wireless services. Restarting...");
       esp_restart();
@@ -156,7 +156,7 @@ extern "C" void app_main(void) {
 
     // connect to wifi and mqtt
     xTaskCreate(wireless_connect_task, "wireless_connect_task", 4096,
-      xTaskGetCurrentTaskHandle(), 0, NULL);
+      xTaskGetCurrentTaskHandle(), 0, nullptr);
 
     // create json data payload
     cJSON *json = cJSON_CreateObject();
@@ -176,7 +176,7 @@ extern "C" void app_main(void) {
     }
 
     // wait until wifi is connected
-    xTaskNotifyWait(0, -1, (uint32_t *)&err, portMAX_DELAY);
+    xTaskNotifyWait(0, -1, reinterpret_cast<uint32_t *>(&err), portMAX_DELAY);
     if (!err) {
       // get information about the wifi signal strength
       int signal_strength;
@@ -194,7 +194,7 @@ extern "C" void app_main(void) {
 
     // check if the clock needs to be resynchronized
     const int time_sync_period_s = 89400;
-    if (time(NULL) > last_time_sync_ts + time_sync_period_s) {
+    if (time(nullptr) > last_time_sync_ts + time_sync_period_s) {
       ESP_LOGI(TAG, "Re-synchronizing time...");
       err = wireless_synchronize_time(SNTP_SERVER, 15000 / portTICK_PERIOD_MS);
       if (err) {
