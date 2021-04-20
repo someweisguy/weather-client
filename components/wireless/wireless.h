@@ -32,9 +32,9 @@ esp_err_t wireless_stop(TickType_t timeout);
 esp_err_t wireless_synchronize_time(const char *server, TickType_t timeout);
 
 esp_err_t wireless_get_location(double *latitude, double *longitude, 
-    double *elevation);
+    double *elevation_m);
 
-esp_err_t wireless_get_data(cJSON *json);
+esp_err_t wireless_get_rssi(int *rssi);
 
 esp_err_t wireless_publish(const char *topic, cJSON* json, int qos, 
     bool retain, TickType_t timeout);
