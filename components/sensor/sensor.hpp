@@ -4,9 +4,6 @@
 #include "esp_log.h"
 #include "cJSON.h"
 
-#define JSON_GET(value) #value
-#define JSON_KV(key, value) "\"" #key "\": " #value "," 
-
 class Sensor {
 protected:
   discovery_t *discovery;
@@ -22,7 +19,7 @@ public:
   }
 
   const char *get_name() const {
-    return this->name;
+    return name;
   }
 
   int get_discovery(discovery_t *&discovery) {
