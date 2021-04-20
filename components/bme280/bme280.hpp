@@ -7,6 +7,11 @@
 #include "serial.h"
 #include <string.h>
 
+#define TEMPERATURE_KEY "temperature"
+#define PRESSURE_KEY    "pressure"
+#define HUMIDITY_KEY    "humidity"
+#define DEW_POINT_KEY   "dew_point"
+
 class bme280_t : public Sensor {
 private:
   const uint8_t i2c_address;
@@ -114,65 +119,69 @@ private:
 public:
   bme280_t(const uint8_t i2c_address, const double elevation_m) : Sensor("bme280"),
       i2c_address(i2c_address), elevation_m(elevation_m) {
-    this->discovery = new discovery_t[4] {
+    discovery = new discovery_t[4] {
       {
-        .topic = "test/temperature/config",
+        .topic = "test/sensor/temperature/config",
         .config = {
           .expire_after = 310,
           .force_update = true,
-          .icon = "icon_temperature",
-          .name = "temperature",
+          .icon = "mdi:thermometer",
+          .name = "Temperature",
           .qos = 2,
           .state_topic = "state_topic",
           .unique_id = "unique_id",
-          .unit_of_measurement = "F",
-          .value_template = "{{ json.temperature }}"
-        }
+          .unit_of_measurement = "°F",
+          .value_template = "{{ json." TEMPERATURE_KEY " }}"
+        },
+        .device_class = "temperature"
       },
       {
-        .topic = "test/humidity/config",
+        .topic = "test/sensor/pressure/config",
         .config = {
           .expire_after = 310,
           .force_update = true,
-          .icon = "icon_humidity",
-          .name = "humidity",
-          .qos = 2,
-          .state_topic = "state_topic",
-          .unique_id = "unique_id",
-          .unit_of_measurement = "%",
-          .value_template = "{{ json.humidity }}"
-        }
-      },
-      {
-        .topic = "test/pressure/config",
-        .config = {
-          .expire_after = 310,
-          .force_update = true,
-          .icon = "icon_pressure",
-          .name = "pressure",
+          .icon = "mdi:gauge",
+          .name = "Pressure",
           .qos = 2,
           .state_topic = "state_topic",
           .unique_id = "unique_id",
           .unit_of_measurement = "inHg",
-          .value_template = "{{ json.pressure }}"
-        }
+          .value_template = "{{ json." PRESSURE_KEY " }}"
+        },
+        .device_class = "pressure"
       },
       {
-        .topic = "test/dew_point/config",
+        .topic = "test/sensor/humidity/config",
         .config = {
           .expire_after = 310,
           .force_update = true,
-          .icon = "icon_dew_point",
+          .icon = "mdi:water-percent",
+          .name = "Humidity",
+          .qos = 2,
+          .state_topic = "state_topic",
+          .unique_id = "unique_id",
+          .unit_of_measurement = "%",
+          .value_template = "{{ json." HUMIDITY_KEY " }}"
+        }, 
+        .device_class = "humidity"
+      },
+      {
+        .topic = "test/sensor/dew_point/config",
+        .config = {
+          .expire_after = 310,
+          .force_update = true,
+          .icon = "mdi:weather-fog",
           .name = "dew_point",
           .qos = 2,
           .state_topic = "state_topic",
           .unique_id = "unique_id",
-          .unit_of_measurement = "F",
-          .value_template = "{{ json.dew_point }}"
-        }
+          .unit_of_measurement = "°F",
+          .value_template = "{{ json." DEW_POINT_KEY " }}"
+        },
+        .device_class = NULL
       }
     };
-  };
+  }
 
   esp_err_t setup() {
     // soft reset the chip
@@ -257,7 +266,7 @@ public:
     int32_t adc_T = (raw_data[3] << 16 | raw_data[4] << 8 | raw_data[5]) >> 4;
     int32_t adc_H = raw_data[6] << 8 | raw_data[7];
 
-    const int32_t t_fine = get_t_fine(adc_T);  // needed to compensate data
+    const int32_t t_fine = get_t_fine(adc_T); // needed to compensate data
     double celsius, humidity; // needed for dew point and pressure
 
     // get temperature value
@@ -269,7 +278,7 @@ public:
       temperature = (temperature * 9.0 / 5.0) + 32;
       temperature = ceil(temperature * 100.0) / 100.0;
 
-      cJSON_AddNumberToObject(json, "temperature", temperature);
+      cJSON_AddNumberToObject(json, TEMPERATURE_KEY, temperature);
     } else {
       // temperature sampling must be turned on
       return ESP_ERR_INVALID_STATE;
@@ -279,7 +288,7 @@ public:
     if (adc_P != 0x80000) {
       double pressure = compensate_pressure(t_fine, adc_P) / 256; // Pa
 
-      // convert pressure at sea level to pressure at current elevation_m
+      // convert pressure at sea level to pressure at current elevation
       const double M = 0.02897,          // molar mass of Eath's air (kg/mol)
                    g = 9.807665,         // gravitational constant (m/s^2)
                    R = 8.314462,         // universal gas constant (J/mol*K)
@@ -289,8 +298,8 @@ public:
       // convert to inHg and round to 2 decimal places
       pressure /= 3386.3886666667;
       pressure = ceil(pressure * 100.0) / 100.0;
-      
-      cJSON_AddNumberToObject(json, "pressure", pressure);
+
+      cJSON_AddNumberToObject(json, PRESSURE_KEY, pressure);
     }
 
     // get humidity value
@@ -300,7 +309,7 @@ public:
       // round to 2 decimal places
       humidity = ceil(humidity * 100.0) / 100.0;
 
-      cJSON_AddNumberToObject(json, "humidity", humidity);
+      cJSON_AddNumberToObject(json, HUMIDITY_KEY, humidity);
     }
 
     // calculate the dew point
@@ -313,14 +322,15 @@ public:
       dew_point = (dew_point * 9.0 / 5.0) + 32;
       dew_point = ceil(dew_point * 100.0) / 100.0;
       
-      cJSON_AddNumberToObject(json, "dew_point", dew_point);
+      cJSON_AddNumberToObject(json, DEW_POINT_KEY, dew_point);
     } 
 
     return ESP_OK;
   }
 
   esp_err_t sleep() {
-    // don't need to do anything here - automatically returns to sleep mode
+    // don't need to do anything here
+    // the bme280 automatically returns to sleep after forced mode measurement
     return ESP_OK;
   }  
 };
