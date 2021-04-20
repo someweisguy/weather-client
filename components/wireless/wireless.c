@@ -11,6 +11,7 @@
 #include "freertos/task.h"
 #include "mqtt_client.h"
 #include "nvs_flash.h"
+#include <ctype.h>
 #include <string.h>
 
 #define WIFI_DISCONNECTED   BIT(0)
@@ -360,28 +361,49 @@ esp_err_t wireless_discover(const discovery_t *discovery, int qos, bool retain,
     TickType_t timeout) {
   if (discovery == NULL) return ESP_ERR_INVALID_ARG;  
 
-  // create the json object and fill it with required params
+  // get mac address for various identification needs
+  uint64_t mac;
+  esp_read_mac((uint8_t*)&mac, ESP_MAC_WIFI_STA);
+
+  // create the json discovery object  
   cJSON *json = cJSON_CreateObject();
+
+  // add the required parameters
   cJSON_AddNumberToObject(json, "expire_after", discovery->config.expire_after);
   cJSON_AddBoolToObject(json, "force_update", discovery->config.force_update);
-  cJSON_AddStringToObject(json, "icon", discovery->config.icon);
   cJSON_AddStringToObject(json, "name", discovery->config.name);
-  cJSON_AddNumberToObject(json, "qos", discovery->config.qos);
-  cJSON_AddStringToObject(json, "state_topic", discovery->config.state_topic);
-  cJSON_AddStringToObject(json, "unique_id", discovery->config.unique_id);
   cJSON_AddStringToObject(json, "unit_of_measurement", discovery->config.unit_of_measurement);
   cJSON_AddStringToObject(json, "value_template", discovery->config.value_template);
 
-  // handle the optional params
-  if (discovery->device_class != NULL) {
-    cJSON_AddStringToObject(json, "device_class", discovery->device_class);
-  }
+  // add the optional params
+  if (discovery->config.device_class != NULL)
+    cJSON_AddStringToObject(json, "device_class", discovery->config.device_class);
+  if (discovery->config.icon != NULL)
+    cJSON_AddStringToObject(json, "icon", discovery->config.icon);
+  
+  // add the preset parameters
+  cJSON_AddStringToObject(json, "state_topic", "test/");
+  cJSON_AddNumberToObject(json, "qos", 2);
 
-  // TODO: add device, state_topic, etc.
+  // generate and attach a unique id using mac address
+  const int len = strlen(discovery->config.name) + 18;
+  char unique_id[len];
+  snprintf(unique_id, len, "%s-%llx", discovery->config.name, mac);
+  cJSON_AddStringToObject(json, "unique_id", unique_id);
+
+  // add device parameters
+  cJSON *device = cJSON_CreateObject();
+  cJSON_AddStringToObject(device, "manufacturer", "Mitch Weisbrod");
+  cJSON_AddStringToObject(device, "sw_version", "");
+  cJSON_AddNumberToObject(device, "identifiers", mac);
+  // TODO: model, name
+  cJSON_AddItemToObject(json, "device", device);
 
   // publish the discovery
   esp_err_t err = wireless_publish(discovery->topic, json, qos, retain, 
     timeout);
+
+  // free resources
   cJSON_Delete(json);
 
   return err;

@@ -11,17 +11,14 @@ extern "C" {
 typedef struct {
   const char *topic;
   struct {
+      const char *device_class;
       int expire_after;
       bool force_update;
       const char *icon;
       const char *name;
-      int qos;
-      const char *state_topic;
-      const char *unique_id;
       const char *unit_of_measurement;
       const char *value_template;
   } config;
-  const char *device_class;
 } discovery_t;
 
 esp_err_t wireless_start(const char *ssid, const char *password,

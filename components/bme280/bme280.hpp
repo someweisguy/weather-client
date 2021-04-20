@@ -123,62 +123,50 @@ public:
       {
         .topic = "test/sensor/temperature/config",
         .config = {
+          .device_class = "temperature",
           .expire_after = 310,
           .force_update = true,
           .icon = "mdi:thermometer",
           .name = "Temperature",
-          .qos = 2,
-          .state_topic = "state_topic",
-          .unique_id = "unique_id",
           .unit_of_measurement = "°F",
           .value_template = "{{ json." TEMPERATURE_KEY " }}"
         },
-        .device_class = "temperature"
       },
       {
         .topic = "test/sensor/pressure/config",
         .config = {
+          .device_class = "pressure",
           .expire_after = 310,
           .force_update = true,
           .icon = "mdi:gauge",
           .name = "Pressure",
-          .qos = 2,
-          .state_topic = "state_topic",
-          .unique_id = "unique_id",
           .unit_of_measurement = "inHg",
           .value_template = "{{ json." PRESSURE_KEY " }}"
         },
-        .device_class = "pressure"
       },
       {
         .topic = "test/sensor/humidity/config",
         .config = {
+          .device_class = "humidity",
           .expire_after = 310,
           .force_update = true,
           .icon = "mdi:water-percent",
           .name = "Humidity",
-          .qos = 2,
-          .state_topic = "state_topic",
-          .unique_id = "unique_id",
           .unit_of_measurement = "%",
           .value_template = "{{ json." HUMIDITY_KEY " }}"
         }, 
-        .device_class = "humidity"
       },
       {
         .topic = "test/sensor/dew_point/config",
         .config = {
+          .device_class = nullptr,
           .expire_after = 310,
           .force_update = true,
           .icon = "mdi:weather-fog",
-          .name = "dew_point",
-          .qos = 2,
-          .state_topic = "state_topic",
-          .unique_id = "unique_id",
+          .name = "Dew Point",
           .unit_of_measurement = "°F",
           .value_template = "{{ json." DEW_POINT_KEY " }}"
         },
-        .device_class = NULL
       }
     };
   }
