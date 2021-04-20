@@ -12,6 +12,12 @@
 #include "sensor.hpp"
 #include "bme280.hpp"
 
+#define SIGNAL_STRENGTH_KEY "signal_strength"
+#define LONGITUDE_KEY       "longitude"
+#define LATITUDE_KEY        "latitude"
+#define ELEVATION_KEY       "elevation"
+#define RESET_REASON_KEY    "reset_reason"
+
 static const char *TAG = "main";
 RTC_DATA_ATTR bool device_is_setup;
 RTC_DATA_ATTR double latitude, longitude, elevation_m;
@@ -72,6 +78,7 @@ extern "C" void app_main(void) {
     for (Sensor *sensor : sensors) {
       err = sensor->setup();
       if (err) {
+        // TODO: will this boot loop?
         ESP_LOGE(TAG, "An error occurred initializing sensors. Restarting...");
         esp_restart();
       }
@@ -99,12 +106,68 @@ extern "C" void app_main(void) {
       esp_restart();
     }
 
-    // build the device config for discovery
-    cJSON *device = cJSON_CreateObject();
-    cJSON_AddStringToObject(device, "manufacturer", "Mitch Weisbrod");
-    // TODO: identifiers, model, name, sw_version
-    
-    ESP_LOGI(TAG, "Sending discovery MQTT strings...");
+    // declare default discovery for device
+    const discovery_t default_discoveries[] = {
+      {
+        .topic = "test/sensor/signal_strength/config",
+        .config = {
+          .device_class = "signal_strength",
+          .expire_after = 310,
+          .force_update = true,
+          .icon = nullptr,
+          .name = "Signal Strength",
+          .unit_of_measurement = "dB",
+          .value_template = "{{ json." SIGNAL_STRENGTH_KEY " }}"
+        },
+      },
+      {
+        .topic = "test/sensor/longitude/config",
+        .config = {
+          .device_class = nullptr,
+          .expire_after = 0,
+          .force_update = false,
+          .icon = "mdi:longitude",
+          .name = "Longitude",
+          .unit_of_measurement = "°",
+          .value_template = "{{ json." LONGITUDE_KEY " }}"
+        },
+      },
+      {
+        .topic = "test/sensor/latitude/config",
+        .config = {
+          .device_class = nullptr,
+          .expire_after = 0,
+          .force_update = false,
+          .icon = "mdi:latitude",
+          .name = "Latitude",
+          .unit_of_measurement = "°",
+          .value_template = "{{ json." LATITUDE_KEY " }}"
+        },
+      },
+      {
+        .topic = "test/sensor/elevation/config",
+        .config = {
+          .device_class = nullptr,
+          .expire_after = 0,
+          .force_update = false,
+          .icon = "mdi:elevation-rise",
+          .name = "Elevation",
+          .unit_of_measurement = "ft",
+          .value_template = "{{ json." ELEVATION_KEY " }}"
+        },
+      }
+    };
+
+    // send default discovery
+    for (discovery_t discovery : default_discoveries) {
+      err = wireless_discover(&discovery, 2, false, 5000 / portTICK_PERIOD_MS);
+      if (err) {
+        ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
+        esp_restart();
+      }
+    }
+
+    // send discovery for each sensor
     for (Sensor *sensor : sensors) {
       // publish each discovery topic
       discovery_t *discoveries;
@@ -118,7 +181,6 @@ extern "C" void app_main(void) {
         }
       }
     }
-    cJSON_Delete(device);
 
     // send lat/long/elev and restart reason
     const esp_reset_reason_t reset_reason = esp_reset_reason();
