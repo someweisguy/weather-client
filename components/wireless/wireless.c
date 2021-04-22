@@ -345,6 +345,11 @@ esp_err_t wireless_publish(const char *topic, cJSON* json, int qos,
     esp_mqtt_client_publish(mqtt_client, topic, NULL, 0, qos, retain);
   }
 
+  // qos 0 messages don't receive puback from mqtt broker
+  if (qos == 0) {
+    return ESP_OK;
+  }
+
   // block until mqtt publishes or times out
   const EventBits_t mqtt_status = xEventGroupWaitBits(wireless_event_group,
     MQTT_MSG_PUBLISHED, pdTRUE, pdFALSE, timeout);
