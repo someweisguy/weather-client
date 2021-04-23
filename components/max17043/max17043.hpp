@@ -10,8 +10,8 @@ class max17043_t : public Sensor {
 private:
   // max17043 register addresses
   const static uint8_t COMMAND_REGISTER = 0xfe;
-  const static uint8_t CONFIG_REGISTER = 0x0c;
-  const static uint8_t SOC_REGISTER = 0x04;
+  const static uint8_t CONFIG_REGISTER  = 0x0c;
+  const static uint8_t SOC_REGISTER     = 0x04;
 
   const uint8_t i2c_address;
   const discovery_t discovery[1] {
