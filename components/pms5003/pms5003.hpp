@@ -72,7 +72,8 @@ public:
   esp_err_t setup() {
     // put the sensor in passive mode
     const uint8_t passive_cmd[] = {0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70};
-    esp_err_t err = serial_uart_write(passive_cmd, 7, 100 / portTICK_PERIOD_MS);
+    esp_err_t err = serial_uart_write(passive_cmd, sizeof(passive_cmd),
+      100 / portTICK_PERIOD_MS);
     if (err) return err;
 
     // allow sensor to process previous command
@@ -80,7 +81,8 @@ public:
 
     // put the sensor to sleep
     const uint8_t sleep_cmd[] = {0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73};
-    err = serial_uart_write(sleep_cmd, 7, 100 / portTICK_PERIOD_MS);
+    err = serial_uart_write(sleep_cmd, sizeof(sleep_cmd),
+      100 / portTICK_PERIOD_MS);
     if (err) return err;
 
     return ESP_OK;
@@ -89,7 +91,8 @@ public:
   esp_err_t ready() {
     // wake up the sensor
     const uint8_t wake_cmd[] = {0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74};
-    esp_err_t err = serial_uart_write(wake_cmd, 7, 100 / portTICK_PERIOD_MS);
+    esp_err_t err = serial_uart_write(wake_cmd, sizeof(wake_cmd), 
+      100 / portTICK_PERIOD_MS);
     if (err) return err;
 
     err = serial_uart_flush();
@@ -101,12 +104,13 @@ public:
   esp_err_t get_data(cJSON *json) {
     // force a measurement
     const uint8_t read_cmd[] = {0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71};
-    esp_err_t err = serial_uart_write(read_cmd, 7, 100 / portTICK_PERIOD_MS);
+    esp_err_t err = serial_uart_write(read_cmd, sizeof(read_cmd),
+      100 / portTICK_PERIOD_MS);
     if (err) return err;
 
     // read the data from the measurement
     pms_data_t data;
-    err = serial_uart_read(&data, 32, 1000 / portTICK_PERIOD_MS);
+    err = serial_uart_read(&data, sizeof(data), 1000 / portTICK_PERIOD_MS);
     if (err) return err;
 
     // swap data endianness
