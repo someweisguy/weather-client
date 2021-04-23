@@ -48,12 +48,15 @@ public:
   esp_err_t setup() {
     // put the sensor in passive mode
     const uint8_t passive_cmd[] = {0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70};
-    esp_err_t err = serial_uart_write(passive_cmd, 7);
+    esp_err_t err = serial_uart_write(passive_cmd, 7, 100 / portTICK_PERIOD_MS);
     if (err) return err;
+
+    // allow sensor to process previous command
+    vTaskDelay(50 / portTICK_PERIOD_MS);
 
     // put the sensor to sleep
     const uint8_t sleep_cmd[] = {0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73};
-    err = serial_uart_write(sleep_cmd, 7);
+    err = serial_uart_write(sleep_cmd, 7, 100 / portTICK_PERIOD_MS);
     if (err) return err;
 
     return ESP_OK;
@@ -62,7 +65,10 @@ public:
   esp_err_t ready() {
     // wake up the sensor
     const uint8_t wake_cmd[] = {0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74};
-    esp_err_t err = serial_uart_write(wake_cmd, 7);
+    esp_err_t err = serial_uart_write(wake_cmd, 7, 100 / portTICK_PERIOD_MS);
+    if (err) return err;
+
+    err = serial_uart_flush();
     if (err) return err;
 
     return ESP_OK;
@@ -76,7 +82,7 @@ public:
   esp_err_t sleep() {
     // put the sensor to sleep
     const uint8_t sleep_cmd[] = {0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73};
-    esp_err_t err = serial_uart_write(sleep_cmd, 7);
+    esp_err_t err = serial_uart_write(sleep_cmd, 7, 100 / portTICK_PERIOD_MS);
     if (err) return err;
 
     return ESP_OK;
