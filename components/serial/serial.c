@@ -8,7 +8,7 @@
 #define I2C_PORT    1
 #define PIN_NUM_SDA 23
 #define PIN_NUM_SCL 22
-#define UART_PORT   1
+#define UART_PORT   2
 #define PIN_NUM_TX  17
 #define PIN_NUM_RX  16
 
@@ -128,6 +128,7 @@ esp_err_t serial_uart_write(const void *src, size_t size) {
   // returns after the data has been written because tx buffer len is 0
   const int num_written = uart_write_bytes(UART_PORT, src, size);
   if (num_written == -1) return ESP_FAIL;
+  else if (num_written != size) return ESP_ERR_INVALID_SIZE;
 
   return ESP_OK;
 }
