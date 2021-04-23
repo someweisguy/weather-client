@@ -79,7 +79,7 @@ static void mqtt_handler(void *args, esp_event_base_t base, int event,
     xEventGroupSetBits(wireless_event_group, MQTT_DISCONNECTED);
 
   } else if (event == MQTT_EVENT_PUBLISHED) {
-    ESP_LOGI(TAG, "MQTT message published!");
+    ESP_LOGD(TAG, "MQTT message published!");
 
     xEventGroupSetBits(wireless_event_group, MQTT_MSG_PUBLISHED);
   }
