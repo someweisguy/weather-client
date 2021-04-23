@@ -80,6 +80,13 @@ esp_err_t serial_start() {
     .use_apll = false
   };
   err = i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
+  const i2s_pin_config_t pin_config = {
+    .bck_io_num = PIN_NUM_BCLK,
+    .ws_io_num = PIN_NUM_SEL,
+    .data_out_num = I2S_PIN_NO_CHANGE,
+    .data_in_num = PIN_NUM_DOUT
+  };
+  err = i2s_set_pin(I2S_PORT, &pin_config);
   if (err) return err;
 
 
