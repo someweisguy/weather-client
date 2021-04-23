@@ -6,7 +6,6 @@
 
 class Sensor {
 protected:
-  discovery_t *discovery;
   const char *name;
 
 public:
@@ -14,30 +13,19 @@ public:
     // do nothing...
   }
 
-  ~Sensor() {
-    delete[] discovery;
-  }
-
   const char *get_name() const {
     return name;
   }
 
-  int get_discovery(discovery_t *&discovery) {
-    discovery = (this->discovery);
-    return sizeof(this->discovery);
-  }
+  virtual int get_discovery(const discovery_t *&discovery) const = 0;
 
-  virtual esp_err_t setup() {
-    return ESP_OK;
-  }
+  virtual esp_err_t setup() = 0;
 
   virtual esp_err_t ready() {
     return ESP_OK;
   }
 
-  virtual esp_err_t get_data(cJSON *json) {
-    return ESP_OK;
-  }
+  virtual esp_err_t get_data(cJSON *json) = 0;
 
   virtual esp_err_t sleep() {
     return ESP_OK;

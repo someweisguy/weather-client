@@ -16,6 +16,56 @@ class bme280_t : public Sensor {
 private:
   const uint8_t i2c_address;
   const double elevation_m;
+  const discovery_t discovery[4] = {
+      {
+        .topic = "test/sensor/temperature/config",
+        .config = {
+          .device_class = "temperature",
+          .expire_after = 310,
+          .force_update = true,
+          .icon = "mdi:thermometer",
+          .name = "Temperature",
+          .unit_of_measurement = "°F",
+          .value_template = "{{ json." TEMPERATURE_KEY " }}"
+        },
+      },
+      {
+        .topic = "test/sensor/pressure/config",
+        .config = {
+          .device_class = "pressure",
+          .expire_after = 310,
+          .force_update = true,
+          .icon = "mdi:gauge",
+          .name = "Pressure",
+          .unit_of_measurement = "inHg",
+          .value_template = "{{ json." PRESSURE_KEY " }}"
+        },
+      },
+      {
+        .topic = "test/sensor/humidity/config",
+        .config = {
+          .device_class = "humidity",
+          .expire_after = 310,
+          .force_update = true,
+          .icon = "mdi:water-percent",
+          .name = "Humidity",
+          .unit_of_measurement = "%",
+          .value_template = "{{ json." HUMIDITY_KEY " }}"
+        }, 
+      },
+      {
+        .topic = "test/sensor/dew_point/config",
+        .config = {
+          .device_class = nullptr,
+          .expire_after = 310,
+          .force_update = true,
+          .icon = "mdi:weather-fog",
+          .name = "Dew Point",
+          .unit_of_measurement = "°F",
+          .value_template = "{{ json." DEW_POINT_KEY " }}"
+        },
+      }
+    };
 
   // bme280 register addresses
   const static uint8_t RESET_REGISTER       = 0xe0;
@@ -119,56 +169,11 @@ private:
 public:
   bme280_t(const uint8_t i2c_address, const double elevation_m) : Sensor("bme280"),
       i2c_address(i2c_address), elevation_m(elevation_m) {
-    discovery = new discovery_t[4] {
-      {
-        .topic = "test/sensor/temperature/config",
-        .config = {
-          .device_class = "temperature",
-          .expire_after = 310,
-          .force_update = true,
-          .icon = "mdi:thermometer",
-          .name = "Temperature",
-          .unit_of_measurement = "°F",
-          .value_template = "{{ json." TEMPERATURE_KEY " }}"
-        },
-      },
-      {
-        .topic = "test/sensor/pressure/config",
-        .config = {
-          .device_class = "pressure",
-          .expire_after = 310,
-          .force_update = true,
-          .icon = "mdi:gauge",
-          .name = "Pressure",
-          .unit_of_measurement = "inHg",
-          .value_template = "{{ json." PRESSURE_KEY " }}"
-        },
-      },
-      {
-        .topic = "test/sensor/humidity/config",
-        .config = {
-          .device_class = "humidity",
-          .expire_after = 310,
-          .force_update = true,
-          .icon = "mdi:water-percent",
-          .name = "Humidity",
-          .unit_of_measurement = "%",
-          .value_template = "{{ json." HUMIDITY_KEY " }}"
-        }, 
-      },
-      {
-        .topic = "test/sensor/dew_point/config",
-        .config = {
-          .device_class = nullptr,
-          .expire_after = 310,
-          .force_update = true,
-          .icon = "mdi:weather-fog",
-          .name = "Dew Point",
-          .unit_of_measurement = "°F",
-          .value_template = "{{ json." DEW_POINT_KEY " }}"
-        },
-      }
-    };
+  }
+
+  int get_discovery(const discovery_t *&discovery) const {
+    discovery = this->discovery;
+    return sizeof(this->discovery) / sizeof(discovery_t);
   }
 
   esp_err_t setup() {
