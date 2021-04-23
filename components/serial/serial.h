@@ -17,7 +17,7 @@ esp_err_t serial_i2c_write(char addr, char reg, const void *buf, size_t size,
 
 esp_err_t serial_uart_read(void *buf, size_t size, TickType_t timeout);
 
-esp_err_t serial_uart_write(const void *src, size_t size);
+esp_err_t serial_uart_write(const void *src, size_t size, TickType_t timeout);
 
 esp_err_t serial_uart_flush();
 
