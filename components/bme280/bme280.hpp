@@ -14,6 +14,20 @@
 
 class bme280_t : public Sensor {
 private:
+  // bme280 register addresses
+  const static uint8_t RESET_REGISTER       = 0xe0;
+  const static uint8_t T1_TRIM_REGISTER     = 0x88;
+  const static uint8_t H1_TRIM_REGISTER     = 0xa1;
+  const static uint8_t H2_TRIM_REGISTER     = 0xe1;
+  const static uint8_t H4_TRIM_REGISTER     = 0xe4;
+  const static uint8_t H5_TRIM_REGISTER     = 0xe5;
+  const static uint8_t H6_TRIM_REGISTER     = 0xe7;
+  const static uint8_t DATA_START_REGISTER  = 0xf7;
+  const static uint8_t CONFIG_REGISTER      = 0xf5;
+  const static uint8_t CTRL_HUM_REGISTER    = 0xf2;
+  const static uint8_t CTRL_MEAS_REGISTER   = 0xf4;
+  const static uint8_t STATUS_REGISTER      = 0xf3;
+
   const uint8_t i2c_address;
   const double elevation_m;
   const discovery_t discovery[4] = {
@@ -66,22 +80,6 @@ private:
         },
       }
     };
-
-  // bme280 register addresses
-  const static uint8_t RESET_REGISTER       = 0xe0;
-  const static uint8_t T1_TRIM_REGISTER     = 0x88;
-  const static uint8_t H1_TRIM_REGISTER     = 0xa1;
-  const static uint8_t H2_TRIM_REGISTER     = 0xe1;
-  const static uint8_t H4_TRIM_REGISTER     = 0xe4;
-  const static uint8_t H5_TRIM_REGISTER     = 0xe5;
-  const static uint8_t H6_TRIM_REGISTER     = 0xe7;
-  const static uint8_t DATA_START_REGISTER  = 0xf7;
-  const static uint8_t CONFIG_REGISTER      = 0xf5;
-  const static uint8_t CTRL_HUM_REGISTER    = 0xf2;
-  const static uint8_t CTRL_MEAS_REGISTER   = 0xf4;
-  const static uint8_t STATUS_REGISTER      = 0xf3;
-
-
   struct {
     uint16_t t1;
     int16_t t2;
