@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS
+    SRCS "pms5003.hpp"
     INCLUDE_DIRS "."
     REQUIRES
     PRIV_REQUIRES serial
