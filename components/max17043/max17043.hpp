@@ -11,6 +11,7 @@ private:
   // max17043 register addresses
   const static uint8_t COMMAND_REGISTER = 0xfe;
   const static uint8_t CONFIG_REGISTER = 0x0c;
+  const static uint8_t SOC_REGISTER = 0x04;
 
   const uint8_t i2c_address;
   const discovery_t discovery[1] {
@@ -67,15 +68,26 @@ public:
   }
 
   esp_err_t get_data(cJSON *json) {
- 
+    // get the battery level as a percentage
+    uint8_t raw_data[2];
+    esp_err_t err = serial_i2c_read(i2c_address, SOC_REGISTER, buf, 2,
+      100 / portTICK_PERIOD_MS);
+    if (err) return err;
+
+    // calculate the value from the raw data and round to 2 decimal places
+    double battery = raw_data[0] + (raw_data[1] / 256.0);
+    battery = ceil(battery * 100.0) / 100.0;
+
+    cJSON_AddNumberToObject(json, BATTERY_KEY, battery);
+
     return ESP_OK;
   }
 
   esp_err_t sleep() {
     // put the max17043 to sleep
     const uint8_t sleep_cmd[] = {0x97, 0x80};
-    err = serial_i2c_write(i2c_address, CONFIG_REGISTER, sleep_cmd, 2, true, 
-      100 / portTICK_PERIOD_MS);
+    esp_err_t err = serial_i2c_write(i2c_address, CONFIG_REGISTER, sleep_cmd, 
+      2, true, 100 / portTICK_PERIOD_MS);
     if (err) return err;
 
     return ESP_OK;
