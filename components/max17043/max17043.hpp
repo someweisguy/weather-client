@@ -70,7 +70,7 @@ public:
   esp_err_t get_data(cJSON *json) {
     // get the battery level as a percentage
     uint8_t raw_data[2];
-    esp_err_t err = serial_i2c_read(i2c_address, SOC_REGISTER, buf, 2,
+    esp_err_t err = serial_i2c_read(i2c_address, SOC_REGISTER, raw_data, 2,
       100 / portTICK_PERIOD_MS);
     if (err) return err;
 
