@@ -59,6 +59,7 @@ esp_err_t serial_start() {
     return err;
   }
 
+  // config and init i2s for use with sph0645
   const i2s_pin_config_t pin_config = {
     .bck_io_num = PIN_NUM_BCLK,
     .ws_io_num = PIN_NUM_SEL,
