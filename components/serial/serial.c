@@ -1,6 +1,7 @@
 #include "serial.h"
 
 #include "driver/i2c.h"
+#include "driver/i2s.h"
 #include "driver/uart.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
@@ -8,9 +9,16 @@
 #define I2C_PORT    1
 #define PIN_NUM_SDA 23
 #define PIN_NUM_SCL 22
+
 #define UART_PORT   2
 #define PIN_NUM_TX  17
 #define PIN_NUM_RX  16
+
+#define I2S_PORT      0
+#define PIN_NUM_BCLK  26
+#define PIN_NUM_DOUT  25
+#define PIN_NUM_LRCL  34
+#define PIN_NUM_SEL   4
 
 static const char *TAG = "serial";
 static QueueHandle_t uart_queue;
@@ -42,7 +50,8 @@ esp_err_t serial_start() {
     .stop_bits = UART_STOP_BITS_1,
     .flow_ctrl = UART_HW_FLOWCTRL_DISABLE
   };
-  uart_param_config(UART_PORT, &uart_config);
+  err = uart_param_config(UART_PORT, &uart_config);
+  if (err) return err;
   err = uart_driver_install(UART_PORT, 256, 0, 10, &uart_queue, 
     ESP_INTR_FLAG_LOWMED);
   if (err) {
