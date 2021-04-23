@@ -12,6 +12,7 @@
 #include "sensor.hpp"
 #include "bme280.hpp"
 #include "pms5003.hpp"
+#include "max17043.hpp"
 
 #define SIGNAL_STRENGTH_KEY "signal_strength"
 #define LONGITUDE_KEY       "longitude"
@@ -25,7 +26,7 @@ RTC_DATA_ATTR double latitude, longitude, elevation_m;
 RTC_DATA_ATTR time_t last_time_sync_ts;
 
 static Sensor *sensors[] = { new bme280_t(0x76, elevation_m), 
-  new pms5003_t() };
+  new pms5003_t(), new max17043_t(0x36) };
 
 static void wireless_connect_task(void *args) {
   const TaskHandle_t calling_task = args;
@@ -49,6 +50,23 @@ extern "C" void app_main(void) {
     ESP_LOGE(TAG, "Unable to start serial drivers. Restarting...");
     esp_restart();
   }
+  
+//   cJSON *j = cJSON_CreateObject();
+
+//   ESP_LOGI(TAG, "readying...");
+//   //sensors[1]->ready();
+
+//   vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+//   ESP_LOGI(TAG, "getting data...");
+//   sensors[1]->get_data(j);
+//   ESP_LOGI(TAG, "got data!");
+
+
+//   vTaskDelay(5000 / portTICK_PERIOD_MS);
+//  // esp_restart();
+
+
 
   if (!device_is_setup) {
     ESP_LOGI(TAG, "Doing initial device setup");
@@ -155,7 +173,8 @@ extern "C" void app_main(void) {
       // publish each discovery topic
       const discovery_t *discoveries;
       const int num_discoveries = sensor->get_discovery(discoveries);
-      ESP_LOGI(TAG, "%i discoveries for %s", num_discoveries, sensor->get_name());
+      ESP_LOGD(TAG, "The %s has %i discoveries.", sensor->get_name(), 
+        num_discoveries);
       for (int i = 0; i < num_discoveries; ++i) { 
         err = wireless_discover(&(discoveries[i]), 1, false, 
           15000 / portTICK_PERIOD_MS);
@@ -164,7 +183,6 @@ extern "C" void app_main(void) {
           esp_restart();
         }
       }
-      ESP_LOGI(TAG, "Sent discovery for %s", sensor->get_name());
     }
 
     // send lat/long/elev and restart reason
