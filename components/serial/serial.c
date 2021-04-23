@@ -128,3 +128,7 @@ esp_err_t serial_uart_write(const void *src, size_t size) {
   // returns after the data has been written because tx buffer len is 0
   return uart_write_bytes(UART_PORT, src, size);
 }
+
+esp_err_t serial_uart_flush() {
+  return uart_flush(UART_PORT);
+}
