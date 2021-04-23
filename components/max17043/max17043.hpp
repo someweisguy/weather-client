@@ -29,8 +29,6 @@ private:
         }
     };
   
-
-
 public:
   max17043_t(uint8_t i2c_address) : Sensor("max17043"), 
       i2c_address(i2c_address) {
