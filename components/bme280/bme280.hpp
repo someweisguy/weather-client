@@ -99,7 +99,7 @@ private:
     uint8_t h1;
     int16_t h2;
     uint8_t h3;
-    int16_t h4; // little endian, 12 bits long
+    int16_t h4; // big endian, 12 bits long
     int16_t h5; // shares nibble with h4, 12 bits long
     int8_t h6;
   } dig;
