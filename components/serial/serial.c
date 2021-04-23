@@ -126,7 +126,10 @@ esp_err_t serial_uart_read(void *buf, size_t size, TickType_t timeout) {
 
 esp_err_t serial_uart_write(const void *src, size_t size) {
   // returns after the data has been written because tx buffer len is 0
-  return uart_write_bytes(UART_PORT, src, size);
+  const int num_written = uart_write_bytes(UART_PORT, src, size);
+  if (num_written == -1) return ESP_FAIL;
+
+  return ESP_OK;
 }
 
 esp_err_t serial_uart_flush() {
