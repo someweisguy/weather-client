@@ -11,6 +11,7 @@
 #include "wireless.h"
 #include "sensor.hpp"
 #include "bme280.hpp"
+#include "pms5003.hpp"
 
 #define SIGNAL_STRENGTH_KEY "signal_strength"
 #define LONGITUDE_KEY       "longitude"
@@ -23,7 +24,8 @@ RTC_DATA_ATTR bool device_is_setup;
 RTC_DATA_ATTR double latitude, longitude, elevation_m;
 RTC_DATA_ATTR time_t last_time_sync_ts;
 
-static Sensor *sensors[] = { new bme280_t(0x76, elevation_m)};
+static Sensor *sensors[] = { new bme280_t(0x76, elevation_m), 
+  new pms5003_t() };
 
 static void wireless_connect_task(void *args) {
   const TaskHandle_t calling_task = args;
@@ -47,25 +49,6 @@ extern "C" void app_main(void) {
     ESP_LOGE(TAG, "Unable to start serial drivers. Restarting...");
     esp_restart();
   }
-
-  // for (Sensor *sensor : sensors) {
-  //   sensor->setup();
-  //   vTaskDelay(1);
-  //   sensor->ready();
-  // }
-
-  // vTaskDelay(1);
-
-  // ESP_LOGI(TAG, "gettint data)");
-  // cJSON *j = cJSON_CreateObject();
-  // for (Sensor *sensor : sensors) {
-  //   sensor->get_data(j);
-  // }
-  // char *c = cJSON_Print(j);
-  // ESP_LOGI(TAG, "%s", c);
-
-  // vTaskDelay(15000 / portTICK_PERIOD_MS);
-
 
   if (!device_is_setup) {
     ESP_LOGI(TAG, "Doing initial device setup");
@@ -160,7 +143,7 @@ extern "C" void app_main(void) {
 
     // send default discovery
     for (discovery_t discovery : default_discoveries) {
-      err = wireless_discover(&discovery, 2, false, 5000 / portTICK_PERIOD_MS);
+      err = wireless_discover(&discovery, 1, false, 15000 / portTICK_PERIOD_MS);
       if (err) {
         ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
         esp_restart();
@@ -170,16 +153,18 @@ extern "C" void app_main(void) {
     // send discovery for each sensor
     for (Sensor *sensor : sensors) {
       // publish each discovery topic
-      discovery_t *discoveries;
+      const discovery_t *discoveries;
       const int num_discoveries = sensor->get_discovery(discoveries);
+      ESP_LOGI(TAG, "%i discoveries for %s", num_discoveries, sensor->get_name());
       for (int i = 0; i < num_discoveries; ++i) { 
-        err = wireless_discover(&(discoveries[i]), 2, false, 
-          5000 / portTICK_PERIOD_MS);
+        err = wireless_discover(&(discoveries[i]), 1, false, 
+          15000 / portTICK_PERIOD_MS);
         if (err) {
           ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
           esp_restart();
         }
       }
+      ESP_LOGI(TAG, "Sent discovery for %s", sensor->get_name());
     }
 
     // send lat/long/elev and restart reason
@@ -189,14 +174,22 @@ extern "C" void app_main(void) {
     ESP_LOGI(TAG, "Latitude: %.2f, Longitude: %.2f, Elevation: %.2f ft",
       latitude, longitude, elevation_ft);
 
-    // build data json object
-    cJSON *data = cJSON_CreateObject();
-    cJSON_AddNumberToObject(data, "latitude", latitude);
-    cJSON_AddNumberToObject(data, "longitude", longitude);
-    cJSON_AddNumberToObject(data, "elevation", elevation_ft);
-    cJSON_AddNumberToObject(data, "reset", reset_reason);
+    // build setup data json object
+    cJSON *json = cJSON_CreateObject();
+    cJSON_AddNumberToObject(json, "latitude", latitude);
+    cJSON_AddNumberToObject(json, "longitude", longitude);
+    cJSON_AddNumberToObject(json, "elevation", elevation_ft);
+    cJSON_AddNumberToObject(json, "reset", reset_reason);
 
-    wireless_publish(DATA_TOPIC, data, 2, false, 5000 / portTICK_PERIOD_MS);
+    // publish the setup data
+    err = wireless_publish(DATA_TOPIC, json, 0, false, 
+      15000 / portTICK_PERIOD_MS);
+    if (err) {
+      ESP_LOGE(TAG, "An error occurred sending setup data. Restarting...");
+      esp_restart();
+    }
+
+    cJSON_Delete(json);
 
     wireless_stop(5000 / portTICK_PERIOD_MS);
 
@@ -220,7 +213,7 @@ extern "C" void app_main(void) {
     xTaskCreate(wireless_connect_task, "wireless_connect_task", 4096,
       xTaskGetCurrentTaskHandle(), 0, nullptr);
 
-    // create json data payload
+    // create json json payload
     cJSON *json = cJSON_CreateObject();
 
     // wait until measurement window
@@ -247,8 +240,10 @@ extern "C" void app_main(void) {
         cJSON_AddNumberToObject(json, SIGNAL_STRENGTH_KEY, signal_strength);
       }
 
-      // publish data to mqtt broker
-      wireless_publish(DATA_TOPIC, json, 2, false, 10000 / portTICK_PERIOD_MS);
+      // publish json to mqtt broker
+      wireless_publish(DATA_TOPIC, json, 0, false, 0);
+
+      wireless_stop(10000 / portTICK_PERIOD_MS);
     }
 
     // delete the json object
