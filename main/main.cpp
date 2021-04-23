@@ -230,6 +230,15 @@ extern "C" void app_main(void) {
       }
     }
 
+    // put sensors to sleep
+    for (Sensor *sensor : sensors) {
+      err = sensor->sleep();
+      if (err) { 
+        ESP_LOGE(TAG, "An error occurred putting the %s to sleep.", 
+          sensor->get_name());
+      }
+    }
+
     // wait until wifi is connected
     xTaskNotifyWait(0, -1, reinterpret_cast<uint32_t *>(&err), portMAX_DELAY);
     if (!err) {
