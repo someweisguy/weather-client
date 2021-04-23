@@ -129,9 +129,8 @@ esp_err_t serial_uart_write(const void *src, size_t size, TickType_t timeout) {
   const int num_written = uart_write_bytes(UART_PORT, src, size);
   if (num_written == -1) return ESP_FAIL;
   else if (num_written != size) return ESP_ERR_INVALID_SIZE;
-  uart_wait_tx_done(UART_PORT, timeout);
 
-  return ESP_OK;
+  return uart_wait_tx_done(UART_PORT, timeout);
 }
 
 esp_err_t serial_uart_flush() {
