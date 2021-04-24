@@ -370,15 +370,17 @@ esp_err_t wireless_publish_data(cJSON* json, int qos, bool retain,
   
   // get mac address for various identification needs
   uint64_t mac;
-  esp_read_mac((uint8_t*)&mac, ESP_MAC_WIFI_STA);
+  esp_efuse_mac_get_default((uint8_t *)&mac);
+  mac &= 0x0000ffffffffffff;
   
   // get the device's state topic
-  const char *state_topic_fmt = DATA_TOPIC_PREFIX "%x/data";
-  char state_topic[strlen(state_topic_fmt) + 16];
-  snprintf(state_topic, strlen(state_topic), state_topic_fmt, mac);
-  cJSON_AddStringToObject(json, "state_topic", state_topic);
+  char state_topic[strlen(DATA_TOPIC_PREFIX) + 16 + 6];
+  snprintf(state_topic, sizeof(state_topic), "%s%llx/data", DATA_TOPIC_PREFIX,
+    mac);
+
+  esp_err_t err = wireless_publish(state_topic, json, qos, retain, timeout);
   
-  return ESP_OK;
+  return err;
 }
 
 esp_err_t wireless_discover(const discovery_t *discovery, int qos, bool retain,
@@ -387,7 +389,10 @@ esp_err_t wireless_discover(const discovery_t *discovery, int qos, bool retain,
 
   // get mac address for various identification needs
   uint64_t mac;
-  esp_read_mac((uint8_t*)&mac, ESP_MAC_WIFI_STA);
+  char mac_str[17];
+  esp_efuse_mac_get_default((uint8_t *)&mac);
+  mac &= 0x0000ffffffffffff;
+  snprintf(mac_str, 16, "%llx", mac);
 
   // create the json discovery object  
   cJSON *json = cJSON_CreateObject();
@@ -406,29 +411,29 @@ esp_err_t wireless_discover(const discovery_t *discovery, int qos, bool retain,
     cJSON_AddStringToObject(json, "icon", discovery->config.icon);
   
   // add the preset parameters
-  const char *state_topic_fmt = DATA_TOPIC_PREFIX "%x/data";
-  char state_topic[strlen(state_topic_fmt) + 16];
-  snprintf(state_topic, strlen(state_topic), state_topic_fmt, mac);
+  char state_topic[strlen(DATA_TOPIC_PREFIX) + 16 + 6];
+  snprintf(state_topic, sizeof(state_topic), "%s%s/data", DATA_TOPIC_PREFIX,
+    mac_str);
   cJSON_AddStringToObject(json, "state_topic", state_topic);
 
   // generate and attach a unique id using mac address
-  const int len = strlen(discovery->config.name) + 18;
-  char unique_id[len];
-  snprintf(unique_id, len, "%s-%llx", discovery->config.name, mac);
+  char unique_id[strlen(discovery->config.name) + 16 + 1];
+  snprintf(unique_id, sizeof(unique_id), "%s-%s", discovery->config.name, mac_str);
   cJSON_AddStringToObject(json, "unique_id", unique_id);
 
   // add device parameters
   cJSON *device = cJSON_CreateObject();
   cJSON_AddStringToObject(device, "manufacturer", "Mitch Weisbrod");
   cJSON_AddStringToObject(device, "sw_version", "");
-  cJSON_AddNumberToObject(device, "identifiers", mac);
-  // TODO: model, name
+  cJSON_AddStringToObject(device, "name", "Weather Station");
+  cJSON_AddStringToObject(device, "model", "");
+  cJSON_AddStringToObject(device, "identifiers", mac_str);
   cJSON_AddItemToObject(json, "device", device);
 
-  // get the topic to publish on
-  const int topic_len = strlen(DISCOVERY_PREFIX) + strlen(discovery->topic);
-  char discovery_topic[topic_len] = DISCOVERY_PREFIX;
-  strncat(discovery_topic, discovery->topic, topic_len - strlen(discovery_topic));
+  // get the topic to publish the discovery to
+  char discovery_topic[strlen(DISCOVERY_PREFIX) + strlen(discovery->topic) + 16 + 8];
+  snprintf(discovery_topic, sizeof(discovery_topic), "%s%s%s/config", 
+    DISCOVERY_PREFIX, discovery->topic, mac_str);
 
   // publish the discovery
   esp_err_t err = wireless_publish(discovery_topic, json, qos, retain, 
