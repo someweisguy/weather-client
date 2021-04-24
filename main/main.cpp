@@ -15,6 +15,7 @@
 #include "max17043.hpp"
 #include "sph0645.hpp"
 
+#define SYSTEM_KEY          "system"
 #define SIGNAL_STRENGTH_KEY "signal_strength"
 #define LONGITUDE_KEY       "longitude"
 #define LATITUDE_KEY        "latitude"
@@ -94,7 +95,7 @@ extern "C" void app_main(void) {
     // declare default discovery for device
     const discovery_t default_discoveries[] = {
       {
-        .topic = "sensor/signal_strength/config",
+        .topic = "sensor/signal_strength",
         .config = {
           .device_class = "signal_strength",
           .expire_after = 310,
@@ -102,11 +103,11 @@ extern "C" void app_main(void) {
           .icon = nullptr,
           .name = "Signal Strength",
           .unit_of_measurement = "dB",
-          .value_template = "{{ json." SIGNAL_STRENGTH_KEY " }}"
+          .value_template = "{{ value_json." SYSTEM_KEY "." SIGNAL_STRENGTH_KEY " }}"
         },
       },
       {
-        .topic = "sensor/longitude/config",
+        .topic = "sensor/longitude",
         .config = {
           .device_class = nullptr,
           .expire_after = 0,
@@ -114,11 +115,11 @@ extern "C" void app_main(void) {
           .icon = "mdi:longitude",
           .name = "Longitude",
           .unit_of_measurement = "°",
-          .value_template = "{{ json." LONGITUDE_KEY " }}"
+          .value_template = "{{ value_json." SYSTEM_KEY "." LONGITUDE_KEY " }}"
         },
       },
       {
-        .topic = "sensor/latitude/config",
+        .topic = "sensor/latitude",
         .config = {
           .device_class = nullptr,
           .expire_after = 0,
@@ -126,11 +127,11 @@ extern "C" void app_main(void) {
           .icon = "mdi:latitude",
           .name = "Latitude",
           .unit_of_measurement = "°",
-          .value_template = "{{ json." LATITUDE_KEY " }}"
+          .value_template = "{{ value_json." SYSTEM_KEY "." LATITUDE_KEY " }}"
         },
       },
       {
-        .topic = "sensor/elevation/config",
+        .topic = "sensor/elevation",
         .config = {
           .device_class = nullptr,
           .expire_after = 0,
@@ -138,7 +139,7 @@ extern "C" void app_main(void) {
           .icon = "mdi:elevation-rise",
           .name = "Elevation",
           .unit_of_measurement = "ft",
-          .value_template = "{{ json." ELEVATION_KEY " }}"
+          .value_template = "{{ value_json." SYSTEM_KEY "." ELEVATION_KEY " }}"
         },
       }
     };
@@ -178,10 +179,19 @@ extern "C" void app_main(void) {
 
     // build setup data json object
     cJSON *json = cJSON_CreateObject();
-    cJSON_AddNumberToObject(json, LONGITUDE_KEY, longitude);
-    cJSON_AddNumberToObject(json, LATITUDE_KEY, latitude);
-    cJSON_AddNumberToObject(json, ELEVATION_KEY, elevation_ft);
-    cJSON_AddNumberToObject(json, RESET_REASON_KEY, reset_reason);
+    cJSON *system = cJSON_CreateObject();
+    cJSON_AddNumberToObject(system, LONGITUDE_KEY, longitude);
+    cJSON_AddNumberToObject(system, LATITUDE_KEY, latitude);
+    cJSON_AddNumberToObject(system, ELEVATION_KEY, elevation_ft);
+    cJSON_AddNumberToObject(system, RESET_REASON_KEY, reset_reason);
+    cJSON_AddItemToObject(json, SYSTEM_KEY, system);
+
+    // get wifi signal strength
+    int signal_strength;
+    err = wireless_get_rssi(&signal_strength);
+    if (!err) {
+      cJSON_AddNumberToObject(system, SIGNAL_STRENGTH_KEY, signal_strength);
+    }
 
     // publish the setup data
     err = wireless_publish_data(json, 2, false, 15000 / portTICK_PERIOD_MS);
@@ -189,11 +199,9 @@ extern "C" void app_main(void) {
       ESP_LOGE(TAG, "An error occurred sending setup data. Restarting...");
       esp_restart();
     }
-
-    cJSON_Delete(json);
-
     wireless_stop(5000 / portTICK_PERIOD_MS);
 
+    cJSON_Delete(json);
     device_is_setup = true;
   } else {
     ESP_LOGI(TAG, "Readying sensors");
@@ -247,7 +255,9 @@ extern "C" void app_main(void) {
       int signal_strength;
       err = wireless_get_rssi(&signal_strength);
       if (!err) {
-        cJSON_AddNumberToObject(json, SIGNAL_STRENGTH_KEY, signal_strength);
+        cJSON *system = cJSON_CreateObject();
+        cJSON_AddNumberToObject(system, SIGNAL_STRENGTH_KEY, signal_strength);
+        cJSON_AddItemToObject(json, SYSTEM_KEY, system);
       }
 
       // publish json to mqtt broker
