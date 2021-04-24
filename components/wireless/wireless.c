@@ -14,6 +14,9 @@
 #include <ctype.h>
 #include <string.h>
 
+#define DISCOVERY_PREFIX    "homeassistant/"
+#define DATA_TOPIC_PREFIX   "weather-station/"
+
 #define WIFI_DISCONNECTED   BIT(0)
 #define WIFI_CONNECTED      BIT(1)
 #define WIFI_FATAL_ERROR    BIT(2)
@@ -332,7 +335,7 @@ esp_err_t wireless_get_rssi(int *rssi) {
   return ESP_OK;
 }
 
-esp_err_t wireless_publish(const char *topic, cJSON* json, int qos, 
+static esp_err_t wireless_publish(const char *topic, cJSON* json, int qos, 
     bool retain, TickType_t timeout) {
   if (mqtt_client == NULL) return ESP_ERR_INVALID_STATE;
 
@@ -362,6 +365,22 @@ esp_err_t wireless_publish(const char *topic, cJSON* json, int qos,
   return ESP_OK;
 }
 
+esp_err_t wireless_publish_data(cJSON* json, int qos, bool retain, 
+    TickType_t timeout) {
+  
+  // get mac address for various identification needs
+  uint64_t mac;
+  esp_read_mac((uint8_t*)&mac, ESP_MAC_WIFI_STA);
+  
+  // get the device's state topic
+  const char *state_topic_fmt = DATA_TOPIC_PREFIX "%x/data";
+  char state_topic[strlen(state_topic_fmt) + 16];
+  snprintf(state_topic, strlen(state_topic), state_topic_fmt, mac);
+  cJSON_AddStringToObject(json, "state_topic", state_topic);
+  
+  return ESP_OK;
+}
+
 esp_err_t wireless_discover(const discovery_t *discovery, int qos, bool retain,
     TickType_t timeout) {
   if (discovery == NULL) return ESP_ERR_INVALID_ARG;  
@@ -387,8 +406,10 @@ esp_err_t wireless_discover(const discovery_t *discovery, int qos, bool retain,
     cJSON_AddStringToObject(json, "icon", discovery->config.icon);
   
   // add the preset parameters
-  cJSON_AddStringToObject(json, "state_topic", "test/");
-  cJSON_AddNumberToObject(json, "qos", 2);
+  const char *state_topic_fmt = DATA_TOPIC_PREFIX "%x/data";
+  char state_topic[strlen(state_topic_fmt) + 16];
+  snprintf(state_topic, strlen(state_topic), state_topic_fmt, mac);
+  cJSON_AddStringToObject(json, "state_topic", state_topic);
 
   // generate and attach a unique id using mac address
   const int len = strlen(discovery->config.name) + 18;
@@ -404,8 +425,13 @@ esp_err_t wireless_discover(const discovery_t *discovery, int qos, bool retain,
   // TODO: model, name
   cJSON_AddItemToObject(json, "device", device);
 
+  // get the topic to publish on
+  const int topic_len = strlen(DISCOVERY_PREFIX) + strlen(discovery->topic);
+  char discovery_topic[topic_len] = DISCOVERY_PREFIX;
+  strncat(discovery_topic, discovery->topic, topic_len - strlen(discovery_topic));
+
   // publish the discovery
-  esp_err_t err = wireless_publish(discovery->topic, json, qos, retain, 
+  esp_err_t err = wireless_publish(discovery_topic, json, qos, retain, 
     timeout);
 
   // free resources

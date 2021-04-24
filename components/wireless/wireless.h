@@ -33,11 +33,11 @@ esp_err_t wireless_get_location(double *latitude, double *longitude,
 
 esp_err_t wireless_get_rssi(int *rssi);
 
-esp_err_t wireless_publish(const char *topic, cJSON* json, int qos, 
-    bool retain, TickType_t timeout);
+esp_err_t wireless_publish_data(cJSON* json, int qos, bool retain, 
+    TickType_t timeout);
 
 esp_err_t wireless_discover(const discovery_t *discovery, int qos, bool retain,
-  TickType_t timeout);
+    TickType_t timeout);
 
 #ifdef __cplusplus
 }
