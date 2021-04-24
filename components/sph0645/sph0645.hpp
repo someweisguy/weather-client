@@ -61,8 +61,6 @@ private:
     const double mic_ref_amp = pow10(MIC_SENSITIVITY / 20.0) * 
       ((1 << (MIC_BITS - 1)) - 1);
 
-    
-
     // declare accumulators
     uint64_t acc_samples = 0;
     double acc_sum_sqr = 0;
@@ -103,24 +101,22 @@ private:
       if (dBz > MIC_OVERLOAD_DB) acc_sum_sqr = INFINITY;
       else if (isnan(dBz) || (dBz < MIC_NOISE_FLOOR_DB)) acc_sum_sqr = NAN;
 
-      // Accumulate the C-weighted sum of squares
+      // accumulate the c-weighted sum of squares
       acc_sum_sqr += sum_sqr_c;
       acc_samples += num_samples;
 
-      // When we gather enough samples, calculate the RMS C-weighted value
       if (acc_samples >= SAMPLE_RATE * SAMPLE_PERIOD / 1000.0) {
-        xSemaphoreTake(cxt->semaphore, portMAX_DELAY);
-
+        // calculate c-weighted rms
         const double rms_c = sqrt(acc_sum_sqr / acc_samples);
         const double dBc = MIC_OFFSET_DB + MIC_REF_DB + 20 * 
           log10(rms_c / mic_ref_amp);
 
         // Add the data to the currently running data
+        xSemaphoreTake(cxt->semaphore, portMAX_DELAY);
         cxt->sum += dBc;
         cxt->min = fmin(cxt->min, dBc);
         cxt->max = fmax(cxt->max, dBc);
         ++cxt->num_samples;
-
         xSemaphoreGive(cxt->semaphore);
 
         // zero out the accumulators
