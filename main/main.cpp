@@ -13,6 +13,7 @@
 #include "bme280.hpp"
 #include "pms5003.hpp"
 #include "max17043.hpp"
+#include "sph0645.hpp"
 
 #define SIGNAL_STRENGTH_KEY "signal_strength"
 #define LONGITUDE_KEY       "longitude"
@@ -26,7 +27,7 @@ RTC_DATA_ATTR double latitude, longitude, elevation_m;
 RTC_DATA_ATTR time_t last_time_sync_ts;
 
 static Sensor *sensors[] = { new bme280_t(0x76, elevation_m), 
-  new pms5003_t(), new max17043_t(0x36) };
+  new pms5003_t(), new max17043_t(0x36), new sph0645_t() };
 
 static void wireless_connect_task(void *args) {
   const TaskHandle_t calling_task = args;
@@ -50,23 +51,6 @@ extern "C" void app_main(void) {
     ESP_LOGE(TAG, "Unable to start serial drivers. Restarting...");
     esp_restart();
   }
-  
-//   cJSON *j = cJSON_CreateObject();
-
-//   ESP_LOGI(TAG, "readying...");
-//   //sensors[1]->ready();
-
-//   vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-//   ESP_LOGI(TAG, "getting data...");
-//   sensors[1]->get_data(j);
-//   ESP_LOGI(TAG, "got data!");
-
-
-//   vTaskDelay(5000 / portTICK_PERIOD_MS);
-//  // esp_restart();
-
-
 
   if (!device_is_setup) {
     ESP_LOGI(TAG, "Doing initial device setup");
@@ -213,11 +197,11 @@ extern "C" void app_main(void) {
 
     device_is_setup = true;
   } else {
-    ESP_LOGI(TAG, "Waking up sensors");
+    ESP_LOGI(TAG, "Readying sensors");
     for (Sensor *sensor : sensors) {
       err = sensor->ready();
       if (err) {
-        ESP_LOGE(TAG, "An error occurred waking up %s.", 
+        ESP_LOGE(TAG, "An error occurred readying the %s.", 
           sensor->get_name());
       }
     }
