@@ -16,6 +16,7 @@
 #include "sph0645.hpp"
 
 #define SYSTEM_KEY          "system"
+#define WIRELESS_KEY        "wireless"
 #define SIGNAL_STRENGTH_KEY "signal_strength"
 #define LONGITUDE_KEY       "longitude"
 #define LATITUDE_KEY        "latitude"
@@ -103,7 +104,7 @@ extern "C" void app_main(void) {
           .icon = nullptr,
           .name = "Signal Strength",
           .unit_of_measurement = "dB",
-          .value_template = "{{ value_json." SYSTEM_KEY "." SIGNAL_STRENGTH_KEY " }}"
+          .value_template = "{{ value_json." WIRELESS_KEY "." SIGNAL_STRENGTH_KEY " }}"
         },
       },
       {
@@ -190,7 +191,9 @@ extern "C" void app_main(void) {
     int signal_strength;
     err = wireless_get_rssi(&signal_strength);
     if (!err) {
-      cJSON_AddNumberToObject(system, SIGNAL_STRENGTH_KEY, signal_strength);
+      cJSON *wireless = cJSON_CreateObject();
+      cJSON_AddNumberToObject(wireless, SIGNAL_STRENGTH_KEY, signal_strength);
+      cJSON_AddItemToObject(json, WIRELESS_KEY, wireless);
     }
 
     // publish the setup data
@@ -255,9 +258,9 @@ extern "C" void app_main(void) {
       int signal_strength;
       err = wireless_get_rssi(&signal_strength);
       if (!err) {
-        cJSON *system = cJSON_CreateObject();
-        cJSON_AddNumberToObject(system, SIGNAL_STRENGTH_KEY, signal_strength);
-        cJSON_AddItemToObject(json, SYSTEM_KEY, system);
+        cJSON *wireless = cJSON_CreateObject();
+        cJSON_AddNumberToObject(wireless, SIGNAL_STRENGTH_KEY, signal_strength);
+        cJSON_AddItemToObject(json, WIRELESS_KEY, wireless);
       }
 
       // publish json to mqtt broker
