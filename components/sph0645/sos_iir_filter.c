@@ -127,7 +127,7 @@ static inline float filter(float *input, float *output, size_t len,
     &w[num_sos - 1], gain);
 }
 
-float equalize(float *input, float *output, size_t len) {
+float audio_equalize(float *input, float *output, size_t len) {
   // Knowles SPH0645LM4H-B, rev. B
   // https://cdn-shop.adafruit.com/product-files/3421/i2S+Datasheet.PDF
   // B ~= [1.001234, -1.991352, 0.990149]
@@ -147,7 +147,7 @@ float equalize(float *input, float *output, size_t len) {
   return filter(input, output, len, num_sos, gain, sos, mic_w);
 }
 
-float weight_dBC(float *input, float *output, size_t len) {
+float audio_weight_dBC(float *input, float *output, size_t len) {
   // C-weighting IIR Filter, Fs = 48KHz
   // Designed by invfreqz curve-fitting, see:
   // https://github.com/ikostoski/esp32-i2s-slm/blob/master/math/c_weighting.m
