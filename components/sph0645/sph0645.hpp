@@ -177,6 +177,11 @@ public:
     //const float max = microphone_cxt.max;
     xSemaphoreGive(microphone_cxt.semaphore);
 
+    // return failure if microphone fails
+    if (microphone_cxt.num_samples == 0 || microphone_cxt.sum = nan) {
+      return ESP_FAIL;
+    }
+
     cJSON *sph = cJSON_CreateObject();
     cJSON_AddNumberToObject(sph, NOISE_KEY, avg);
     cJSON_AddItemToObject(json, SPH_KEY, sph);
