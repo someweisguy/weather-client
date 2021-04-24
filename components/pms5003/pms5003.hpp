@@ -4,6 +4,7 @@
 #include "cJSON.h"
 #include "serial.h"
 
+#define PMS_KEY     "pms5003"
 #define PM_2_5_KEY  "pm_2_5"
 #define PM_10_KEY   "pm_10"
 
@@ -11,7 +12,7 @@ class pms5003_t : public Sensor {
 private:
   const discovery_t discovery[2] {
         {
-          .topic = "test/sensor/pm2.5/config",
+          .topic = "sensor/pm2_5",
           .config = {
             .device_class = nullptr,
             .expire_after = 310,
@@ -19,11 +20,11 @@ private:
             .icon = "mdi:smog",
             .name = "PM 2.5",
             .unit_of_measurement = "μg/m³",
-            .value_template = "{{ json." PM_2_5_KEY " }}"
+            .value_template = "{{ value_json." PMS_KEY "." PM_2_5_KEY " }}"
           }
         },
         {
-          .topic = "test/sensor/pm10/config",
+          .topic = "sensor/pm10",
           .config = {
             .device_class = nullptr, 
             .expire_after = 310, 
@@ -31,7 +32,7 @@ private:
             .icon = "mdi:smog", 
             .name = "PM 10", 
             .unit_of_measurement = "μg/m³", 
-            .value_template = "{{ json." PM_10_KEY " }}"
+            .value_template = "{{ value_json." PMS_KEY "." PM_10_KEY " }}"
           }
         }
     };
@@ -126,8 +127,10 @@ public:
     for (int i = 0; i < 30; ++i) checksum += raw_data[i];
     if (checksum != data.checksum) return ESP_ERR_INVALID_CRC;
 
-    cJSON_AddNumberToObject(json, PM_2_5_KEY, data.atmospheric.pm2_5);
-    cJSON_AddNumberToObject(json, PM_10_KEY, data.atmospheric.pm10);
+    cJSON *pms = cJSON_CreateObject();
+    cJSON_AddNumberToObject(pms, PM_2_5_KEY, data.atmospheric.pm2_5);
+    cJSON_AddNumberToObject(pms, PM_10_KEY, data.atmospheric.pm10);
+    cJSON_AddItemToObject(json, PMS_KEY, pms);
 
     return ESP_OK;
   }

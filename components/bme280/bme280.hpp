@@ -7,6 +7,7 @@
 #include "serial.h"
 #include <string.h>
 
+#define BME_KEY         "bme280"
 #define TEMPERATURE_KEY "temperature"
 #define PRESSURE_KEY    "pressure"
 #define HUMIDITY_KEY    "humidity"
@@ -32,7 +33,7 @@ private:
   const double elevation_m;
   const discovery_t discovery[4] = {
       {
-        .topic = "test/sensor/temperature/config",
+        .topic = "sensor/temperature",
         .config = {
           .device_class = "temperature",
           .expire_after = 310,
@@ -40,11 +41,11 @@ private:
           .icon = "mdi:thermometer",
           .name = "Temperature",
           .unit_of_measurement = "°F",
-          .value_template = "{{ json." TEMPERATURE_KEY " }}"
+          .value_template = "{{ value_json." BME_KEY "." TEMPERATURE_KEY " }}"
         },
       },
       {
-        .topic = "test/sensor/pressure/config",
+        .topic = "sensor/pressure",
         .config = {
           .device_class = "pressure",
           .expire_after = 310,
@@ -52,11 +53,11 @@ private:
           .icon = "mdi:gauge",
           .name = "Pressure",
           .unit_of_measurement = "inHg",
-          .value_template = "{{ json." PRESSURE_KEY " }}"
+          .value_template = "{{ value_json." BME_KEY "." PRESSURE_KEY " }}"
         },
       },
       {
-        .topic = "test/sensor/humidity/config",
+        .topic = "sensor/humidity",
         .config = {
           .device_class = "humidity",
           .expire_after = 310,
@@ -64,11 +65,11 @@ private:
           .icon = "mdi:water-percent",
           .name = "Humidity",
           .unit_of_measurement = "%",
-          .value_template = "{{ json." HUMIDITY_KEY " }}"
+          .value_template = "{{ value_json." BME_KEY "." HUMIDITY_KEY " }}"
         }, 
       },
       {
-        .topic = "test/sensor/dew_point/config",
+        .topic = "sensor/dew_point",
         .config = {
           .device_class = nullptr,
           .expire_after = 310,
@@ -76,7 +77,7 @@ private:
           .icon = "mdi:weather-fog",
           .name = "Dew Point",
           .unit_of_measurement = "°F",
-          .value_template = "{{ json." DEW_POINT_KEY " }}"
+          .value_template = "{{ value_json." BME_KEY "." DEW_POINT_KEY " }}"
         },
       }
     };
@@ -260,6 +261,8 @@ public:
     const int32_t t_fine = get_t_fine(adc_T); // needed to compensate data
     double celsius, humidity; // needed for dew point and pressure
 
+    cJSON *bme = cJSON_CreateObject();
+
     // get temperature value
     if (adc_T != 0x80000) {
       double temperature = compensate_temperature(t_fine) / 100.0; // C
@@ -269,9 +272,10 @@ public:
       temperature = (temperature * 9.0 / 5.0) + 32;
       temperature = ceil(temperature * 100.0) / 100.0;
 
-      cJSON_AddNumberToObject(json, TEMPERATURE_KEY, temperature);
+      cJSON_AddNumberToObject(bme, TEMPERATURE_KEY, temperature);
     } else {
       // temperature sampling must be turned on
+      cJSON_Delete(bme);
       return ESP_ERR_INVALID_STATE;
     }
 
@@ -290,7 +294,7 @@ public:
       pressure /= 3386.3886666667;
       pressure = ceil(pressure * 100.0) / 100.0;
 
-      cJSON_AddNumberToObject(json, PRESSURE_KEY, pressure);
+      cJSON_AddNumberToObject(bme, PRESSURE_KEY, pressure);
     }
 
     // get humidity value
@@ -300,7 +304,7 @@ public:
       // round to 2 decimal places
       humidity = ceil(humidity * 100.0) / 100.0;
 
-      cJSON_AddNumberToObject(json, HUMIDITY_KEY, humidity);
+      cJSON_AddNumberToObject(bme, HUMIDITY_KEY, humidity);
     }
 
     // calculate the dew point
@@ -313,8 +317,11 @@ public:
       dew_point = (dew_point * 9.0 / 5.0) + 32;
       dew_point = ceil(dew_point * 100.0) / 100.0;
       
-      cJSON_AddNumberToObject(json, DEW_POINT_KEY, dew_point);
+      cJSON_AddNumberToObject(bme, DEW_POINT_KEY, dew_point);
     } 
+
+    // add the json sub object to the main object
+    cJSON_AddItemToObject(json, BME_KEY, bme);
 
     return ESP_OK;
   }

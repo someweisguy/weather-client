@@ -23,13 +23,14 @@
 #define MIC_POWER_UP_TIME   50      // Power-up time of the microphone (ms)
 #define MIC_OFFSET_DB       3.0103  // Default offset (sine-wave RMS vs. dBFS)
 
+#define SPH_KEY     "sph0645"
 #define NOISE_KEY   "noise"
 
 class sph0645_t : public Sensor {
 private:
   const discovery_t discovery[1] {
         {
-          .topic = "test/sensor/avg_noise/config",
+          .topic = "sensor/noise",
           .config = {
             .device_class = nullptr,
             .expire_after = 310,
@@ -37,7 +38,7 @@ private:
             .icon = "mdi:volume-high",
             .name = "Noise Pollution",
             .unit_of_measurement = "dB",
-            .value_template = "{{ value_json['" NOISE_KEY "'] }}"
+            .value_template = "{{ value_json." SPH_KEY "." NOISE_KEY " }}"
           }
         }
     };
@@ -52,7 +53,6 @@ private:
   } microphone_cxt;
 
   static void mic_task(void *arg) {
-
     // get the microphone context
     context_t* cxt = reinterpret_cast<context_t*>(arg);
 
@@ -177,7 +177,9 @@ public:
     //const float max = microphone_cxt.max;
     xSemaphoreGive(microphone_cxt.semaphore);
 
-    cJSON_AddNumberToObject(json, NOISE_KEY, avg);
+    cJSON *sph = cJSON_CreateObject();
+    cJSON_AddNumberToObject(sph, NOISE_KEY, avg);
+    cJSON_AddItemToObject(json, SPH_KEY, sph);
 
     return ESP_OK;
   }

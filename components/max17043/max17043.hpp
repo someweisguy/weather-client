@@ -4,6 +4,7 @@
 #include "cJSON.h"
 #include "serial.h"
 
+#define MAX_KEY       "max17043"
 #define BATTERY_KEY   "battery"
 
 class max17043_t : public Sensor {
@@ -16,7 +17,7 @@ private:
   const uint8_t i2c_address;
   const discovery_t discovery[1] {
         {
-          .topic = "test/sensor/battery/config",
+          .topic = "sensor/battery",
           .config = {
             .device_class = "battery",
             .expire_after = 310,
@@ -24,7 +25,7 @@ private:
             .icon = nullptr,
             .name = "Battery",
             .unit_of_measurement = "%",
-            .value_template = "{{ json." BATTERY_KEY " }}"
+            .value_template = "{{ value_json." MAX_KEY "." BATTERY_KEY " }}"
           }
         }
     };
@@ -72,11 +73,14 @@ public:
       100 / portTICK_PERIOD_MS);
     if (err) return err;
 
+    cJSON *max = cJSON_CreateObject();
+
     // calculate the value from the raw data and round to 2 decimal places
     double battery = raw_data[0] + (raw_data[1] / 256.0);
     battery = ceil(battery * 100.0) / 100.0;
 
-    cJSON_AddNumberToObject(json, BATTERY_KEY, battery);
+    cJSON_AddNumberToObject(max, BATTERY_KEY, battery);
+    cJSON_AddItemToObject(json, MAX_KEY, max);
 
     return ESP_OK;
   }
