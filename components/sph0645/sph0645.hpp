@@ -34,7 +34,7 @@ private:
             .device_class = nullptr,
             .expire_after = 310,
             .force_update = true,
-            .icon = nullptr,
+            .icon = "mdi:volume-high",
             .name = "Average Noise",
             .unit_of_measurement = "dB",
             .value_template = "{{ json." AVG_NOISE_KEY " }}"
