@@ -3,6 +3,7 @@
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "cJSON.h"
 #include <math.h>
 #include "serial.h"
@@ -41,16 +42,26 @@ private:
         }
     };
   TaskHandle_t mic_task_handle = nullptr;
+  struct context_t {
+    float *samples;
+    SemaphoreHandle_t semaphore;
+    float sum;
+    uint64_t num_samples;
+    float min;
+    float max;
+  } microphone_cxt;
 
   static void mic_task(void *arg) {
+
+    // get the microphone context
+    context_t* cxt = reinterpret_cast<context_t*>(arg);
+
     // get number of samples and i2s output value at 94dB SPL
     const size_t num_samples = SAMPLE_RATE / 1000 * SAMPLE_LENGTH; 
     const double mic_ref_amp = pow10(MIC_SENSITIVITY / 20.0) * 
       ((1 << (MIC_BITS - 1)) - 1);
 
-    // allocate space to store audio samples
-    float *samples = new float[num_samples];
-    if (samples == nullptr) ESP_LOGE("sph", "no mem");
+    
 
     // declare accumulators
     uint64_t acc_samples = 0;
@@ -59,26 +70,23 @@ private:
     // track whether the delay state has been initialized
     bool delay_state_uninitialized = true;
 
-    // clear the data
-    float avg = 0;
-    float min = INFINITY;
-    float max = -INFINITY;
-
     while (true) {
-      // Block and wait for microphone values from i2s
-      esp_err_t err = serial_i2s_read(samples, num_samples * sizeof(int32_t), 
-        portMAX_DELAY);
-      if (err) ESP_LOGE("sph", "no read!");
+      // block until enough samples have been made
+      esp_err_t err = serial_i2s_read(cxt->samples, 
+        num_samples * sizeof(int32_t), portMAX_DELAY);
+      if (err) continue;
 
-      // Convert integer microphone values to floats
-      int32_t *int_samples = reinterpret_cast<int32_t *>(samples);
+      // convert integer microphone values to floats
+      int32_t *int_samples = reinterpret_cast<int32_t *>(cxt->samples);
       for (int i = 0; i < num_samples; i++) {
-        samples[i] = int_samples[i] >> (SAMPLE_BITS - MIC_BITS);
+        cxt->samples[i] = int_samples[i] >> (SAMPLE_BITS - MIC_BITS);
       }
 
       // apply equalization and get C-weighted sum of squares
-      const float sum_sqr_z = equalize(samples, samples, num_samples);
-      const float sum_sqr_c = weight_dBC(samples, samples, num_samples);
+      const float sum_sqr_z = audio_equalize(cxt->samples, cxt->samples,
+        num_samples);
+      const float sum_sqr_c = audio_weight_dBC(cxt->samples, cxt->samples,
+        num_samples);
 
       // discard first round of data due to uninitialized delay state
       if (delay_state_uninitialized) {
@@ -101,20 +109,19 @@ private:
 
       // When we gather enough samples, calculate the RMS C-weighted value
       if (acc_samples >= SAMPLE_RATE * SAMPLE_PERIOD / 1000.0) {
-        //vTaskSuspendAll();  // enter critical section, interrupts enabled
+        xSemaphoreTake(cxt->semaphore, portMAX_DELAY);
 
         const double rms_c = sqrt(acc_sum_sqr / acc_samples);
         const double dBc = MIC_OFFSET_DB + MIC_REF_DB + 20 * 
           log10(rms_c / mic_ref_amp);
-        ESP_LOGI("sph", "%.2f dB", dBc);
 
         // Add the data to the currently running data
-        avg += dBc;
-        min = fmin(min, dBc);
-        max = fmax(max, dBc);
+        cxt->sum += dBc;
+        cxt->min = fmin(cxt->min, dBc);
+        cxt->max = fmax(cxt->max, dBc);
+        ++cxt->num_samples;
 
-        //xTaskResumeAll();  // exit critical section
-        
+        xSemaphoreGive(cxt->semaphore);
 
         // zero out the accumulators
         acc_sum_sqr = 0;
@@ -125,7 +132,6 @@ private:
   
 public:
   sph0645_t() : Sensor("sph0645") {
-    
   }
 
   int get_discovery(const discovery_t *&discovery) const {
@@ -146,21 +152,46 @@ public:
   }
 
   esp_err_t ready() {
+    // initialize the microphone context to default values
+    const size_t num_samples = SAMPLE_RATE / 1000 * SAMPLE_LENGTH; 
+    microphone_cxt.samples = new float[num_samples];
+    if (microphone_cxt.samples == nullptr) return ESP_ERR_NO_MEM;
+    microphone_cxt.semaphore = xSemaphoreCreateBinary();
+    xSemaphoreGive(microphone_cxt.semaphore);
+    microphone_cxt.sum = 0;
+    microphone_cxt.num_samples = 0;
+    microphone_cxt.min = INFINITY;
+    microphone_cxt.max = -INFINITY;
+
     // start the mic sampling task
-    // TODO: pass queue handle instead of nullptr
-    xTaskCreate(mic_task, "mic_task", 2048, nullptr, 4, &mic_task_handle);
+    xTaskCreate(mic_task, "mic_task", 2048, &microphone_cxt, 4, 
+      &mic_task_handle);
 
     return ESP_OK;
   }
 
   esp_err_t get_data(cJSON *json) {
+    // synchronize with the mic_task and get audio statistics
+    if (!xSemaphoreTake(microphone_cxt.semaphore, 500 / portTICK_PERIOD_MS)) {
+      return ESP_FAIL;
+    }
+    double avg = microphone_cxt.sum / microphone_cxt.num_samples;
+    avg = ceil(avg * 100.0) / 100.0;
+    //const float min = microphone_cxt.min;
+    //const float max = microphone_cxt.max;
+    xSemaphoreGive(microphone_cxt.semaphore);
+
+    cJSON_AddNumberToObject(json, AVG_NOISE_KEY, avg);
+
     return ESP_OK;
   }
 
   esp_err_t sleep() {
-    // delete the running task
+    // delete the running task and free resources
     vTaskDelete(mic_task_handle);
-
+    delete[] microphone_cxt.samples;
+    vSemaphoreDelete(microphone_cxt.semaphore);
+    
     return ESP_OK;
   }
 
