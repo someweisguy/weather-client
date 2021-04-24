@@ -94,7 +94,7 @@ extern "C" void app_main(void) {
     // declare default discovery for device
     const discovery_t default_discoveries[] = {
       {
-        .topic = "test/sensor/signal_strength/config",
+        .topic = "sensor/signal_strength/config",
         .config = {
           .device_class = "signal_strength",
           .expire_after = 310,
@@ -106,7 +106,7 @@ extern "C" void app_main(void) {
         },
       },
       {
-        .topic = "test/sensor/longitude/config",
+        .topic = "sensor/longitude/config",
         .config = {
           .device_class = nullptr,
           .expire_after = 0,
@@ -118,7 +118,7 @@ extern "C" void app_main(void) {
         },
       },
       {
-        .topic = "test/sensor/latitude/config",
+        .topic = "sensor/latitude/config",
         .config = {
           .device_class = nullptr,
           .expire_after = 0,
@@ -130,7 +130,7 @@ extern "C" void app_main(void) {
         },
       },
       {
-        .topic = "test/sensor/elevation/config",
+        .topic = "sensor/elevation/config",
         .config = {
           .device_class = nullptr,
           .expire_after = 0,
@@ -171,21 +171,20 @@ extern "C" void app_main(void) {
 
     // send lat/long/elev and restart reason
     const esp_reset_reason_t reset_reason = esp_reset_reason();
-    const double elevation_ft = elevation_m * 3.28084;
-    ESP_LOGI(TAG, "Reset reason: %i", reset_reason);
-    ESP_LOGI(TAG, "Latitude: %.2f, Longitude: %.2f, Elevation: %.2f ft",
-      latitude, longitude, elevation_ft);
+    double elevation_ft = elevation_m * 3.28084;
+    elevation_ft = ceil(elevation_ft * 100.0) / 100.0;
+    ESP_LOGI(TAG, "Longitude: %.2f°, Latitude: %.2f°, Elevation: %.2fft",
+      longitude, latitude,  elevation_ft);
 
     // build setup data json object
     cJSON *json = cJSON_CreateObject();
-    cJSON_AddNumberToObject(json, "latitude", latitude);
-    cJSON_AddNumberToObject(json, "longitude", longitude);
-    cJSON_AddNumberToObject(json, "elevation", elevation_ft);
-    cJSON_AddNumberToObject(json, "reset", reset_reason);
+    cJSON_AddNumberToObject(json, LONGITUDE_KEY, longitude);
+    cJSON_AddNumberToObject(json, LATITUDE_KEY, latitude);
+    cJSON_AddNumberToObject(json, ELEVATION_KEY, elevation_ft);
+    cJSON_AddNumberToObject(json, RESET_REASON_KEY, reset_reason);
 
     // publish the setup data
-    err = wireless_publish(DATA_TOPIC, json, 0, false, 
-      15000 / portTICK_PERIOD_MS);
+    err = wireless_publish_data(json, 2, false, 15000 / portTICK_PERIOD_MS);
     if (err) {
       ESP_LOGE(TAG, "An error occurred sending setup data. Restarting...");
       esp_restart();
@@ -252,8 +251,7 @@ extern "C" void app_main(void) {
       }
 
       // publish json to mqtt broker
-      wireless_publish(DATA_TOPIC, json, 0, false, 0);
-
+      wireless_publish_data(json, 0, false, 0);
       wireless_stop(10000 / portTICK_PERIOD_MS);
     }
 
