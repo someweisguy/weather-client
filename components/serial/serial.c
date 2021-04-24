@@ -17,8 +17,8 @@
 #define I2S_PORT      0
 #define PIN_NUM_BCLK  26
 #define PIN_NUM_DOUT  25
-#define PIN_NUM_LRCL  34
-#define PIN_NUM_SEL   4
+#define PIN_NUM_LRCL  4
+//#define PIN_NUM_SEL   4
 
 static const char *TAG = "serial";
 static QueueHandle_t uart_queue;
@@ -60,19 +60,11 @@ esp_err_t serial_start() {
   }
 
   // config and init i2s for use with sph0645
-  const i2s_pin_config_t pin_config = {
-    .bck_io_num = PIN_NUM_BCLK,
-    .ws_io_num = PIN_NUM_SEL,
-    .data_out_num = I2S_PIN_NO_CHANGE,
-    .data_in_num = PIN_NUM_DOUT
-  };
-  err = i2s_set_pin(I2S_PORT, &pin_config);
-  if (err) return err;
   const i2s_config_t i2s_config = {
     .mode = I2S_MODE_MASTER | I2S_MODE_RX,
     .sample_rate = 44100,
     .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,
-    .channel_format = I2S_CHANNEL_FMT_ONLY_RIGHT,
+    .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
     .communication_format = I2S_COMM_FORMAT_STAND_I2S,
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
     .dma_buf_count = 8,
@@ -80,9 +72,10 @@ esp_err_t serial_start() {
     .use_apll = false
   };
   err = i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
+  if (err) return err;
   const i2s_pin_config_t pin_config = {
     .bck_io_num = PIN_NUM_BCLK,
-    .ws_io_num = PIN_NUM_SEL,
+    .ws_io_num = PIN_NUM_LRCL,
     .data_out_num = I2S_PIN_NO_CHANGE,
     .data_in_num = PIN_NUM_DOUT
   };
@@ -175,4 +168,11 @@ esp_err_t serial_uart_write(const void *src, size_t size, TickType_t timeout) {
 
 esp_err_t serial_uart_flush() {
   return uart_flush(UART_PORT);
+}
+
+esp_err_t serial_i2s_read(void *buf, size_t size, TickType_t timeout) {
+  size_t bytes_read;
+  i2s_read(I2S_PORT, buf, size, &bytes_read, timeout);
+  if (size != bytes_read) return ESP_ERR_TIMEOUT;
+  return ESP_OK;
 }
