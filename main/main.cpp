@@ -18,9 +18,6 @@
 #define SYSTEM_KEY          "system"
 #define WIRELESS_KEY        "wireless"
 #define SIGNAL_STRENGTH_KEY "signal_strength"
-#define LONGITUDE_KEY       "longitude"
-#define LATITUDE_KEY        "latitude"
-#define ELEVATION_KEY       "elevation"
 #define RESET_REASON_KEY    "reset_reason"
 
 static const char *TAG = "main";
@@ -106,42 +103,6 @@ extern "C" void app_main(void) {
           .unit_of_measurement = "dB",
           .value_template = "{{ value_json." WIRELESS_KEY "." SIGNAL_STRENGTH_KEY " }}"
         },
-      },
-      {
-        .topic = "sensor/longitude",
-        .config = {
-          .device_class = nullptr,
-          .expire_after = 0,
-          .force_update = false,
-          .icon = "mdi:longitude",
-          .name = "Longitude",
-          .unit_of_measurement = "°",
-          .value_template = "{{ value_json." SYSTEM_KEY "." LONGITUDE_KEY " }}"
-        },
-      },
-      {
-        .topic = "sensor/latitude",
-        .config = {
-          .device_class = nullptr,
-          .expire_after = 0,
-          .force_update = false,
-          .icon = "mdi:latitude",
-          .name = "Latitude",
-          .unit_of_measurement = "°",
-          .value_template = "{{ value_json." SYSTEM_KEY "." LATITUDE_KEY " }}"
-        },
-      },
-      {
-        .topic = "sensor/elevation",
-        .config = {
-          .device_class = nullptr,
-          .expire_after = 0,
-          .force_update = false,
-          .icon = "mdi:elevation-rise",
-          .name = "Elevation",
-          .unit_of_measurement = "ft",
-          .value_template = "{{ value_json." SYSTEM_KEY "." ELEVATION_KEY " }}"
-        },
       }
     };
 
@@ -171,20 +132,9 @@ extern "C" void app_main(void) {
       }
     }
 
-    // send lat/long/elev and restart reason
-    const esp_reset_reason_t reset_reason = esp_reset_reason();
-    double elevation_ft = elevation_m * 3.28084;
-    elevation_ft = ceil(elevation_ft * 100.0) / 100.0;
-    ESP_LOGI(TAG, "Longitude: %.2f°, Latitude: %.2f°, Elevation: %.2fft",
-      longitude, latitude,  elevation_ft);
-
-    // build setup data json object
-    cJSON *json = cJSON_CreateObject();
-    cJSON *system = cJSON_CreateObject();
-    cJSON_AddNumberToObject(system, LONGITUDE_KEY, longitude);
-    cJSON_AddNumberToObject(system, LATITUDE_KEY, latitude);
-    cJSON_AddNumberToObject(system, ELEVATION_KEY, elevation_ft);
-    cJSON_AddNumberToObject(system, RESET_REASON_KEY, reset_reason);
+    // build system data json object
+    cJSON *json = cJSON_CreateObject(), *system = cJSON_CreateObject();
+    cJSON_AddNumberToObject(system, RESET_REASON_KEY, esp_reset_reason());
     cJSON_AddItemToObject(json, SYSTEM_KEY, system);
 
     // get wifi signal strength
