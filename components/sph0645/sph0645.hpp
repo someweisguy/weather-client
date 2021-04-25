@@ -38,7 +38,7 @@ private:
             .icon = "mdi:volume-high",
             .name = "Noise Pollution",
             .unit_of_measurement = "dB",
-            .value_template = "{{ value_json." SPH_KEY "." NOISE_KEY " }}"
+            .value_template = "{{ value_json." SPH_KEY "." NOISE_KEY " | round(0) }}"
           }
         }
     };
@@ -172,7 +172,6 @@ public:
       return ESP_FAIL;
     }
     double avg = microphone_cxt.sum / microphone_cxt.num_samples;
-    avg = ceil(avg * 100.0) / 100.0;
     //const float min = microphone_cxt.min;
     //const float max = microphone_cxt.max;
     xSemaphoreGive(microphone_cxt.semaphore);

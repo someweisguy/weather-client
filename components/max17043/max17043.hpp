@@ -25,7 +25,7 @@ private:
             .icon = nullptr,
             .name = "Battery",
             .unit_of_measurement = "%",
-            .value_template = "{{ value_json." MAX_KEY "." BATTERY_KEY " }}"
+            .value_template = "{{ value_json." MAX_KEY "." BATTERY_KEY " | round(0) }}"
           }
         }
     };
@@ -75,9 +75,8 @@ public:
 
     cJSON *max = cJSON_CreateObject();
 
-    // calculate the value from the raw data and round to 2 decimal places
+    // calculate the value from the raw data
     double battery = raw_data[0] + (raw_data[1] / 256.0);
-    battery = ceil(battery * 100.0) / 100.0;
 
     cJSON_AddNumberToObject(max, BATTERY_KEY, battery);
     cJSON_AddItemToObject(json, MAX_KEY, max);

@@ -41,7 +41,7 @@ private:
           .icon = "mdi:thermometer",
           .name = "Temperature",
           .unit_of_measurement = "°F",
-          .value_template = "{{ value_json." BME_KEY "." TEMPERATURE_KEY " }}"
+          .value_template = "{{ value_json." BME_KEY "." TEMPERATURE_KEY " | round(0) }}"
         },
       },
       {
@@ -53,7 +53,7 @@ private:
           .icon = "mdi:gauge",
           .name = "Pressure",
           .unit_of_measurement = "inHg",
-          .value_template = "{{ value_json." BME_KEY "." PRESSURE_KEY " }}"
+          .value_template = "{{ value_json." BME_KEY "." PRESSURE_KEY " | round(1) }}"
         },
       },
       {
@@ -65,7 +65,7 @@ private:
           .icon = "mdi:water-percent",
           .name = "Humidity",
           .unit_of_measurement = "%",
-          .value_template = "{{ value_json." BME_KEY "." HUMIDITY_KEY " }}"
+          .value_template = "{{ value_json." BME_KEY "." HUMIDITY_KEY " | round(0) }}"
         }, 
       },
       {
@@ -77,7 +77,7 @@ private:
           .icon = "mdi:weather-fog",
           .name = "Dew Point",
           .unit_of_measurement = "°F",
-          .value_template = "{{ value_json." BME_KEY "." DEW_POINT_KEY " }}"
+          .value_template = "{{ value_json." BME_KEY "." DEW_POINT_KEY " | round(0) }}"
         },
       }
     };
@@ -268,9 +268,8 @@ public:
       double temperature = compensate_temperature(t_fine) / 100.0; // C
       celsius = temperature;
 
-      // convert to F and round to 2 decimal places
+      // convert to F
       temperature = (temperature * 9.0 / 5.0) + 32;
-      temperature = ceil(temperature * 100.0) / 100.0;
 
       cJSON_AddNumberToObject(bme, TEMPERATURE_KEY, temperature);
     } else {
@@ -290,9 +289,8 @@ public:
                    K = celsius + 273.15; // temperature in Kelvin
       pressure = pressure * exp((M * g) / (R * K) * elevation_m);
       
-      // convert to inHg and round to 2 decimal places
+      // convert to inHg
       pressure /= 3386.3886666667;
-      pressure = ceil(pressure * 100.0) / 100.0;
 
       cJSON_AddNumberToObject(bme, PRESSURE_KEY, pressure);
     }
@@ -300,9 +298,6 @@ public:
     // get humidity value
     if (adc_H != 0x800) {
       humidity = compensate_humidity(t_fine, adc_H) / 1024.0;
-
-      // round to 2 decimal places
-      humidity = ceil(humidity * 100.0) / 100.0;
 
       cJSON_AddNumberToObject(bme, HUMIDITY_KEY, humidity);
     }
@@ -313,9 +308,8 @@ public:
         + ((17.62 * celsius) / (243.12 + celsius));
       double dew_point = (243.12 * gamma) / (17.32 - gamma); // C
       
-      // convert to F and round to 2 decimal places
+      // convert to F
       dew_point = (dew_point * 9.0 / 5.0) + 32;
-      dew_point = ceil(dew_point * 100.0) / 100.0;
       
       cJSON_AddNumberToObject(bme, DEW_POINT_KEY, dew_point);
     } 
