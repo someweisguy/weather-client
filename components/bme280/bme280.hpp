@@ -266,10 +266,8 @@ public:
     // get temperature value
     if (adc_T != 0x80000) {
       double temperature = compensate_temperature(t_fine) / 100.0; // C
-      celsius = temperature;
-
-      // convert to F
-      temperature = (temperature * 9.0 / 5.0) + 32;
+      celsius = temperature; // use for dew point calculation
+      temperature = (temperature * 9.0 / 5.0) + 32; // convert to F
 
       cJSON_AddNumberToObject(bme, TEMPERATURE_KEY, temperature);
     } else {
@@ -280,7 +278,7 @@ public:
 
     // get pressure value
     if (adc_P != 0x80000) {
-      double pressure = compensate_pressure(t_fine, adc_P) / 256; // Pa
+      double pressure = compensate_pressure(t_fine, adc_P) / 256.0; // Pa
 
       // convert pressure at sea level to pressure at current elevation
       const double M = 0.02897,          // molar mass of Eath's air (kg/mol)
@@ -288,9 +286,7 @@ public:
                    R = 8.314462,         // universal gas constant (J/mol*K)
                    K = celsius + 273.15; // temperature in Kelvin
       pressure = pressure * exp((M * g) / (R * K) * elevation_m);
-      
-      // convert to inHg
-      pressure /= 3386.3886666667;
+      pressure /= 3386.3886666667; // convert to inHg
 
       cJSON_AddNumberToObject(bme, PRESSURE_KEY, pressure);
     }
@@ -307,9 +303,7 @@ public:
       const double gamma = log(fmax(humidity, DBL_MIN) / 100.0) 
         + ((17.62 * celsius) / (243.12 + celsius));
       double dew_point = (243.12 * gamma) / (17.32 - gamma); // C
-      
-      // convert to F
-      dew_point = (dew_point * 9.0 / 5.0) + 32;
+      dew_point = (dew_point * 9.0 / 5.0) + 32; // convert to F
       
       cJSON_AddNumberToObject(bme, DEW_POINT_KEY, dew_point);
     } 
