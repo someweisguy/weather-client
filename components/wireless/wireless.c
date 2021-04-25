@@ -401,7 +401,6 @@ esp_err_t wireless_discover(const discovery_t *discovery, int qos, bool retain,
   cJSON_AddNumberToObject(json, "expire_after", discovery->config.expire_after);
   cJSON_AddBoolToObject(json, "force_update", discovery->config.force_update);
   cJSON_AddStringToObject(json, "name", discovery->config.name);
-  cJSON_AddStringToObject(json, "unit_of_measurement", discovery->config.unit_of_measurement);
   cJSON_AddStringToObject(json, "value_template", discovery->config.value_template);
 
   // add the optional params
@@ -409,6 +408,9 @@ esp_err_t wireless_discover(const discovery_t *discovery, int qos, bool retain,
     cJSON_AddStringToObject(json, "device_class", discovery->config.device_class);
   if (discovery->config.icon != NULL)
     cJSON_AddStringToObject(json, "icon", discovery->config.icon);
+  if (discovery->config.unit_of_measurement != NULL)
+    cJSON_AddStringToObject(json, "unit_of_measurement", 
+      discovery->config.unit_of_measurement);
   
   // add the preset parameters
   char state_topic[strlen(DATA_TOPIC_PREFIX) + 16 + 6];
