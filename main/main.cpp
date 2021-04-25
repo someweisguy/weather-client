@@ -161,8 +161,8 @@ extern "C" void app_main(void) {
     for (Sensor *sensor : sensors) {
       err = sensor->ready();
       if (err) {
-        ESP_LOGE(TAG, "An error occurred readying the %s.", 
-          sensor->get_name());
+        ESP_LOGE(TAG, "An error occurred readying the %s (%i).", 
+          sensor->get_name(), err);
       }
     }
 
@@ -187,8 +187,8 @@ extern "C" void app_main(void) {
     for (Sensor *sensor : sensors) {
       err = sensor->get_data(json);
       if (err) {
-        ESP_LOGE(TAG, "An error occurred getting data from %s.", 
-          sensor->get_name());
+        ESP_LOGE(TAG, "An error occurred getting data from %s (%i).", 
+          sensor->get_name(), err);
       }
     }
 
@@ -196,8 +196,8 @@ extern "C" void app_main(void) {
     for (Sensor *sensor : sensors) {
       err = sensor->sleep();
       if (err) { 
-        ESP_LOGE(TAG, "An error occurred putting the %s to sleep.", 
-          sensor->get_name());
+        ESP_LOGE(TAG, "An error occurred putting the %s to sleep (%i).", 
+          sensor->get_name(), err);
       }
     }
 
