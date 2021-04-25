@@ -178,7 +178,7 @@ public:
     xSemaphoreGive(microphone_cxt.semaphore);
 
     // return failure if microphone fails
-    if (microphone_cxt.num_samples == 0 || microphone_cxt.sum = nan) {
+    if (microphone_cxt.num_samples == 0 || microphone_cxt.sum = NAN) {
       return ESP_FAIL;
     }
 
