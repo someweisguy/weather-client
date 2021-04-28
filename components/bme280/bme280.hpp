@@ -7,7 +7,6 @@
 #include "serial.h"
 #include <string.h>
 
-#define BME_KEY         "bme280"
 #define TEMPERATURE_KEY "temperature"
 #define PRESSURE_KEY    "pressure"
 #define HUMIDITY_KEY    "humidity"
@@ -41,7 +40,7 @@ private:
           .icon = "mdi:thermometer",
           .name = "Temperature",
           .unit_of_measurement = "°F",
-          .value_template = "{{ value_json." BME_KEY "." TEMPERATURE_KEY " | round(0) }}"
+          .value_template = "{{ value_json." TEMPERATURE_KEY " | round(1) }}"
         },
       },
       {
@@ -53,7 +52,7 @@ private:
           .icon = "mdi:gauge",
           .name = "Pressure",
           .unit_of_measurement = "inHg",
-          .value_template = "{{ value_json." BME_KEY "." PRESSURE_KEY " | round(1) }}"
+          .value_template = "{{ value_json." PRESSURE_KEY " | round(2) }}"
         },
       },
       {
@@ -65,7 +64,7 @@ private:
           .icon = "mdi:water-percent",
           .name = "Humidity",
           .unit_of_measurement = "%",
-          .value_template = "{{ value_json." BME_KEY "." HUMIDITY_KEY " | round(0) }}"
+          .value_template = "{{ value_json." HUMIDITY_KEY " | round(1) }}"
         }, 
       },
       {
@@ -77,7 +76,7 @@ private:
           .icon = "mdi:weather-fog",
           .name = "Dew Point",
           .unit_of_measurement = "°F",
-          .value_template = "{{ value_json." BME_KEY "." DEW_POINT_KEY " | round(0) }}"
+          .value_template = "{{ value_json." DEW_POINT_KEY " | round(1) }}"
         },
       }
     };
@@ -261,18 +260,15 @@ public:
     const int32_t t_fine = get_t_fine(adc_T); // needed to compensate data
     double celsius, humidity; // needed for dew point and pressure
 
-    cJSON *bme = cJSON_CreateObject();
-
     // get temperature value
     if (adc_T != 0x80000) {
       double temperature = compensate_temperature(t_fine) / 100.0; // C
       celsius = temperature; // use for dew point calculation
       temperature = (temperature * 9.0 / 5.0) + 32; // convert to F
 
-      cJSON_AddNumberToObject(bme, TEMPERATURE_KEY, temperature);
+      cJSON_AddNumberToObject(json, TEMPERATURE_KEY, temperature);
     } else {
       // temperature sampling must be turned on
-      cJSON_Delete(bme);
       return ESP_ERR_INVALID_STATE;
     }
 
@@ -288,14 +284,14 @@ public:
       pressure = pressure * exp((M * g) / (R * K) * elevation_m);
       pressure /= 3386.3886666667; // convert to inHg
 
-      cJSON_AddNumberToObject(bme, PRESSURE_KEY, pressure);
+      cJSON_AddNumberToObject(json, PRESSURE_KEY, pressure);
     }
 
     // get humidity value
     if (adc_H != 0x800) {
       humidity = compensate_humidity(t_fine, adc_H) / 1024.0;
 
-      cJSON_AddNumberToObject(bme, HUMIDITY_KEY, humidity);
+      cJSON_AddNumberToObject(json, HUMIDITY_KEY, humidity);
     }
 
     // calculate the dew point
@@ -305,11 +301,8 @@ public:
       double dew_point = (243.12 * gamma) / (17.32 - gamma); // C
       dew_point = (dew_point * 9.0 / 5.0) + 32; // convert to F
       
-      cJSON_AddNumberToObject(bme, DEW_POINT_KEY, dew_point);
+      cJSON_AddNumberToObject(json, DEW_POINT_KEY, dew_point);
     } 
-
-    // add the json sub object to the main object
-    cJSON_AddItemToObject(json, BME_KEY, bme);
 
     return ESP_OK;
   }

@@ -4,7 +4,6 @@
 #include "cJSON.h"
 #include "serial.h"
 
-#define PMS_KEY     "pms5003"
 #define PM_2_5_KEY  "pm_2_5"
 #define PM_10_KEY   "pm_10"
 
@@ -20,7 +19,7 @@ private:
             .icon = "mdi:smog",
             .name = "PM 2.5",
             .unit_of_measurement = "μg/m³",
-            .value_template = "{{ value_json." PMS_KEY "." PM_2_5_KEY " }}"
+            .value_template = "{{ value_json."  PM_2_5_KEY " }}"
           }
         },
         {
@@ -32,7 +31,7 @@ private:
             .icon = "mdi:smog", 
             .name = "PM 10", 
             .unit_of_measurement = "μg/m³", 
-            .value_template = "{{ value_json." PMS_KEY "." PM_10_KEY " }}"
+            .value_template = "{{ value_json." PM_10_KEY " }}"
           }
         }
     };
@@ -127,10 +126,8 @@ public:
     for (int i = 0; i < 30; ++i) checksum += raw_data[i];
     if (checksum != data.checksum) return ESP_ERR_INVALID_CRC;
 
-    cJSON *pms = cJSON_CreateObject();
-    cJSON_AddNumberToObject(pms, PM_2_5_KEY, data.atmospheric.pm2_5);
-    cJSON_AddNumberToObject(pms, PM_10_KEY, data.atmospheric.pm10);
-    cJSON_AddItemToObject(json, PMS_KEY, pms);
+    cJSON_AddNumberToObject(json, PM_2_5_KEY, data.atmospheric.pm2_5);
+    cJSON_AddNumberToObject(json, PM_10_KEY, data.atmospheric.pm10);
 
     return ESP_OK;
   }

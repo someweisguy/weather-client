@@ -103,12 +103,13 @@ extern "C" void app_main(void) {
           .icon = nullptr,
           .name = "Signal Strength",
           .unit_of_measurement = "dB",
-          .value_template = "{{ value_json." WIRELESS_KEY "." SIGNAL_STRENGTH_KEY " }}"
+          .value_template = "{{ value_json." SIGNAL_STRENGTH_KEY " }}"
         },
       }
     };
 
     // send default discovery
+    ESP_LOGI(TAG, "Sending MQTT discoveries...");
     for (discovery_t discovery : default_discoveries) {
       wireless_publish_discover("esp32", &discovery);
       err = wireless_wait_for_publish(10000 / portTICK_PERIOD_MS);
@@ -136,30 +137,31 @@ extern "C" void app_main(void) {
     }
 
     // build system data json object
-    cJSON *json = cJSON_CreateObject(), *system = cJSON_CreateObject();
-    cJSON_AddNumberToObject(system, RESET_REASON_KEY, esp_reset_reason());
-    cJSON_AddItemToObject(json, SYSTEM_KEY, system);
+    // cJSON *json = cJSON_CreateObject()
+    //cJSON_AddNumberToObject(system, RESET_REASON_KEY, esp_reset_reason());
+    //cJSON_AddItemToObject(json, SYSTEM_KEY, system);
 
     // get wifi signal strength
+    ESP_LOGI(TAG, "Publishing signal strength...");
     int signal_strength;
     err = wireless_get_rssi(&signal_strength);
     if (!err) {
       cJSON *wireless = cJSON_CreateObject();
       cJSON_AddNumberToObject(wireless, SIGNAL_STRENGTH_KEY, signal_strength);
-      cJSON_AddItemToObject(json, WIRELESS_KEY, wireless);
+      wireless_publish_state("esp32", wireless);
+      cJSON_Delete(wireless);
+      // publish the setup data
+      err = wireless_wait_for_publish(10000 / portTICK_PERIOD_MS);
+      if (err) {
+        ESP_LOGE(TAG, "An error occurred sending setup data. Restarting...");
+        esp_restart();
+      }
     }
 
-    // publish the setup data
-    wireless_publish_state("esp32", json);
-    err = wireless_wait_for_publish(10000 / portTICK_PERIOD_MS);
-    if (err) {
-      ESP_LOGE(TAG, "An error occurred sending setup data. Restarting...");
-      esp_restart();
-    }
+    // stop wireless radios and setup is finished
     wireless_stop(5000 / portTICK_PERIOD_MS);
-
-    cJSON_Delete(json);
     device_is_setup = true;
+
   } else {
     ESP_LOGI(TAG, "Readying sensors");
     for (Sensor *sensor : sensors) {

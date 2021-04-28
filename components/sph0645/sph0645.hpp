@@ -23,8 +23,7 @@
 #define MIC_POWER_UP_TIME   50      // Power-up time of the microphone (ms)
 #define MIC_OFFSET_DB       3.0103  // Default offset (sine-wave RMS vs. dBFS)
 
-#define SPH_KEY     "sph0645"
-#define NOISE_KEY   "noise"
+#define NOISE_KEY "noise"
 
 class sph0645_t : public Sensor {
 private:
@@ -38,7 +37,7 @@ private:
             .icon = "mdi:volume-high",
             .name = "Noise Pollution",
             .unit_of_measurement = "dB",
-            .value_template = "{{ value_json." SPH_KEY "." NOISE_KEY " | round(0) }}"
+            .value_template = "{{ value_json." NOISE_KEY " | round(1) }}"
           }
         }
     };
@@ -181,9 +180,7 @@ public:
       return ESP_FAIL;
     }
 
-    cJSON *sph = cJSON_CreateObject();
-    cJSON_AddNumberToObject(sph, NOISE_KEY, avg);
-    cJSON_AddItemToObject(json, SPH_KEY, sph);
+    cJSON_AddNumberToObject(json, NOISE_KEY, avg);
 
     return ESP_OK;
   }
