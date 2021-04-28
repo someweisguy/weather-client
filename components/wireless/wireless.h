@@ -39,6 +39,12 @@ esp_err_t wireless_publish_data(cJSON* json, int qos, bool retain,
 esp_err_t wireless_discover(const discovery_t *discovery, int qos, bool retain,
     TickType_t timeout);
 
+esp_err_t wireless_publish_discover2(const char *sensor_name, discovery_t *discovery);
+
+esp_err_t wireless_publish_data2(const char *sensor_name, cJSON *payload);
+
+esp_err_t wireless_wait_for_publish(TickType_t timeout);
+
 #ifdef __cplusplus
 }
 #endif

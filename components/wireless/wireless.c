@@ -14,6 +14,9 @@
 #include <ctype.h>
 #include <string.h>
 
+#define DISCOVER_PREFIX     "homeassistant"
+#define STATE_PREFIX        "weather-station"
+
 #define DISCOVERY_PREFIX    "homeassistant/"
 #define DATA_TOPIC_PREFIX   "weather-station/"
 
@@ -348,7 +351,7 @@ static esp_err_t wireless_publish(const char *topic, cJSON* json, int qos,
     esp_mqtt_client_publish(mqtt_client, topic, NULL, 0, qos, retain);
   }
 
-  // qos 0 messages don't receive puback from mqtt broker
+  // qos 0 messages don't receive pub-ack from mqtt broker
   if (qos == 0) {
     return ESP_OK;
   }
@@ -445,4 +448,106 @@ esp_err_t wireless_discover(const discovery_t *discovery, int qos, bool retain,
   cJSON_Delete(json);
 
   return err;
+}
+
+esp_err_t wireless_publish_discover2(const char *sensor_name, discovery_t *discovery) {
+  if (sensor_name == NULL || discovery == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  // get mac address for device id
+  uint64_t mac = 0;
+  esp_efuse_mac_get_default((uint8_t *)&mac);
+
+  // create the json discovery object  
+  cJSON *json = cJSON_CreateObject();
+
+  // add the required parameters
+  cJSON_AddNumberToObject(json, "expire_after", discovery->config.expire_after);
+  cJSON_AddBoolToObject(json, "force_update", discovery->config.force_update);
+  cJSON_AddStringToObject(json, "name", discovery->config.name);
+  cJSON_AddStringToObject(json, "value_template", discovery->config.value_template);
+
+  // add the optional params
+  if (discovery->config.device_class != NULL)
+    cJSON_AddStringToObject(json, "device_class", discovery->config.device_class);
+  if (discovery->config.icon != NULL)
+    cJSON_AddStringToObject(json, "icon", discovery->config.icon);
+  if (discovery->config.unit_of_measurement != NULL)
+    cJSON_AddStringToObject(json, "unit_of_measurement", 
+      discovery->config.unit_of_measurement);
+  
+  // get the state topic
+  // [STATE_PREFIX]/[mac_address]/[sensor_name]/data
+  char state_topic[strlen(STATE_PREFIX) + strlen(sensor_name) + 20];
+  snprintf(state_topic, sizeof(state_topic), "%s/%llx/%s/data", 
+    STATE_PREFIX, mac, sensor_name);
+  cJSON_AddStringToObject(json, "state_topic", state_topic);
+
+  // generate and attach a unique id using mac address
+  char unique_id[strlen(discovery->config.name) + 14];
+  snprintf(unique_id, sizeof(unique_id), "%s-%llx", discovery->config.name, mac);
+  cJSON_AddStringToObject(json, "unique_id", unique_id);
+
+  // get the device id as a string
+  char device_id[13];
+  snprintf(device_id, sizeof(device_id), "%llx", mac);
+
+  // add device parameters
+  cJSON *device = cJSON_CreateObject();
+  cJSON_AddStringToObject(device, "manufacturer", "Mitch Weisbrod");
+  cJSON_AddStringToObject(device, "sw_version", "");
+  cJSON_AddStringToObject(device, "name", "Weather Station");
+  cJSON_AddStringToObject(device, "model", "");
+  cJSON_AddStringToObject(device, "identifiers", device_id);
+  cJSON_AddItemToObject(json, "device", device);
+
+  // [DISCOVER_PREFIX]/sensor/[mac_address]/[sensor_name]-[entity_name]/config
+  char discover_topic[strlen(DISCOVER_PREFIX) + strlen(sensor_name) 
+    + strlen(discovery->config.name) + 30];
+  snprintf(discover_topic, sizeof(discover_topic), "%s/%s/%llx/%s-%s/config",
+    DISCOVER_PREFIX, "sensor", mac, sensor_name, discovery->config.name);
+
+  // publish the discovery and free resources
+  esp_err_t err = wireless_publish(discover_topic, json, 1, true, 
+    10000 / portTICK_PERIOD_MS);
+  cJSON_Delete(json);
+
+  return err;
+}
+
+esp_err_t wireless_publish_state2(const char *sensor_name, cJSON *payload) {
+  if (sensor_name == NULL || payload == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
+
+  // get mac address for device id
+  uint64_t mac = 0;
+  esp_efuse_mac_get_default((uint8_t *)&mac);
+
+  // get the state topic
+  // [STATE_PREFIX]/[mac_address]/[sensor_name]/state
+  char state_topic[strlen(STATE_PREFIX) + strlen(sensor_name) + 21];
+  snprintf(state_topic, sizeof(state_topic), "%s/%llx/%s/state", 
+    STATE_PREFIX, mac, sensor_name);
+
+
+  // publish the data
+  const int qos = 0;
+  esp_err_t err = wireless_publish(state_topic, payload, qos, false, 0);
+
+  return err;
+}
+
+esp_err_t wireless_wait_for_publish(TickType_t timeout) { 
+  // block until mqtt publishes or times out
+  const EventBits_t mqtt_status = xEventGroupWaitBits(wireless_event_group,
+    MQTT_MSG_PUBLISHED, pdTRUE, pdFALSE, timeout);
+  if (!(mqtt_status & MQTT_MSG_PUBLISHED)) {
+    // timed out waiting for mqtt to publish
+    ESP_LOGE(TAG, "MQTT timed out");
+    return ESP_ERR_TIMEOUT;
+  }
+
+  return ESP_OK;
 }
