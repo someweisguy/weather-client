@@ -396,8 +396,8 @@ esp_err_t wireless_publish_discover(const char *sensor_name,
   
   // get the state topic
   // [STATE_PREFIX]/[mac_address]/[sensor_name]/data
-  char state_topic[strlen(STATE_PREFIX) + strlen(sensor_name) + 20];
-  snprintf(state_topic, sizeof(state_topic), "%s/%llx/%s/data", 
+  char state_topic[strlen(STATE_PREFIX) + strlen(sensor_name) + 21];
+  snprintf(state_topic, sizeof(state_topic), "%s/%llx/%s/state", 
     STATE_PREFIX, mac, sensor_name);
   cJSON_AddStringToObject(json, "state_topic", state_topic);
 
@@ -419,11 +419,18 @@ esp_err_t wireless_publish_discover(const char *sensor_name,
   cJSON_AddStringToObject(device, "identifiers", device_id);
   cJSON_AddItemToObject(json, "device", device);
 
+  // get a legal name to use for the discovery topic
+  char legal_name[strlen(discovery->config.name)];
+  snprintf(legal_name, sizeof(legal_name), "%s", discovery->config.name);
+  for (char *c = legal_name; *c != '\0'; ++c) {
+    if (!(isalnum(*c) || *c == '-' || *c == '_')) *c = '_';
+  }
+
   // [DISCOVER_PREFIX]/sensor/[mac_address]/[sensor_name]-[entity_name]/config
   char discover_topic[strlen(DISCOVER_PREFIX) + strlen(sensor_name) 
     + strlen(discovery->config.name) + 30];
   snprintf(discover_topic, sizeof(discover_topic), "%s/%s/%llx/%s-%s/config",
-    DISCOVER_PREFIX, "sensor", mac, sensor_name, discovery->config.name);
+    DISCOVER_PREFIX, "sensor", mac, sensor_name, legal_name);
 
   // publish the discovery and free resources
   esp_err_t err = wireless_publish(discover_topic, json, 1, true);
@@ -449,7 +456,7 @@ esp_err_t wireless_publish_state(const char *sensor_name,
     STATE_PREFIX, mac, sensor_name);
 
   // publish the data
-  const int qos = 0;
+  const int qos = 2;
   esp_err_t err = wireless_publish(state_topic, payload, qos, false);
 
   return err;
