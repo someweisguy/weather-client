@@ -166,7 +166,7 @@ extern "C" void app_main(void) {
     for (Sensor *sensor : sensors) {
       err = sensor->ready();
       if (err) {
-        ESP_LOGE(TAG, "An error occurred readying the %s (%i).", 
+        ESP_LOGE(TAG, "An error occurred readying the %s (%x).", 
           sensor->get_name(), err);
       }
     }
@@ -196,17 +196,28 @@ extern "C" void app_main(void) {
     for (int i = 0; i < num_sensors; ++i) {
       err = sensors[i]->get_data(payloads[i]);
       if (err) {
-        ESP_LOGE(TAG, "An error occurred getting data from %s (%i).", 
+        ESP_LOGE(TAG, "An error occurred getting data from %s (%x).", 
           sensors[i]->get_name(), err);
         sensor_returns[i] = err;
       }
     }
 
+    // publish json to mqtt broker - will queue publishes if not connected
+    for (int i = 0; i < num_sensors; ++i) {
+      if (sensor_returns[i] == ESP_OK) {
+        wireless_publish_state(sensors[i]->get_name(), payloads[i]);
+        ++num_publishes;
+      }
+    }
+
+    // allow sensors to finish processing
+    vTaskDelay(50 / portTICK_PERIOD_MS);
+
     // put sensors to sleep
     for (Sensor *sensor : sensors) {
       err = sensor->sleep();
       if (err) { 
-        ESP_LOGE(TAG, "An error occurred putting the %s to sleep (%i).", 
+        ESP_LOGE(TAG, "An error occurred putting the %s to sleep (%x).", 
           sensor->get_name(), err);
       }
     }
@@ -223,14 +234,6 @@ extern "C" void app_main(void) {
         wireless_publish_state(SYSTEM_KEY, wireless);
         ++num_publishes;
         cJSON_Delete(wireless);
-      }
-
-      // publish json to mqtt broker
-      for (int i = 0; i < num_sensors; ++i) {
-        if (sensor_returns[i] == ESP_OK) {
-          wireless_publish_state(sensors[i]->get_name(), payloads[i]);
-          ++num_publishes;
-        }
       }
 
       // wait for each message to finish getting published
