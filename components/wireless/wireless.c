@@ -95,6 +95,18 @@ static void mqtt_handler(void *args, esp_event_base_t base, int event,
     // send a publish success event to the mqtt queue
     publish_event_t event = {};
     xQueueSendToBack(publish_queue, &event, 10000 / portTICK_PERIOD_MS);
+    
+  } else if (event == MQTT_EVENT_ERROR) {
+    esp_mqtt_event_t *event_data = (esp_mqtt_event_t *)data;
+    if (event_data->error_handle->error_type == MQTT_ERROR_TYPE_ESP_TLS) {
+      ESP_LOGE(TAG, "An MQTT TLS error occurred. Last err: %x, Stack: %x, Certify: %x",
+        event_data->error_handle->esp_tls_last_esp_err, 
+        event_data->error_handle->esp_tls_stack_err, 
+        event_data->error_handle->esp_tls_cert_verify_flags);
+    } else if (event_data->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED) {
+      ESP_LOGE(TAG, "The MQTT connection was refused (%x)", 
+        event_data->error_handle->connect_return_code);
+    }
   }
 }
 
