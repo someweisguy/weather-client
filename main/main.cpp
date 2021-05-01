@@ -65,7 +65,8 @@ extern "C" void app_main(void) {
       err = sensor->setup();
       if (err) {
         // TODO: will this boot loop?
-        ESP_LOGE(TAG, "An error occurred initializing sensors. Restarting...");
+        ESP_LOGE(TAG, "An error occurred initializing %s. Restarting...",
+          sensor->get_name());
         esp_restart();
       }
     }
