@@ -68,18 +68,9 @@ public:
   }
 
   esp_err_t setup() {
-    // put the sensor in passive mode
-    const uint8_t passive_cmd[] = {0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70};
-    esp_err_t err = serial_uart_write(passive_cmd, sizeof(passive_cmd),
-      100 / portTICK_PERIOD_MS);
-    if (err) return err;
-
-    // allow sensor to process previous command
-    vTaskDelay(50 / portTICK_PERIOD_MS);
-
     // put the sensor to sleep
     const uint8_t sleep_cmd[] = {0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73};
-    err = serial_uart_write(sleep_cmd, sizeof(sleep_cmd),
+    esp_err_t err = serial_uart_write(sleep_cmd, sizeof(sleep_cmd),
       100 / portTICK_PERIOD_MS);
     if (err) return err;
 
@@ -93,6 +84,15 @@ public:
       100 / portTICK_PERIOD_MS);
     if (err) return err;
 
+    // allow sensor to process previous command
+    vTaskDelay(50 / portTICK_PERIOD_MS);
+
+    // put the sensor in passive mode
+    const uint8_t passive_cmd[] = {0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70};
+    err = serial_uart_write(passive_cmd, sizeof(passive_cmd),
+      100 / portTICK_PERIOD_MS);
+    if (err) return err;
+
     err = serial_uart_flush();
     if (err) return err;
 
@@ -100,29 +100,33 @@ public:
   }
 
   esp_err_t get_data(cJSON *json) {
-    // force a measurement
-    const uint8_t read_cmd[] = {0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71};
-    esp_err_t err = serial_uart_write(read_cmd, sizeof(read_cmd),
-      100 / portTICK_PERIOD_MS);
-    if (err) return err;
-
-    // read the data from the measurement
     pms_data_t data;
-    err = serial_uart_read(&data, sizeof(data), 1000 / portTICK_PERIOD_MS);
-    if (err) return err;
+    uint16_t checksum, attempts_remaining = 3;
+    do {
+      // force a measurement
+      const uint8_t read_cmd[] = {0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71};
+      esp_err_t err = serial_uart_write(read_cmd, sizeof(read_cmd),
+        100 / portTICK_PERIOD_MS);
+      if (err) return err;
 
-    // swap data endianness
-    uint8_t *const raw_data = reinterpret_cast<uint8_t *>(&data);
-    for (int i = 3; i < 32; i += 2) {
-      const uint8_t temp = raw_data[i - 1];
-      raw_data[i - 1] = raw_data[i];
-      raw_data[i] = temp;
-    }
+      // read the data from the measurement
+      err = serial_uart_read(&data, sizeof(data), 1000 / portTICK_PERIOD_MS);
+      if (err) return err;
 
-    // verify checksum
-    uint16_t checksum = 0;
-    for (int i = 0; i < 30; ++i) checksum += raw_data[i];
-    if (checksum != data.checksum) return ESP_ERR_INVALID_CRC;
+      // swap data endianness
+      uint8_t *const raw_data = reinterpret_cast<uint8_t *>(&data);
+      for (int i = 3; i < 32; i += 2) {
+        const uint8_t temp = raw_data[i - 1];
+        raw_data[i - 1] = raw_data[i];
+        raw_data[i] = temp;
+      }
+
+      // verify checksum
+      checksum = 0;
+      for (int i = 0; i < 30; ++i) checksum += raw_data[i];
+      serial_uart_flush();
+    } while (checksum != data.checksum && --attempts_remaining);
+    if (!attempts_remaining) return ESP_ERR_INVALID_CRC;
 
     cJSON_AddNumberToObject(json, PM_2_5_KEY, data.atmospheric.pm2_5);
     cJSON_AddNumberToObject(json, PM_10_KEY, data.atmospheric.pm10);
@@ -133,7 +137,8 @@ public:
   esp_err_t sleep() {
     // put the sensor to sleep
     const uint8_t sleep_cmd[] = {0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73};
-    esp_err_t err = serial_uart_write(sleep_cmd, 7, 100 / portTICK_PERIOD_MS);
+    esp_err_t err = serial_uart_write(sleep_cmd, sizeof(sleep_cmd), 
+      100 / portTICK_PERIOD_MS);
     if (err) return err;
 
     return ESP_OK;
