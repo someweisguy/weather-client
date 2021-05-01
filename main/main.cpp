@@ -17,7 +17,7 @@
 #include "max17043.hpp"
 #include "sph0645.hpp"
 
-#define SYSTEM_KEY          "system"
+#define SYSTEM_KEY          "esp32"
 #define WIRELESS_KEY        "wireless"
 #define SIGNAL_STRENGTH_KEY "signal_strength"
 #define RESET_REASON_KEY    "reset_reason"
@@ -98,7 +98,6 @@ extern "C" void app_main(void) {
         .topic = "sensor/signal_strength",
         .config = {
           .device_class = "signal_strength",
-          .expire_after = 310,
           .force_update = true,
           .icon = nullptr,
           .name = "Signal Strength",
@@ -111,8 +110,8 @@ extern "C" void app_main(void) {
     // send default discovery
     ESP_LOGI(TAG, "Sending MQTT discoveries...");
     for (discovery_t discovery : default_discoveries) {
-      wireless_publish_discover("esp32", &discovery);
-      err = wireless_wait_for_publish(10000 / portTICK_PERIOD_MS);
+      wireless_publish_discover(SYSTEM_KEY, &discovery);
+      err = wireless_wait_for_publish(30000 / portTICK_PERIOD_MS);
       if (err) {
         ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
         esp_restart();
@@ -128,7 +127,7 @@ extern "C" void app_main(void) {
         num_discoveries);
       for (int i = 0; i < num_discoveries; ++i) { 
         wireless_publish_discover(sensor->get_name(), &discoveries[i]);
-        err = wireless_wait_for_publish(10000 / portTICK_PERIOD_MS);
+        err = wireless_wait_for_publish(30000 / portTICK_PERIOD_MS);
         if (err) {
           ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
           esp_restart();
@@ -148,14 +147,13 @@ extern "C" void app_main(void) {
     if (!err) {
       cJSON *wireless = cJSON_CreateObject();
       cJSON_AddNumberToObject(wireless, SIGNAL_STRENGTH_KEY, signal_strength);
-      wireless_publish_state("esp32", wireless);
+      wireless_publish_state(SYSTEM_KEY, wireless);
       cJSON_Delete(wireless);
       // publish the setup data
-      err = wireless_wait_for_publish(10000 / portTICK_PERIOD_MS);
-      if (err) {
-        ESP_LOGE(TAG, "An error occurred sending setup data. Restarting...");
-        esp_restart();
-      }
+      // err = wireless_wait_for_publish(10000 / portTICK_PERIOD_MS);
+      // if (err) {
+      //   ESP_LOGE(TAG, "An error occurred sending setup data. Restarting...");
+      // }
     }
 
     // stop wireless radios and setup is finished
@@ -221,7 +219,8 @@ extern "C" void app_main(void) {
       if (!err) {
         cJSON *wireless = cJSON_CreateObject();
         cJSON_AddNumberToObject(wireless, SIGNAL_STRENGTH_KEY, signal_strength);
-        wireless_publish_state("esp32", wireless);
+        wireless_publish_state(SYSTEM_KEY, wireless);
+        ++num_publishes;
         cJSON_Delete(wireless);
       }
 
@@ -234,11 +233,15 @@ extern "C" void app_main(void) {
       }
 
       // wait for each message to finish getting published
+      TickType_t timeout = 60000 / portTICK_PERIOD_MS;
       while (num_publishes--) {
-        err = wireless_wait_for_publish(10000 / portTICK_PERIOD_MS);
+        TickType_t start_tick = xTaskGetTickCount();
+        err = wireless_wait_for_publish(timeout);
         if (err) {
-          ESP_LOGE(TAG, "An MQTT state was unable to be published");
+          ESP_LOGE(TAG, "%i publish(es) timed out.", num_publishes);
+          break;
         }
+        timeout -= xTaskGetTickCount() - start_tick;
       }
 
       wireless_stop(10000 / portTICK_PERIOD_MS);
