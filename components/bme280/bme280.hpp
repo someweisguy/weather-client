@@ -35,7 +35,6 @@ private:
         .topic = "sensor/temperature",
         .config = {
           .device_class = "temperature",
-          .expire_after = 310,
           .force_update = true,
           .icon = "mdi:thermometer",
           .name = "Temperature",
@@ -47,7 +46,6 @@ private:
         .topic = "sensor/pressure",
         .config = {
           .device_class = "pressure",
-          .expire_after = 310,
           .force_update = true,
           .icon = "mdi:gauge",
           .name = "Pressure",
@@ -59,7 +57,6 @@ private:
         .topic = "sensor/humidity",
         .config = {
           .device_class = "humidity",
-          .expire_after = 310,
           .force_update = true,
           .icon = "mdi:water-percent",
           .name = "Humidity",
@@ -71,7 +68,6 @@ private:
         .topic = "sensor/dew_point",
         .config = {
           .device_class = nullptr,
-          .expire_after = 310,
           .force_update = true,
           .icon = "mdi:weather-fog",
           .name = "Dew Point",

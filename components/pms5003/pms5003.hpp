@@ -14,7 +14,6 @@ private:
           .topic = "sensor/pm2_5",
           .config = {
             .device_class = nullptr,
-            .expire_after = 310,
             .force_update = true,
             .icon = "mdi:smog",
             .name = "PM 2.5",
@@ -26,7 +25,6 @@ private:
           .topic = "sensor/pm10",
           .config = {
             .device_class = nullptr, 
-            .expire_after = 310, 
             .force_update = true, 
             .icon = "mdi:smog", 
             .name = "PM 10", 

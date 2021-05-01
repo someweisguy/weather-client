@@ -19,7 +19,6 @@ private:
           .topic = "sensor/battery",
           .config = {
             .device_class = "battery",
-            .expire_after = 310,
             .force_update = true,
             .icon = nullptr,
             .name = "Battery",

@@ -263,7 +263,7 @@ esp_err_t wireless_get_location(double *latitude, double *longitude,
   // send the latitude/longitude request
   esp_err_t err = esp_http_client_perform(client);
   if (err) {
-    ESP_LOGE(TAG, "Unable to send latitude/longitude request");
+    ESP_LOGE(TAG, "Unable to send latitude/longitude request (%i)", err);
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
     return err;
@@ -297,7 +297,7 @@ esp_err_t wireless_get_location(double *latitude, double *longitude,
   // send the elevation request
   err = esp_http_client_perform(client);
   if (err) {
-    ESP_LOGE(TAG, "Unable to send elevation request");
+    ESP_LOGE(TAG, "Unable to send elevation request (%i)", err);
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
     return err;
@@ -380,7 +380,6 @@ esp_err_t wireless_publish_discover(const char *sensor_name,
   cJSON *json = cJSON_CreateObject();
 
   // add the required parameters
-  cJSON_AddNumberToObject(json, "expire_after", discovery->config.expire_after);
   cJSON_AddBoolToObject(json, "force_update", discovery->config.force_update);
   cJSON_AddStringToObject(json, "name", discovery->config.name);
   cJSON_AddStringToObject(json, "value_template", discovery->config.value_template);
@@ -393,6 +392,9 @@ esp_err_t wireless_publish_discover(const char *sensor_name,
   if (discovery->config.unit_of_measurement != NULL)
     cJSON_AddStringToObject(json, "unit_of_measurement", 
       discovery->config.unit_of_measurement);
+
+  // add preset params
+  cJSON_AddNumberToObject(json, "expire_after", 360);
   
   // get the state topic
   // [STATE_PREFIX]/[mac_address]/[sensor_name]/data

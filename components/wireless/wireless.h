@@ -12,7 +12,6 @@ typedef struct {
   const char *topic;
   struct {
       const char *device_class;
-      int expire_after;
       bool force_update;
       const char *icon;
       const char *name;

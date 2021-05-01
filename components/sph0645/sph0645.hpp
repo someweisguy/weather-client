@@ -32,7 +32,6 @@ private:
           .topic = "sensor/noise",
           .config = {
             .device_class = nullptr,
-            .expire_after = 310,
             .force_update = true,
             .icon = "mdi:volume-high",
             .name = "Noise Pollution",
