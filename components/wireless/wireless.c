@@ -263,7 +263,7 @@ esp_err_t wireless_get_location(double *latitude, double *longitude,
   // send the latitude/longitude request
   esp_err_t err = esp_http_client_perform(client);
   if (err) {
-    ESP_LOGE(TAG, "Unable to send latitude/longitude request (%i)", err);
+    ESP_LOGE(TAG, "Unable to send latitude/longitude request (%x)", err);
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
     return err;
@@ -297,7 +297,7 @@ esp_err_t wireless_get_location(double *latitude, double *longitude,
   // send the elevation request
   err = esp_http_client_perform(client);
   if (err) {
-    ESP_LOGE(TAG, "Unable to send elevation request (%i)", err);
+    ESP_LOGE(TAG, "Unable to send elevation request (%x)", err);
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
     return err;
