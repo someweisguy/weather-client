@@ -17,9 +17,6 @@
 #define DISCOVER_PREFIX     "homeassistant"
 #define STATE_PREFIX        "weather-station"
 
-#define DISCOVERY_PREFIX    "homeassistant/"
-#define DATA_TOPIC_PREFIX   "weather-station/"
-
 #define WIFI_DISCONNECTED   BIT(0)
 #define WIFI_CONNECTED      BIT(1)
 #define WIFI_FATAL_ERROR    BIT(2)
