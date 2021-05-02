@@ -111,7 +111,7 @@ static void wifi_handler(void *args, esp_event_base_t base, int event,
       publish_queue = xQueueCreate(10, sizeof(publish_event_t));
 
       // configure and initialize mqtt
-      esp_mqtt_client_config_t mqtt_config = {.host = broker};
+      esp_mqtt_client_config_t mqtt_config = {.host = broker, .keepalive = 15};
       mqtt_client = esp_mqtt_client_init(&mqtt_config);
 
       // register mqtt event handlers
@@ -429,7 +429,7 @@ esp_err_t wireless_publish_discover(const char *sensor_name,
   cJSON_AddItemToObject(json, "device", device);
 
   // get a legal name to use for the discovery topic
-  char legal_name[strlen(discovery->config.name)];
+  char legal_name[strlen(discovery->config.name) + 1];
   snprintf(legal_name, sizeof(legal_name), "%s", discovery->config.name);
   for (char *c = legal_name; *c != '\0'; ++c) {
     if (!(isalnum(*c) || *c == '-' || *c == '_')) *c = '_';
