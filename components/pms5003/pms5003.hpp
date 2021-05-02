@@ -1,6 +1,7 @@
 #pragma once
 
 #include "esp_system.h"
+#include "freertos/task.h"
 #include "cJSON.h"
 #include "serial.h"
 

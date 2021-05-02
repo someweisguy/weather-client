@@ -2,8 +2,6 @@
 #include "esp_log.h"
 #include "esp_sleep.h"
 #include "esp_system.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include <sys/time.h>
 
 #include "secrets.h"
