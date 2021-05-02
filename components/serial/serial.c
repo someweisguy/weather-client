@@ -134,17 +134,14 @@ esp_err_t serial_i2c_write(char addr, char reg, const void *buf, size_t size, bo
 
 esp_err_t serial_uart_read(void *buf, size_t size, TickType_t timeout) {
   // wait for data on the event queue
-  int rxd_data_size = 0;
-  do {
-    uart_event_t event;
-    const TickType_t start_tick = xTaskGetTickCount();
-    if (xQueueReceive(uart_queue, &event, timeout) == pdFALSE) {
-      ESP_LOGE(TAG, "Timed out waiting for UART data");
-      return ESP_ERR_TIMEOUT;
-    }
-    timeout -= xTaskGetTickCount() - start_tick;
-    if (event.type == UART_DATA) rxd_data_size += event.size;
-  } while (rxd_data_size < size);
+  uart_event_t event;
+  const TickType_t start_tick = xTaskGetTickCount();
+  if (xQueueReceive(uart_queue, &event, timeout) == pdFALSE) {
+    ESP_LOGE(TAG, "Timed out waiting for UART data");
+    return ESP_ERR_TIMEOUT;
+  }
+  timeout -= xTaskGetTickCount() - start_tick;
+
   
   // read the data from the uart buffer
   const int read = uart_read_bytes(UART_PORT, buf, size, timeout);
@@ -167,6 +164,7 @@ esp_err_t serial_uart_write(const void *src, size_t size, TickType_t timeout) {
 }
 
 esp_err_t serial_uart_flush() {
+  xQueueReset(uart_queue);
   return uart_flush(UART_PORT);
 }
 
