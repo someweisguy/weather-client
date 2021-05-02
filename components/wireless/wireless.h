@@ -21,7 +21,9 @@ typedef struct {
 } discovery_t;
 
 esp_err_t wireless_start(const char *ssid, const char *password,
-    const char *broker, TickType_t timeout);
+    const char *broker);
+
+esp_err_t wireless_wait_for_connect(TickType_t timeout);
 
 esp_err_t wireless_stop(TickType_t timeout);
 

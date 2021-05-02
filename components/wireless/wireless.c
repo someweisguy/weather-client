@@ -39,6 +39,43 @@ static esp_mqtt_client_handle_t mqtt_client;
 static EventGroupHandle_t wireless_event_group;
 static QueueHandle_t publish_queue;
 
+static void mqtt_handler(void *args, esp_event_base_t base, int event, 
+    void *data) {
+  if (event == MQTT_EVENT_CONNECTED) {
+    ESP_LOGI(TAG, "MQTT connected!");
+
+    // set the connected bit and clear the disconnected bit
+    xEventGroupClearBits(wireless_event_group, MQTT_DISCONNECTED);
+    xEventGroupSetBits(wireless_event_group, MQTT_CONNECTED);
+
+  } else if (event == MQTT_EVENT_DISCONNECTED) {
+    ESP_LOGI(TAG, "MQTT disconnected!");
+
+    // set the disconnected bit and clear the connected bit
+    xEventGroupClearBits(wireless_event_group, MQTT_CONNECTED);
+    xEventGroupSetBits(wireless_event_group, MQTT_DISCONNECTED);
+
+  } else if (event == MQTT_EVENT_PUBLISHED) {
+    ESP_LOGD(TAG, "MQTT message published!");
+
+    // send a publish success event to the mqtt queue
+    publish_event_t event = {};
+    xQueueSendToBack(publish_queue, &event, 10000 / portTICK_PERIOD_MS);
+
+  } else if (event == MQTT_EVENT_ERROR) {
+    esp_mqtt_event_t *event_data = (esp_mqtt_event_t *)data;
+    if (event_data->error_handle->error_type == MQTT_ERROR_TYPE_ESP_TLS) {
+      ESP_LOGE(TAG, "An MQTT TLS error occurred. Last err: %x, Stack: %x, Certify: %x",
+        event_data->error_handle->esp_tls_last_esp_err, 
+        event_data->error_handle->esp_tls_stack_err, 
+        event_data->error_handle->esp_tls_cert_verify_flags);
+    } else if (event_data->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED) {
+      ESP_LOGE(TAG, "The MQTT connection was refused (%x)", 
+        event_data->error_handle->connect_return_code);
+    }
+  }
+}
+
 static void wifi_handler(void *args, esp_event_base_t base, int event, 
     void *data) {
   if (base == WIFI_EVENT) {
@@ -68,45 +105,28 @@ static void wifi_handler(void *args, esp_event_base_t base, int event,
   } else if (event == IP_EVENT_STA_GOT_IP) {
     // signal wifi connection
     ESP_LOGI(TAG, "WiFi connected!");
+
+    // check if mqtt should be initialized
+    if (mqtt_client == NULL) {
+      const char *broker = args;
+
+      // init the publish queue
+      publish_queue = xQueueCreate(10, sizeof(publish_event_t));
+
+      // configure and initialize mqtt
+      esp_mqtt_client_config_t mqtt_config = {.host = broker};
+      mqtt_client = esp_mqtt_client_init(&mqtt_config);
+
+      // register mqtt event handlers
+      esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, 
+        mqtt_handler, NULL);
+
+      // connect to mqtt
+      esp_mqtt_client_start(mqtt_client);
+    }
+
     xEventGroupClearBits(wireless_event_group, WIFI_DISCONNECTED);
     xEventGroupSetBits(wireless_event_group, WIFI_CONNECTED);
-  }
-}
-
-static void mqtt_handler(void *args, esp_event_base_t base, int event, 
-    void *data) {
-  if (event == MQTT_EVENT_CONNECTED) {
-    ESP_LOGI(TAG, "MQTT connected!");
-
-    // set the connected bit and clear the disconnected bit
-    xEventGroupClearBits(wireless_event_group, MQTT_DISCONNECTED);
-    xEventGroupSetBits(wireless_event_group, MQTT_CONNECTED);
-
-  } else if (event == MQTT_EVENT_DISCONNECTED) {
-    ESP_LOGI(TAG, "MQTT disconnected!");
-
-    // set the disconnected bit and clear the connected bit
-    xEventGroupClearBits(wireless_event_group, MQTT_CONNECTED);
-    xEventGroupSetBits(wireless_event_group, MQTT_DISCONNECTED);
-
-  } else if (event == MQTT_EVENT_PUBLISHED) {
-    ESP_LOGD(TAG, "MQTT message published!");
-
-    // send a publish success event to the mqtt queue
-    publish_event_t event = {};
-    xQueueSendToBack(publish_queue, &event, 10000 / portTICK_PERIOD_MS);
-    
-  } else if (event == MQTT_EVENT_ERROR) {
-    esp_mqtt_event_t *event_data = (esp_mqtt_event_t *)data;
-    if (event_data->error_handle->error_type == MQTT_ERROR_TYPE_ESP_TLS) {
-      ESP_LOGE(TAG, "An MQTT TLS error occurred. Last err: %x, Stack: %x, Certify: %x",
-        event_data->error_handle->esp_tls_last_esp_err, 
-        event_data->error_handle->esp_tls_stack_err, 
-        event_data->error_handle->esp_tls_cert_verify_flags);
-    } else if (event_data->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED) {
-      ESP_LOGE(TAG, "The MQTT connection was refused (%x)", 
-        event_data->error_handle->connect_return_code);
-    }
   }
 }
 
@@ -115,8 +135,8 @@ static void sntp_callback(struct timeval *tv) {
   xEventGroupSetBits(wireless_event_group, SNTP_SYNCHRONIZED);
 }
 
-esp_err_t wireless_start(const char *ssid, const char *password, const char *broker, 
-    TickType_t timeout) {
+esp_err_t wireless_start(const char *ssid, const char *password, 
+    const char *broker) {
   esp_err_t err;
 
   if (wireless_event_group == NULL) {
@@ -162,46 +182,24 @@ esp_err_t wireless_start(const char *ssid, const char *password, const char *bro
   esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_MASK_ALL, 
     &wifi_handler, NULL, NULL);
   esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, 
-    &wifi_handler, NULL, NULL);
+    &wifi_handler, (char *)broker, NULL);
 
   // set wifi station configuration
   esp_wifi_set_mode(WIFI_MODE_STA);
   esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config);
   esp_wifi_start();
 
-  // block until wifi connects or fails
-  const TickType_t start_tick = xTaskGetTickCount();
-  const EventBits_t wifi_status = xEventGroupWaitBits(wireless_event_group, 
-    WIFI_CONNECTED | WIFI_FATAL_ERROR, pdFALSE, pdFALSE, timeout);
-  timeout -= xTaskGetTickCount() - start_tick;
-  if (wifi_status & WIFI_FATAL_ERROR) {
-    return ESP_ERR_INVALID_ARG;
-  } else if (!(wifi_status & WIFI_CONNECTED)) {
-    // timed out waiting for wifi to connect
-    ESP_LOGE(TAG, "WiFi timed out");
-    return ESP_ERR_TIMEOUT;
-  }
-  
-  // init the publish queue
-  publish_queue = xQueueCreate(10, sizeof(publish_event_t));
+  return ESP_OK;
+}
 
-  // configure and initialize mqtt
-  esp_mqtt_client_config_t mqtt_config = {.host = broker};
-  mqtt_client = esp_mqtt_client_init(&mqtt_config);
-
-  // register mqtt event handlers
-  esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, 
-    mqtt_handler, NULL);
-
-  // connect to mqtt
-  esp_mqtt_client_start(mqtt_client);
-
-  // block until mqtt connects or fails
-  const EventBits_t mqtt_status = xEventGroupWaitBits(wireless_event_group, 
-    MQTT_CONNECTED, pdFALSE, pdTRUE, portMAX_DELAY);
-  if (!(mqtt_status & MQTT_CONNECTED)) {
-    // timed out waiting for mqtt to connect
-    ESP_LOGE(TAG, "MQTT timed out");
+esp_err_t wireless_wait_for_connect(TickType_t timeout) {
+  // block until wifi and mqtt connects or fails
+  const EventBits_t wireless_status = xEventGroupWaitBits(wireless_event_group, 
+    WIFI_CONNECTED | MQTT_CONNECTED, pdFALSE, pdTRUE, timeout);
+  if (!(wireless_status & (WIFI_CONNECTED | MQTT_CONNECTED))) {
+    // timed out waiting for wifi and mqtt to connect
+    if (!(wireless_status & WIFI_CONNECTED)) ESP_LOGE(TAG, "WiFi timed out");
+    else ESP_LOGE(TAG, "MQTT timed out");
     return ESP_ERR_TIMEOUT;
   }
 

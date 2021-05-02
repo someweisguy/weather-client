@@ -18,7 +18,6 @@
 #include "sph0645.hpp"
 
 #define SYSTEM_KEY          "esp32"
-#define WIRELESS_KEY        "wireless"
 #define SIGNAL_STRENGTH_KEY "signal_strength"
 #define RESET_REASON_KEY    "reset_reason"
 
@@ -29,14 +28,6 @@ RTC_DATA_ATTR time_t last_time_sync_ts;
 
 static Sensor *sensors[] = { new bme280_t(0x76, elevation_m), 
   new pms5003_t(), new max17043_t(0x36), new sph0645_t() };
-
-static void wireless_connect_task(void *args) {
-  const TaskHandle_t calling_task = args;
-  const esp_err_t err = wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER,
-    15000 / portTICK_PERIOD_MS);
-  xTaskNotify(calling_task, err, eSetValueWithOverwrite);
-  vTaskDelete(NULL);
-}
 
 static inline int time_to_next_state_us() {
   struct timeval tv;
@@ -57,8 +48,7 @@ extern "C" void app_main(void) {
     ESP_LOGI(TAG, "Doing initial device setup");
 
     ESP_LOGI(TAG, "Connecting to wireless services...");
-    xTaskCreate(wireless_connect_task, "wireless_connect_task", 4096,
-      xTaskGetCurrentTaskHandle(), 0, nullptr);
+    wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER);
 
     ESP_LOGI(TAG, "Initializing sensors...");
     for (Sensor *sensor : sensors) {
@@ -72,7 +62,7 @@ extern "C" void app_main(void) {
     }
 
     // wait for wifi to connect
-    xTaskNotifyWait(0, -1, reinterpret_cast<uint32_t *>(&err), portMAX_DELAY);
+    err = wireless_wait_for_connect(15000 / portTICK_PERIOD_MS);
     if (err) {
       ESP_LOGE(TAG, "Unable to connect to wireless services. Restarting...");
       esp_restart();
@@ -150,11 +140,12 @@ extern "C" void app_main(void) {
       cJSON_AddNumberToObject(wireless, SIGNAL_STRENGTH_KEY, signal_strength);
       wireless_publish_state(SYSTEM_KEY, wireless);
       cJSON_Delete(wireless);
+
       // publish the setup data
-      // err = wireless_wait_for_publish(10000 / portTICK_PERIOD_MS);
-      // if (err) {
-      //   ESP_LOGE(TAG, "An error occurred sending setup data. Restarting...");
-      // }
+      err = wireless_wait_for_publish(10000 / portTICK_PERIOD_MS);
+      if (err) {
+        ESP_LOGE(TAG, "An error occurred sending setup data.");
+      }
     }
 
     // stop wireless radios and setup is finished
@@ -177,8 +168,7 @@ extern "C" void app_main(void) {
     vTaskDelay(wait_time_ms / portTICK_PERIOD_MS);
 
     // connect to wifi and mqtt
-    xTaskCreate(wireless_connect_task, "wireless_connect_task", 4096,
-      xTaskGetCurrentTaskHandle(), 0, nullptr);
+    wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER);
 
     // create json json payload
     const int num_sensors = sizeof(sensors) / sizeof(Sensor *);
@@ -223,7 +213,7 @@ extern "C" void app_main(void) {
     }
 
     // wait until wifi is connected
-    xTaskNotifyWait(0, -1, reinterpret_cast<uint32_t *>(&err), portMAX_DELAY);
+    err = wireless_wait_for_connect(15000 / portTICK_PERIOD_MS);
     if (!err) {
       // get information about the wifi signal strength
       int signal_strength;
