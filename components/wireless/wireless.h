@@ -20,6 +20,11 @@ typedef struct {
   } config;
 } discovery_t;
 
+typedef struct {
+  esp_err_t ret;
+  int msg_id;
+} publish_event_t;
+
 esp_err_t wireless_start(const char *ssid, const char *password,
     const char *broker);
 
@@ -38,9 +43,9 @@ esp_err_t wireless_publish_discover(const char *sensor_name,
     const discovery_t *discovery);
 
 esp_err_t wireless_publish_state(const char *sensor_name, 
-    cJSON *payload);
+    cJSON *payload, int *msg_id);
 
-esp_err_t wireless_wait_for_publish(TickType_t timeout);
+esp_err_t wireless_wait_for_publish(int *msg_id, TickType_t timeout);
 
 #ifdef __cplusplus
 }

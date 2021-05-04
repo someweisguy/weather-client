@@ -26,9 +26,7 @@
 #define MQTT_MSG_PUBLISHED  BIT(6)
 #define SNTP_SYNCHRONIZED   BIT(7)
 
-typedef struct {
-  int a;
-} publish_event_t;
+
 
 static const char *TAG = "wireless";
 static esp_netif_t *netif;
@@ -53,23 +51,20 @@ static void mqtt_handler(void *args, esp_event_base_t base, int event,
     xEventGroupSetBits(wireless_event_group, MQTT_DISCONNECTED);
 
   } else if (event == MQTT_EVENT_PUBLISHED) {
-    ESP_LOGD(TAG, "MQTT message published!");
+    esp_mqtt_event_t *event_data = (esp_mqtt_event_t *)data;
+    ESP_LOGI(TAG, "MQTT message %i published!", event_data->msg_id);
 
     // send a publish success event to the mqtt queue
-    publish_event_t event = {};
+    publish_event_t event = { .ret = ESP_OK, .msg_id = event_data->msg_id };
     xQueueSendToBack(publish_queue, &event, 10000 / portTICK_PERIOD_MS);
 
   } else if (event == MQTT_EVENT_ERROR) {
     esp_mqtt_event_t *event_data = (esp_mqtt_event_t *)data;
-    if (event_data->error_handle->error_type == MQTT_ERROR_TYPE_ESP_TLS) {
-      ESP_LOGE(TAG, "An MQTT TLS error occurred. Last err: %x, Stack: %x, Certify: %x",
-        event_data->error_handle->esp_tls_last_esp_err, 
-        event_data->error_handle->esp_tls_stack_err, 
-        event_data->error_handle->esp_tls_cert_verify_flags);
-    } else if (event_data->error_handle->error_type == MQTT_ERROR_TYPE_CONNECTION_REFUSED) {
-      ESP_LOGE(TAG, "The MQTT connection was refused (%x)", 
-        event_data->error_handle->connect_return_code);
-    }
+    ESP_LOGI(TAG, "MQTT message %i failed!", event_data->msg_id);
+
+    // send a publish failure event to the mqtt queue
+    publish_event_t event = { .ret = ESP_FAIL, .msg_id = event_data->msg_id };
+    xQueueSendToBack(publish_queue, &event, 10000 / portTICK_PERIOD_MS);
   }
 }
 
@@ -348,28 +343,32 @@ esp_err_t wireless_get_rssi(int *rssi) {
   return ESP_OK;
 }
 
-static esp_err_t wireless_publish(const char *topic, const cJSON* json, 
+static int wireless_publish(const char *topic, const cJSON* json, 
     int qos, bool retain) {
   if (mqtt_client == NULL) {
-    return ESP_ERR_INVALID_STATE;
+    return -1;
   }
 
   // publish the message to mqtt
+  int msg_id; 
   if (json != NULL) {
     char *payload = cJSON_PrintUnformatted(json);
-    esp_mqtt_client_publish(mqtt_client, topic, payload, 0, qos, retain);
+    msg_id = esp_mqtt_client_publish(mqtt_client, topic, payload, 0, qos, retain);
     free(payload);
   } else {
-    esp_mqtt_client_publish(mqtt_client, topic, NULL, 0, qos, retain);
+    msg_id = esp_mqtt_client_publish(mqtt_client, topic, NULL, 0, qos, retain);
   }
   
-  return ESP_OK;
+  return msg_id;
 }
 
 esp_err_t wireless_publish_discover(const char *sensor_name, 
     const discovery_t *discovery) {
   if (sensor_name == NULL || discovery == NULL) {
     return ESP_ERR_INVALID_ARG;
+  }
+  if (mqtt_client == NULL) {
+    return ESP_ERR_INVALID_STATE;
   }
 
   // get mac address for device id
@@ -435,14 +434,15 @@ esp_err_t wireless_publish_discover(const char *sensor_name,
     DISCOVER_PREFIX, "sensor", mac, sensor_name, legal_name);
 
   // publish the discovery and free resources
-  esp_err_t err = wireless_publish(discover_topic, json, 1, true);
+  const int msg_id = wireless_publish(discover_topic, json, 1, true);
   cJSON_Delete(json);
 
-  return err;
+  if (msg_id == -1) return ESP_FAIL;
+  else return ESP_OK;
 }
 
 esp_err_t wireless_publish_state(const char *sensor_name, 
-    cJSON *payload) {
+    cJSON *payload, int *msg_id) {
   if (sensor_name == NULL || payload == NULL) {
     return ESP_ERR_INVALID_ARG;
   }
@@ -459,16 +459,28 @@ esp_err_t wireless_publish_state(const char *sensor_name,
 
   // publish the data
   const int qos = 2;
-  esp_err_t err = wireless_publish(state_topic, payload, qos, false);
+  if (msg_id != NULL) {
+    *msg_id = wireless_publish(state_topic, payload, qos, false);
+  } else {
+    wireless_publish(state_topic, payload, qos, false);
+  }
 
-  return err;
+  return ESP_OK;
 }
 
-esp_err_t wireless_wait_for_publish(TickType_t timeout) { 
+esp_err_t wireless_wait_for_publish(int *msg_id, TickType_t timeout) { 
   // block until mqtt publishes or times out
   publish_event_t event;
   if (xQueueReceive(publish_queue, &event, timeout) == pdFALSE) {
     return ESP_ERR_TIMEOUT;
+  }
+
+  if (event.ret != ESP_OK) {
+    return ESP_FAIL;
+  }
+
+  if (msg_id != NULL) {
+    *msg_id = event.msg_id;
   }
 
   return ESP_OK;
