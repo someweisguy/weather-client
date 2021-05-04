@@ -209,17 +209,10 @@ esp_err_t wireless_stop(TickType_t timeout) {
 
   // disconnect and stop mqtt
   ESP_LOGI(TAG, "Stopping MQTT...");
-  esp_mqtt_client_disconnect(mqtt_client);
-  const TickType_t start_tick = xTaskGetTickCount();
-  const EventBits_t mqtt_status = xEventGroupWaitBits(wireless_event_group,
-    MQTT_DISCONNECTED, pdFALSE, pdFALSE, timeout);
-  if (!(mqtt_status & MQTT_DISCONNECTED)) {
-    // timed out waiting for mqtt to disconnect
-    ESP_LOGE(TAG, "MQTT timed out");
-    return ESP_ERR_TIMEOUT;
-  }
-  timeout -= start_tick - xTaskGetTickCount();
   esp_mqtt_client_stop(mqtt_client);
+  // set the disconnected bit and clear the connected bit
+  xEventGroupClearBits(wireless_event_group, MQTT_CONNECTED);
+  xEventGroupSetBits(wireless_event_group, MQTT_DISCONNECTED);
 
   // disconnect and stop wifi
   ESP_LOGI(TAG, "Stopping WiFi...");
