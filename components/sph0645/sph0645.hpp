@@ -138,7 +138,8 @@ public:
     const size_t num_samples = SAMPLE_RATE / 1000 * MIC_POWER_UP_TIME;
     for (int i = 0; i < num_samples; ++i) {
       int32_t discard;
-      esp_err_t err = serial_i2s_read(&discard, sizeof(discard), 1);
+      esp_err_t err = serial_i2s_read(&discard, sizeof(discard), 
+        500 / portTICK_PERIOD_MS);
       if (err) return err;
     }
 
