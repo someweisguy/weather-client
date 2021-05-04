@@ -475,13 +475,10 @@ esp_err_t wireless_wait_for_publish(int *msg_id, TickType_t timeout) {
     return ESP_ERR_TIMEOUT;
   }
 
-  if (event.ret != ESP_OK) {
-    return ESP_FAIL;
-  }
-
+  // get the message id
   if (msg_id != NULL) {
     *msg_id = event.msg_id;
   }
 
-  return ESP_OK;
+  return event.ret;
 }
