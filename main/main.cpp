@@ -34,11 +34,15 @@ static inline int time_to_next_state_us() {
 }
 
 extern "C" void app_main(void) {
+  //esp_log_level_set("*", ESP_LOG_NONE);
+  //esp_log_level_set("MQTT_CLIENT", ESP_LOG_DEBUG);
+
   // initialize serial services
   // TODO: move individual serial start functions to sensor init
   esp_err_t err = serial_start();
   if (err) {
-    ESP_LOGE(TAG, "Unable to start serial drivers. Restarting...");
+    ESP_LOGE(TAG, "Unable to start serial drivers (%x). Restarting...", 
+      err);
     esp_restart();
   }
 
@@ -53,9 +57,9 @@ extern "C" void app_main(void) {
       err = sensor->setup();
       if (err) {
         // TODO: will this boot loop?
-        ESP_LOGE(TAG, "An error occurred initializing %s. Restarting...",
-          sensor->get_name());
-        esp_restart();
+        ESP_LOGE(TAG, "An error occurred initializing %s (%x).",
+          sensor->get_name(), err);
+        //esp_restart();
       }
     }
 
@@ -100,7 +104,7 @@ extern "C" void app_main(void) {
     ESP_LOGI(TAG, "Sending MQTT discoveries...");
     for (discovery_t discovery : default_discoveries) {
       wireless_publish_discover(SYSTEM_KEY, &discovery);
-      err = wireless_wait_for_publish(30000 / portTICK_PERIOD_MS);
+      err = wireless_wait_for_publish(nullptr, 30000 / portTICK_PERIOD_MS);
       if (err) {
         ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
         esp_restart();
@@ -116,7 +120,7 @@ extern "C" void app_main(void) {
         num_discoveries);
       for (int i = 0; i < num_discoveries; ++i) { 
         wireless_publish_discover(sensor->get_name(), &discoveries[i]);
-        err = wireless_wait_for_publish(30000 / portTICK_PERIOD_MS);
+        err = wireless_wait_for_publish(nullptr, 30000 / portTICK_PERIOD_MS);
         if (err) {
           ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
           esp_restart();
@@ -136,11 +140,11 @@ extern "C" void app_main(void) {
     if (!err) {
       cJSON *wireless = cJSON_CreateObject();
       cJSON_AddNumberToObject(wireless, SIGNAL_STRENGTH_KEY, signal_strength);
-      wireless_publish_state(SYSTEM_KEY, wireless);
+      wireless_publish_state(SYSTEM_KEY, wireless, nullptr);
       cJSON_Delete(wireless);
 
       // publish the setup data
-      err = wireless_wait_for_publish(10000 / portTICK_PERIOD_MS);
+      err = wireless_wait_for_publish(nullptr, 10000 / portTICK_PERIOD_MS);
       if (err) {
         ESP_LOGE(TAG, "An error occurred sending setup data.");
       }
@@ -171,8 +175,10 @@ extern "C" void app_main(void) {
     // create json json payload
     const int num_sensors = sizeof(sensors) / sizeof(Sensor *);
     esp_err_t sensor_returns[num_sensors] = {};
+    int msg_ids[num_sensors + 1];
     cJSON *payloads[num_sensors];
     for (int i = 0; i < num_sensors; ++i) payloads[i] = cJSON_CreateObject();
+    bool need_to_restart = false;
     int num_publishes = 0;
 
     // wait until measurement window
@@ -187,19 +193,19 @@ extern "C" void app_main(void) {
         ESP_LOGE(TAG, "An error occurred getting data from %s (%x).", 
           sensors[i]->get_name(), err);
         sensor_returns[i] = err;
+        need_to_restart = true;
       }
     }
 
     // publish json to mqtt broker - will queue publishes if not connected
     for (int i = 0; i < num_sensors; ++i) {
       if (sensor_returns[i] == ESP_OK) {
-        wireless_publish_state(sensors[i]->get_name(), payloads[i]);
+        wireless_publish_state(sensors[i]->get_name(), payloads[i], &msg_ids[i]);
         ++num_publishes;
+      } else {
+        msg_ids[i] = -1;
       }
     }
-
-    // allow sensors to finish processing
-    vTaskDelay(50 / portTICK_PERIOD_MS);
 
     // put sensors to sleep
     for (Sensor *sensor : sensors) {
@@ -207,6 +213,7 @@ extern "C" void app_main(void) {
       if (err) { 
         ESP_LOGE(TAG, "An error occurred putting the %s to sleep (%x).", 
           sensor->get_name(), err);
+        need_to_restart = true;
       }
     }
 
@@ -219,19 +226,32 @@ extern "C" void app_main(void) {
       if (!err) {
         cJSON *wireless = cJSON_CreateObject();
         cJSON_AddNumberToObject(wireless, SIGNAL_STRENGTH_KEY, signal_strength);
-        wireless_publish_state(SYSTEM_KEY, wireless);
+        wireless_publish_state(SYSTEM_KEY, wireless, &msg_ids[num_sensors]);
         ++num_publishes;
         cJSON_Delete(wireless);
       }
 
       // wait for each message to finish getting published
-      TickType_t timeout = 60000 / portTICK_PERIOD_MS;
+      TickType_t timeout = 50000 / portTICK_PERIOD_MS;
       while (num_publishes--) {
+        int msg_id;
         TickType_t start_tick = xTaskGetTickCount();
-        err = wireless_wait_for_publish(timeout);
-        if (err) {
+        err = wireless_wait_for_publish(&msg_id, timeout);
+        if (err == ESP_ERR_TIMEOUT) {
           ESP_LOGE(TAG, "%i publish(es) timed out.", num_publishes);
+          need_to_restart = true;
           break;
+        } else if (err) {
+          // there was a error sending the message, but it didn't time out
+          for (int i = 0; i < num_sensors; ++i) {
+            if (msg_id == msg_ids[i]) {
+              ESP_LOGW(TAG, "There was an error delivering the state for %s. Re-publishing...",
+                sensors[i]->get_name());
+              wireless_publish_state(sensors[i]->get_name(), payloads[i],
+                &msg_ids[i]);
+              break;
+            }
+          }
         }
         timeout -= xTaskGetTickCount() - start_tick;
       }
@@ -242,6 +262,12 @@ extern "C" void app_main(void) {
     // delete the json payloads
     for (cJSON *payload : payloads) {
       cJSON_Delete(payload);
+    }
+
+
+    if (need_to_restart) {
+      ESP_LOGW(TAG, "Restarting...");
+      esp_restart();
     }
 
     // check if the clock needs to be resynchronized
