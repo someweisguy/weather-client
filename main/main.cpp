@@ -34,9 +34,6 @@ static inline int time_to_next_state_us() {
 }
 
 extern "C" void app_main(void) {
-  //esp_log_level_set("*", ESP_LOG_NONE);
-  //esp_log_level_set("MQTT_CLIENT", ESP_LOG_DEBUG);
-
   // initialize serial services
   // TODO: move individual serial start functions to sensor init
   esp_err_t err = serial_start();
@@ -185,6 +182,13 @@ extern "C" void app_main(void) {
     wait_time_ms = time_to_next_state_us() / 1000;
     vTaskDelay(wait_time_ms / portTICK_PERIOD_MS);
 
+    // get the datetime - for debugging
+    char datetime[77];
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    snprintf(datetime, 76, "%d-%02d-%02d %02d:%02d:%02d UTC", tm.tm_year + 1900,
+      tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+
     // get sensor data - increment num_payloads on success
     ESP_LOGI(TAG, "Getting sensor data...");
     for (int i = 0; i < num_sensors; ++i) {
@@ -226,6 +230,10 @@ extern "C" void app_main(void) {
       if (!err) {
         cJSON *wireless = cJSON_CreateObject();
         cJSON_AddNumberToObject(wireless, SIGNAL_STRENGTH_KEY, signal_strength);
+        
+        // add datetime string for debugging
+        cJSON_AddStringToObject(wireless, "now", datetime);
+
         wireless_publish_state(SYSTEM_KEY, wireless, &msg_ids[num_sensors]);
         ++num_publishes;
         cJSON_Delete(wireless);
