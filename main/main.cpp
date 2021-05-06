@@ -241,7 +241,7 @@ extern "C" void app_main(void) {
 
       // wait for each message to finish getting published
       TickType_t timeout = 50000 / portTICK_PERIOD_MS;
-      while (num_publishes--) {
+      while (num_publishes) {
         int msg_id;
         TickType_t start_tick = xTaskGetTickCount();
         err = wireless_wait_for_publish(&msg_id, timeout);
@@ -260,6 +260,8 @@ extern "C" void app_main(void) {
               break;
             }
           }
+        } else {
+          --num_publishes;
         }
         timeout -= xTaskGetTickCount() - start_tick;
       }
