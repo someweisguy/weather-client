@@ -394,6 +394,7 @@ esp_err_t wireless_publish_discover(const char *sensor_name,
 
   // add preset params
   cJSON_AddNumberToObject(json, "expire_after", 360);
+  cJSON_AddNumberToObject(json, "qos", 2);
   
   // get the state topic
   // [STATE_PREFIX]/[mac_address]/[sensor_name]/data
