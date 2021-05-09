@@ -44,7 +44,7 @@ static void mqtt_handler(void *args, esp_event_base_t base, int event,
     xEventGroupSetBits(wireless_event_group, MQTT_CONNECTED);
 
   } else if (event == MQTT_EVENT_DISCONNECTED) {
-    ESP_LOGI(TAG, "MQTT disconnected!");
+    ESP_LOGW(TAG, "MQTT disconnected!");
 
     // set the disconnected bit and clear the connected bit
     xEventGroupClearBits(wireless_event_group, MQTT_CONNECTED);
