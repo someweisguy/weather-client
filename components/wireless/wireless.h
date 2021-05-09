@@ -39,13 +39,11 @@ esp_err_t wireless_get_location(double *latitude, double *longitude,
 
 esp_err_t wireless_get_rssi(int *rssi);
 
-esp_err_t wireless_publish_discover(const char *sensor_name, 
-    const discovery_t *discovery);
+int wireless_publish_discover(const char *sensor_name, const discovery_t *discovery);
 
-esp_err_t wireless_publish_state(const char *sensor_name, 
-    cJSON *payload, int *msg_id);
+int wireless_publish_state(const char *sensor_name, cJSON *payload);
 
-esp_err_t wireless_wait_for_publish(int *msg_id, TickType_t timeout);
+esp_err_t wireless_wait_for_publish(publish_event_t *event, TickType_t timeout);
 
 #ifdef __cplusplus
 }
