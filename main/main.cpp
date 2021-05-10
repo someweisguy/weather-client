@@ -258,6 +258,7 @@ extern "C" void app_main(void) {
             // message failed to publish so it should be resent
             for (sensor_data_t datum : data) {
               if (event.msg_id == datum.msg_id) {
+                ESP_LOGW(TAG, "Republishing %s payload...", datum.name);
                 datum.msg_id = wireless_publish_state(datum.name, 
                   datum.payload);
                 break;
@@ -271,13 +272,16 @@ extern "C" void app_main(void) {
               error_occurred = true;
               break;
             }
+            int num_republishes = 0;
             for (sensor_data_t datum : data) {
               if (datum.msg_id > 0) {
                 // message hasn't been delivered so republish it
                 datum.msg_id = wireless_publish_state(datum.name, 
                   datum.payload);
+                ++num_republishes;
               }
             }
+            ESP_LOGW(TAG, "Republished %i payloads.", num_republishes);
           }
         } else if (err == ESP_ERR_TIMEOUT) {
           // timed out waiting for messages to send
