@@ -27,6 +27,13 @@ RTC_DATA_ATTR time_t last_time_sync_ts;
 static Sensor *sensors[] = { new bme280_t(0x76, elevation_m), 
   new pms5003_t(), new max17043_t(0x36), new sph0645_t() };
 
+typedef struct {
+  const char *name;
+  esp_err_t err;
+  int msg_id;
+  cJSON *payload;
+} sensor_data_t;
+
 static inline int time_to_next_state_us() {
   struct timeval tv;
   gettimeofday(&tv, NULL);
@@ -150,12 +157,17 @@ extern "C" void app_main(void) {
     device_is_setup = true;
 
   } else {
+    // track if an error occurred and number of publishes
+    bool error_occurred = false;
+    int num_publishes = 0;
+
     ESP_LOGI(TAG, "Readying sensors");
     for (Sensor *sensor : sensors) {
       err = sensor->ready();
       if (err) {
-        ESP_LOGE(TAG, "An error occurred readying the %s (%x).", 
+        ESP_LOGE(TAG, "An error occurred readying %s (%x).", 
           sensor->get_name(), err);
+        error_occurred = true;
       }
     }
 
@@ -167,14 +179,14 @@ extern "C" void app_main(void) {
     // connect to wifi and mqtt
     wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER);
 
-    // create json json payload
+    // create sensor data array
     const int num_sensors = sizeof(sensors) / sizeof(Sensor *);
-    esp_err_t sensor_returns[num_sensors] = {};
-    int msg_ids[num_sensors + 1];
-    cJSON *payloads[num_sensors];
-    for (int i = 0; i < num_sensors; ++i) payloads[i] = cJSON_CreateObject();
-    bool need_to_restart = false;
-    int num_publishes = 0;
+    sensor_data_t data[num_sensors + 1] = {};
+    for (int i = 0; i <= num_sensors; ++i) {
+      data[i].payload = cJSON_CreateObject();
+      if (i < num_sensors) data[i].name = sensors[i]->get_name();
+      else data[i].name = SYSTEM_KEY;
+    }
 
     // wait until measurement window
     wait_time_ms = time_to_next_state_us() / 1000;
@@ -182,31 +194,22 @@ extern "C" void app_main(void) {
     const TickType_t start_tick = xTaskGetTickCount();
     TickType_t timeout = 60000 / portTICK_PERIOD_MS;
 
-    // get the datetime - for debugging
-    char datetime[77];
-    time_t t = time(NULL);
-    struct tm tm = *localtime(&t);
-    snprintf(datetime, 76, "%d-%02d-%02d %02d:%02d:%02d UTC", tm.tm_year + 1900,
-      tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-
-    // get sensor data - increment num_payloads on success
+    // get sensor data
     ESP_LOGI(TAG, "Getting sensor data...");
     for (int i = 0; i < num_sensors; ++i) {
-      err = sensors[i]->get_data(payloads[i]);
-      if (err) {
+      err = sensors[i]->get_data(data[i].payload);
+      if (!err) {
+        // publish json to mqtt broker - will queue publishes if not connected
+        data[i].msg_id = wireless_publish_state(data[i].name, data[i].payload);
+        if (data[i].msg_id > 0) ++num_publishes;
+        else ESP_LOGW(TAG, "Unable to publish state!");
+
+      } else {
         ESP_LOGE(TAG, "An error occurred getting data from %s (%x).", 
           sensors[i]->get_name(), err);
-        sensor_returns[i] = err;
-        need_to_restart = true;
-      }
-    }
-
-    // publish json to mqtt broker - will queue publishes if not connected
-    for (int i = 0; i < num_sensors; ++i) {
-      if (sensor_returns[i] == ESP_OK) {
-        msg_ids[i] = wireless_publish_state(sensors[i]->get_name(), payloads[i]);
-        if (msg_ids[i] > 0) ++num_publishes;
-      }
+        data[i].err = err;
+        error_occurred = true;
+      } 
     }
 
     // put sensors to sleep
@@ -215,7 +218,7 @@ extern "C" void app_main(void) {
       if (err) { 
         ESP_LOGE(TAG, "An error occurred putting the %s to sleep (%x).", 
           sensor->get_name(), err);
-        need_to_restart = true;
+        error_occurred = true;
       }
     }
 
@@ -228,15 +231,11 @@ extern "C" void app_main(void) {
       int signal_strength;
       err = wireless_get_rssi(&signal_strength);
       if (!err) {
-        cJSON *wireless = cJSON_CreateObject();
-        cJSON_AddNumberToObject(wireless, SIGNAL_STRENGTH_KEY, signal_strength);
-        
-        // add datetime string for debugging
-        cJSON_AddStringToObject(wireless, "now", datetime);
-
-        msg_ids[num_sensors] = wireless_publish_state(SYSTEM_KEY, wireless);
+        cJSON_AddNumberToObject(data[num_sensors].payload, 
+          SIGNAL_STRENGTH_KEY, signal_strength);
+        data[num_sensors].msg_id = wireless_publish_state(SYSTEM_KEY,
+          data[num_sensors].payload);
         ++num_publishes;
-        cJSON_Delete(wireless);
       }
 
       // wait for each message to publish
@@ -248,19 +247,19 @@ extern "C" void app_main(void) {
           // check if mqtt disconnected, message success, or message failure
           if (event.ret == ESP_OK) {
             // message published successfully
-            for (int i = 0; i < num_sensors; ++i) {
-              if (event.msg_id == msg_ids[i]) {
-                msg_ids[i] = -1;
+            for (sensor_data_t datum : data) {
+              if (event.msg_id == datum.msg_id) {
+                datum.msg_id = -1;
                 --num_publishes;
                 break;
               }
             }
           } else if (event.ret == ESP_FAIL) {
             // message failed to publish so it should be resent
-            for (int i = 0; i < num_sensors; ++i) {
-              if (event.msg_id == msg_ids[i]) {
-                msg_ids[i] = wireless_publish_state(sensors[i]->get_name(),
-                  payloads[i]);
+            for (sensor_data_t datum : data) {
+              if (event.msg_id == datum.msg_id) {
+                datum.msg_id = wireless_publish_state(datum.name, 
+                  datum.payload);
                 break;
               }
             }
@@ -269,19 +268,21 @@ extern "C" void app_main(void) {
             err = wireless_wait_for_connect(timeout);
             if (err) {
               ESP_LOGE(TAG, "%i publish(es) timed out.", num_publishes);
-              need_to_restart = true;
+              error_occurred = true;
               break;
             }
-            for (int i = 0; i < num_sensors; ++i) {
-              if (msg_ids[i])
-              msg_ids[i] = wireless_publish_state(sensors[i]->get_name(),
-                payloads[i]);
+            for (sensor_data_t datum : data) {
+              if (datum.msg_id > 0) {
+                // message hasn't been delivered so republish it
+                datum.msg_id = wireless_publish_state(datum.name, 
+                  datum.payload);
+              }
             }
           }
         } else if (err == ESP_ERR_TIMEOUT) {
           // timed out waiting for messages to send
           ESP_LOGE(TAG, "%i publish(es) timed out.", num_publishes);
-          need_to_restart = true;
+          error_occurred = true;
           break;
         }
       }
@@ -290,12 +291,12 @@ extern "C" void app_main(void) {
     }
 
     // delete the json payloads
-    for (cJSON *payload : payloads) {
-      cJSON_Delete(payload);
+    for (sensor_data_t datum : data) {
+      cJSON_Delete(datum.payload);
     }
 
-
-    if (need_to_restart) {
+    // check if an error occurred between reading sensors and publishing data
+    if (error_occurred) {
       ESP_LOGW(TAG, "Restarting...");
       esp_restart();
     }
