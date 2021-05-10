@@ -27,7 +27,6 @@
 #define SNTP_SYNCHRONIZED   BIT(7)
 
 
-
 static const char *TAG = "wireless";
 static esp_netif_t *netif;
 static esp_mqtt_client_handle_t mqtt_client;
