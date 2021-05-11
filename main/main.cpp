@@ -247,16 +247,19 @@ extern "C" void app_main(void) {
           // check if mqtt disconnected, message success, or message failure
           if (event.ret == ESP_OK) {
             // message published successfully
-            for (sensor_data_t datum : data) {
+            bool updated_outbox = false;
+            for (sensor_data_t &datum : data) {
               if (event.msg_id == datum.msg_id) {
                 datum.msg_id = -1;
-                --num_publishes;
+                updated_outbox = true;
                 break;
               }
             }
+            if (!updated_outbox) ESP_LOGW(TAG, "Couldn't update MQTT outbox!");
+            --num_publishes; // publish success
           } else if (event.ret == ESP_FAIL) {
             // message failed to publish so it should be resent
-            for (sensor_data_t datum : data) {
+            for (sensor_data_t &datum : data) {
               if (event.msg_id == datum.msg_id) {
                 ESP_LOGW(TAG, "Republishing %s payload...", datum.name);
                 datum.msg_id = wireless_publish_state(datum.name, 
@@ -273,7 +276,7 @@ extern "C" void app_main(void) {
               break;
             }
             int num_republishes = 0;
-            for (sensor_data_t datum : data) {
+            for (sensor_data_t &datum : data) {
               if (datum.msg_id > 0) {
                 // message hasn't been delivered so republish it
                 datum.msg_id = wireless_publish_state(datum.name, 
@@ -295,7 +298,7 @@ extern "C" void app_main(void) {
     }
 
     // delete the json payloads
-    for (sensor_data_t datum : data) {
+    for (sensor_data_t &datum : data) {
       cJSON_Delete(datum.payload);
     }
 
