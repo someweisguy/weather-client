@@ -146,6 +146,7 @@ extern "C" void app_main(void) {
 
       // publish the setup data
       publish_event_t event;
+      // TODO: ensure this message gets to the broker
       err = wireless_wait_for_publish(&event, 10000 / portTICK_PERIOD_MS);
       if (err || event.ret) {
         ESP_LOGE(TAG, "An error occurred sending setup data.");
