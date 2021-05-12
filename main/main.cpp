@@ -198,13 +198,7 @@ extern "C" void app_main(void) {
     ESP_LOGI(TAG, "Getting sensor data...");
     for (int i = 0; i < num_sensors; ++i) {
       err = sensors[i]->get_data(data[i].payload);
-      if (!err) {
-        // publish json to mqtt broker - will queue publishes if not connected
-        data[i].msg_id = wireless_publish_state(data[i].name, data[i].payload);
-        if (data[i].msg_id > 0) ++num_publishes;
-        else ESP_LOGW(TAG, "Unable to publish state!");
-
-      } else {
+      if (err) {
         ESP_LOGE(TAG, "An error occurred getting data from %s (%x).", 
           sensors[i]->get_name(), err);
         data[i].err = err;
@@ -221,6 +215,19 @@ extern "C" void app_main(void) {
         error_occurred = true;
       }
     }
+
+    // publish data to mqtt broker
+    for (int i = 0; i < num_sensors; ++i) {
+      if (!data[i].err) {
+        int retries = 5; // don't loop forever
+        do {
+          // mqtt messages will queue if not connected to broker
+          data[i].msg_id = wireless_publish_state(data[i].name, 
+            data[i].payload);
+        } while (data[i].msg_id <= 0 && retries--);
+        ++num_publishes;
+      }
+    } 
 
     // wait until wifi is connected
     err = wireless_wait_for_connect(timeout);
