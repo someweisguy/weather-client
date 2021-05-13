@@ -47,7 +47,7 @@ static void mqtt_handler(void *args, esp_event_base_t base, int event,
     xEventGroupClearBits(wireless_event_group, MQTT_CONNECTED);
     xEventGroupSetBits(wireless_event_group, MQTT_DISCONNECTED);
 
-    publish_event_t event = { .ret = ESP_ERR_INVALID_STATE, .msg_id = -1};
+    publish_event_t event = { .ret = BROKER_DISCONNECTED, .msg_id = -1};
     xQueueSendToBack(publish_queue, &event, 10000 / portTICK_PERIOD_MS);
 
   } else if (event == MQTT_EVENT_PUBLISHED) {
@@ -55,7 +55,7 @@ static void mqtt_handler(void *args, esp_event_base_t base, int event,
     ESP_LOGI(TAG, "MQTT message %i published!", event_data->msg_id);
 
     // send a publish success event to the mqtt queue
-    publish_event_t event = { .ret = ESP_OK, .msg_id = event_data->msg_id };
+    publish_event_t event = { .ret = PUBLISH_SUCCESS, .msg_id = event_data->msg_id };
     xQueueSendToBack(publish_queue, &event, 10000 / portTICK_PERIOD_MS);
 
   } else if (event == MQTT_EVENT_ERROR) {
@@ -63,7 +63,7 @@ static void mqtt_handler(void *args, esp_event_base_t base, int event,
     ESP_LOGI(TAG, "MQTT message %i failed!", event_data->msg_id);
 
     // send a publish failure event to the mqtt queue
-    publish_event_t event = { .ret = ESP_FAIL, .msg_id = event_data->msg_id };
+    publish_event_t event = { .ret = PUBLISH_ERROR, .msg_id = event_data->msg_id };
     xQueueSendToBack(publish_queue, &event, 10000 / portTICK_PERIOD_MS);
   }
 }
