@@ -248,24 +248,23 @@ extern "C" void app_main(void) {
 
       // wait for each message to publish
       while (num_publishes) {
-        timeout -= xTaskGetTickCount() - start_tick;
+        timeout -= xTaskGetTickCount() - start_tick; // update timeout
+
         publish_event_t event;
         err = wireless_wait_for_publish(&event, timeout);
         if (!err)  {
-          // check if mqtt disconnected, message success, or message failure
-          if (event.ret == ESP_OK) {
+          if (event.ret == PUBLISH_SUCCESS) {
             // message published successfully
             bool updated_outbox = false;
             for (sensor_data_t &datum : data) {
               if (event.msg_id == datum.msg_id) {
                 datum.msg_id = -1;
-                updated_outbox = true;
+                --num_publishes;
                 break;
               }
             }
-            if (!updated_outbox) ESP_LOGW(TAG, "Couldn't update MQTT outbox!");
-            --num_publishes; // publish success
-          } else if (event.ret == ESP_FAIL) {
+
+          } else if (event.ret == PUBLISH_ERROR) {
             // message failed to publish so it should be resent
             for (sensor_data_t &datum : data) {
               if (event.msg_id == datum.msg_id) {
@@ -275,8 +274,9 @@ extern "C" void app_main(void) {
                 break;
               }
             }
-          } else if (event.ret == ESP_ERR_INVALID_STATE) {
-            // mqtt disconnected, so all unsent messages should be resent
+
+          } else if (event.ret == BROKER_DISCONNECTED) {
+            // mqtt disconnected, all unsent messages should be resent
             err = wireless_wait_for_connect(timeout);
             if (err) {
               ESP_LOGE(TAG, "%i publish(es) timed out.", num_publishes);
@@ -294,6 +294,7 @@ extern "C" void app_main(void) {
             }
             ESP_LOGW(TAG, "Republished %i payloads.", num_republishes);
           }
+          
         } else if (err == ESP_ERR_TIMEOUT) {
           // timed out waiting for messages to send
           ESP_LOGE(TAG, "%i publish(es) timed out.", num_publishes);
