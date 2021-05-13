@@ -22,8 +22,6 @@
 #define WIFI_FATAL_ERROR    BIT(2)
 #define MQTT_DISCONNECTED   BIT(3)
 #define MQTT_CONNECTED      BIT(4)
-#define MQTT_FATAL_ERROR    BIT(5)
-#define MQTT_MSG_PUBLISHED  BIT(6)
 #define SNTP_SYNCHRONIZED   BIT(7)
 
 
