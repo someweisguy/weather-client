@@ -22,7 +22,7 @@
 #define WIFI_FATAL_ERROR    BIT(2)
 #define MQTT_DISCONNECTED   BIT(3)
 #define MQTT_CONNECTED      BIT(4)
-#define SNTP_SYNCHRONIZED   BIT(7)
+#define SNTP_SYNCHRONIZED   BIT(5)
 
 
 static const char *TAG = "wireless";
