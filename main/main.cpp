@@ -255,7 +255,6 @@ extern "C" void app_main(void) {
         if (!err)  {
           if (event.ret == PUBLISH_SUCCESS) {
             // message published successfully
-            bool updated_outbox = false;
             for (sensor_data_t &datum : data) {
               if (event.msg_id == datum.msg_id) {
                 datum.msg_id = -1;
@@ -294,7 +293,7 @@ extern "C" void app_main(void) {
             }
             ESP_LOGW(TAG, "Republished %i payloads.", num_republishes);
           }
-          
+
         } else if (err == ESP_ERR_TIMEOUT) {
           // timed out waiting for messages to send
           ESP_LOGE(TAG, "%i publish(es) timed out.", num_publishes);
