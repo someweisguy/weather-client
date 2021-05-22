@@ -181,12 +181,13 @@ extern "C" void app_main(void) {
     }
 
     // wait until measurement window
+    TickType_t timeout = 60000 / portTICK_PERIOD_MS;
     wait_time_ms = time_to_next_state_us() / 1000;
     vTaskDelay(wait_time_ms / portTICK_PERIOD_MS);
     TickType_t start_tick = xTaskGetTickCount();
 
     // get sensor data
-    ESP_LOGI(TAG, "Getting sensor data...");
+    ESP_LOGI(TAG, "Getting sensor data");
     for (int i = 0; i < num_sensors; ++i) {
       err = sensors[i]->get_data(data[i].payload);
       if (err) {
@@ -247,10 +248,11 @@ extern "C" void app_main(void) {
       timeout -= now_tick - start_tick;
       start_tick = now_tick;
 
+      // wait for next publish event
       publish_event_t event;
       err = wireless_wait_for_publish(&event, timeout);
       if (err == ESP_ERR_TIMEOUT) {
-        ESP_LOGE(TAG, "%i publish(es) timed out.", num_publishes);
+        ESP_LOGE(TAG, "%i payload(s) remaining", num_publishes);
         error_occurred = true;
         break;
       }
