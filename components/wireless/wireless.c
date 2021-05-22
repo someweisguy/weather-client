@@ -60,7 +60,7 @@ static void mqtt_handler(void *args, esp_event_base_t base, int event,
 
   } else if (event == MQTT_EVENT_ERROR) {
     esp_mqtt_event_t *event_data = (esp_mqtt_event_t *)data;
-    ESP_LOGI(TAG, "MQTT message %i failed!", event_data->msg_id);
+    ESP_LOGE(TAG, "MQTT message %i failed!", event_data->msg_id);
 
     // send a publish failure event to the mqtt queue
     publish_event_t event = { .ret = PUBLISH_ERROR, .msg_id = event_data->msg_id };
@@ -76,15 +76,7 @@ static void wifi_handler(void *args, esp_event_base_t base, int event,
       esp_wifi_connect();
     } else if (event == WIFI_EVENT_STA_DISCONNECTED) {
       wifi_event_sta_disconnected_t *wifi_data = (wifi_event_sta_disconnected_t *)data;
-      if (wifi_data->reason == WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT) {
-        // wifi password was rejected
-        ESP_LOGE(TAG, "WiFi password is invalid");
-        esp_wifi_stop();
-        xEventGroupSetBits(wireless_event_group, WIFI_FATAL_ERROR);
-      } else if (wifi_data->reason == WIFI_REASON_ASSOC_LEAVE) {
-        ESP_LOGI(TAG, "WiFi stopped!");
-        esp_wifi_stop();
-      } else {
+      if (wifi_data->reason != WIFI_REASON_ASSOC_LEAVE) {
         ESP_LOGW(TAG, "WiFi disconnected (reason: %i)", wifi_data->reason);
         ESP_LOGI(TAG, "Attempting to reconnect to WiFi...");
         esp_wifi_connect();
@@ -106,7 +98,7 @@ static void wifi_handler(void *args, esp_event_base_t base, int event,
       publish_queue = xQueueCreate(10, sizeof(publish_event_t));
 
       // configure and initialize mqtt
-      esp_mqtt_client_config_t mqtt_config = {.host = broker, .keepalive = 15};
+      esp_mqtt_client_config_t mqtt_config = { .host = broker, .keepalive = 45 };
       mqtt_client = esp_mqtt_client_init(&mqtt_config);
 
       // register mqtt event handlers
@@ -206,7 +198,7 @@ esp_err_t wireless_stop(TickType_t timeout) {
 
   // disconnect and stop mqtt
   ESP_LOGI(TAG, "Stopping MQTT...");
-  esp_mqtt_client_stop(mqtt_client);
+  esp_mqtt_client_destroy(mqtt_client);
   // set the disconnected bit and clear the connected bit
   xEventGroupClearBits(wireless_event_group, MQTT_CONNECTED);
   xEventGroupSetBits(wireless_event_group, MQTT_DISCONNECTED);
@@ -221,6 +213,7 @@ esp_err_t wireless_stop(TickType_t timeout) {
     ESP_LOGE(TAG, "WiFi timed out");
     return ESP_ERR_TIMEOUT;
   }
+  esp_wifi_deinit();
 
   netif = NULL;
 
