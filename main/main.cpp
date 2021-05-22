@@ -17,7 +17,6 @@
 
 #define SYSTEM_KEY          "esp32"
 #define SIGNAL_STRENGTH_KEY "signal_strength"
-#define RESET_REASON_KEY    "reset_reason"
 
 static const char *TAG = "main";
 RTC_DATA_ATTR bool device_is_setup;
@@ -52,8 +51,6 @@ extern "C" void app_main(void) {
 
   if (!device_is_setup) {
     // do initial device setup
-
-    ESP_LOGI(TAG, "Connecting to wireless services...");
     wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER);
 
     ESP_LOGI(TAG, "Initializing sensors...");
@@ -102,7 +99,7 @@ extern "C" void app_main(void) {
         }
     };
 
-    // send default discovery
+    // send discovery messages
     ESP_LOGI(TAG, "Sending MQTT discoveries...");
     wireless_publish_discover(SYSTEM_KEY, &signal_strength_discovery);
     publish_event_t event;
@@ -111,14 +108,13 @@ extern "C" void app_main(void) {
       ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
       esp_restart();
     }
-
-    // send discovery for each sensor
     for (sensor_t *sensor : sensors) {
-      // publish each discovery topic
+      // publish each discovery for every sensor
       const discovery_t *discoveries;
       const int num_discoveries = sensor->get_discovery(discoveries);
       for (int i = 0; i < num_discoveries; ++i) { 
         wireless_publish_discover(sensor->get_name(), &discoveries[i]);
+        // TODO: publish discovery asynchronously
         err = wireless_wait_for_publish(&event, 30000 / portTICK_PERIOD_MS);
         if (err || event.err) {
           ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
@@ -138,20 +134,21 @@ extern "C" void app_main(void) {
       cJSON_Delete(payload);
 
       // publish the setup data
-      // TODO: ensure this message gets to the broker
-      err = wireless_wait_for_publish(&event, 10000 / portTICK_PERIOD_MS);
+      err = wireless_wait_for_publish(&event, 30000 / portTICK_PERIOD_MS);
       if (err || event.err) {
-        ESP_LOGE(TAG, "An error occurred sending setup data");
+        ESP_LOGE(TAG, "An error occurred sending setup data. Restarting...");
+        esp_restart();
       }
     }
 
     // stop wireless radios and setup is finished
-    wireless_stop(5000 / portTICK_PERIOD_MS);
+    wireless_stop(10000 / portTICK_PERIOD_MS);
     device_is_setup = true;
 
   } else {
     // wake up and get ready to publish data
     bool error_occurred = false;
+    TickType_t timeout = 60000 / portTICK_PERIOD_MS;
 
     ESP_LOGI(TAG, "Readying sensors...");
     for (sensor_t *sensor : sensors) {
@@ -163,25 +160,22 @@ extern "C" void app_main(void) {
       }
     }
 
-    // wait until 15s before measurement to start wifi and mqtt
-    const int wifi_time_ms = 15 * 1000;
-    int wait_time_ms = (time_to_next_state_us() / 1000) - wifi_time_ms;
-    vTaskDelay(wait_time_ms / portTICK_PERIOD_MS);
-
-    // connect to wifi and mqtt
-    wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER);
-
     // create sensor data array
     const int num_sensors = sizeof(sensors) / sizeof(sensor_t *);
     sensor_data_t data[num_sensors + 1] = {};
     for (int i = 0; i <= num_sensors; ++i) {
       data[i].payload = cJSON_CreateObject();
       if (i < num_sensors) data[i].name = sensors[i]->get_name();
-      else data[i].name = SYSTEM_KEY;
+      else data[num_sensors].name = SYSTEM_KEY;
     }
 
+    // wait until 15s before measurement to start wifi and mqtt
+    const int wifi_time_ms = 15 * 1000;
+    int wait_time_ms = (time_to_next_state_us() / 1000) - wifi_time_ms;
+    vTaskDelay(wait_time_ms / portTICK_PERIOD_MS);
+    wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER);
+
     // wait until measurement window
-    TickType_t timeout = 60000 / portTICK_PERIOD_MS;
     wait_time_ms = time_to_next_state_us() / 1000;
     vTaskDelay(wait_time_ms / portTICK_PERIOD_MS);
     TickType_t start_tick = xTaskGetTickCount();
@@ -217,10 +211,7 @@ extern "C" void app_main(void) {
           data[i].msg_id = wireless_publish_state(data[i].name, 
             data[i].payload);
         } while (data[i].msg_id <= 0 && retries--);
-        if (data[i].msg_id >= 0) {
-          data[i].done_sending = false;
-          ++num_publishes;
-        }
+        if (data[i].msg_id >= 0) ++num_publishes;
       }
     } 
 
