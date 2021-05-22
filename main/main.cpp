@@ -128,7 +128,7 @@ extern "C" void app_main(void) {
         publish_event_t event;
         wireless_publish_discover(sensor->get_name(), &discoveries[i]);
         err = wireless_wait_for_publish(&event, 30000 / portTICK_PERIOD_MS);
-        if (err || event.ret) {
+        if (err || event.err) {
           ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
           esp_restart();
         }
@@ -149,7 +149,7 @@ extern "C" void app_main(void) {
       publish_event_t event;
       // TODO: ensure this message gets to the broker
       err = wireless_wait_for_publish(&event, 10000 / portTICK_PERIOD_MS);
-      if (err || event.ret) {
+      if (err || event.err) {
         ESP_LOGE(TAG, "An error occurred sending setup data.");
       }
     }
@@ -255,7 +255,7 @@ extern "C" void app_main(void) {
         publish_event_t event;
         err = wireless_wait_for_publish(&event, timeout);
         if (!err)  {
-          if (event.ret == PUBLISH_SUCCESS) {
+          if (event.err == ESP_OK) {
             // message published successfully
             for (sensor_data_t &datum : data) {
               if (event.msg_id == datum.msg_id) {
@@ -267,7 +267,7 @@ extern "C" void app_main(void) {
               }
             }
 
-          } else if (event.ret == PUBLISH_ERROR) {
+          } else if (event.err == ESP_FAIL) {
             // message failed to publish so it should be resent
             for (sensor_data_t &datum : data) {
               if (event.msg_id == datum.msg_id) {

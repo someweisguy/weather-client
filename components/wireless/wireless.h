@@ -20,11 +20,9 @@ typedef struct {
   } config;
 } discovery_t;
 
-enum publish_ret_t { PUBLISH_SUCCESS, PUBLISH_ERROR, 
-  BROKER_DISCONNECTED };
 
 typedef struct {
-  enum publish_ret_t ret;
+  esp_err_t err;
   int msg_id;
 } publish_event_t;
 
