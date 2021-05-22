@@ -24,7 +24,7 @@ RTC_DATA_ATTR bool device_is_setup;
 RTC_DATA_ATTR double latitude, longitude, elevation_m;
 RTC_DATA_ATTR time_t last_time_sync_ts;
 
-static Sensor *sensors[] = { new bme280_t(0x76, elevation_m), 
+static sensor_t *sensors[] = { new bme280_t(0x76, elevation_m), 
   new pms5003_t(), new max17043_t(0x36), new sph0645_t() };
 
 typedef struct {
@@ -46,23 +46,21 @@ extern "C" void app_main(void) {
   // TODO: move individual serial start functions to sensor init
   esp_err_t err = serial_start();
   if (err) {
-    ESP_LOGE(TAG, "Unable to start serial drivers (%x). Restarting...", 
-      err);
+    ESP_LOGE(TAG, "Unable to start serial drivers (0x%x)", err);
     esp_restart();
   }
 
   if (!device_is_setup) {
-    ESP_LOGI(TAG, "Doing initial device setup");
+    // do initial device setup
 
     ESP_LOGI(TAG, "Connecting to wireless services...");
     wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER);
 
     ESP_LOGI(TAG, "Initializing sensors...");
-    for (Sensor *sensor : sensors) {
+    for (sensor_t *sensor : sensors) {
       err = sensor->setup();
       if (err) {
-        // TODO: will this boot loop?
-        ESP_LOGE(TAG, "An error occurred initializing %s (%x).",
+        ESP_LOGE(TAG, "An error occurred initializing %s (0x%x).",
           sensor->get_name(), err);
         //esp_restart();
       }
@@ -71,17 +69,18 @@ extern "C" void app_main(void) {
     // wait for wifi to connect
     err = wireless_wait_for_connect(15000 / portTICK_PERIOD_MS);
     if (err) {
-      ESP_LOGE(TAG, "Unable to connect to wireless services. Restarting...");
+      ESP_LOGE(TAG, "Restarting...");
       esp_restart();
     }
 
-    ESP_LOGI(TAG, "Synchronizing time...");
+    // synchronize time with sntp server
+    ESP_LOGD(TAG, "Synchronizing time...");
     err = wireless_synchronize_time(SNTP_SERVER, 15000 / portTICK_PERIOD_MS);
     if (err) {
-      ESP_LOGE(TAG, "Unable to synchronize time with SNTP server. Restarting...");
+      ESP_LOGE(TAG, "Restarting...");
       esp_restart();
     }
-    time(&last_time_sync_ts);
+    time(&last_time_sync_ts); // log the timestamp that time was sync'd
 
     ESP_LOGI(TAG, "Getting location...");
     err = wireless_get_location(&latitude, &longitude, &elevation_m);
@@ -91,9 +90,8 @@ extern "C" void app_main(void) {
     }
 
     // declare default discovery for device
-    const discovery_t default_discoveries[] = {
-      {
-        .topic = "sensor/signal_strength",
+    const discovery_t signal_strength_discovery = {
+      .topic = "sensor/signal_strength",
         .config = {
           .device_class = "signal_strength",
           .force_update = true,
@@ -101,31 +99,25 @@ extern "C" void app_main(void) {
           .name = "Signal Strength",
           .unit_of_measurement = "dB",
           .value_template = "{{ value_json." SIGNAL_STRENGTH_KEY " }}"
-        },
-      }
+        }
     };
 
     // send default discovery
     ESP_LOGI(TAG, "Sending MQTT discoveries...");
-    for (discovery_t discovery : default_discoveries) {
-      wireless_publish_discover(SYSTEM_KEY, &discovery);
-      publish_event_t event;
-      err = wireless_wait_for_publish(&event, 30000 / portTICK_PERIOD_MS);
-      if (err) {
-        ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
-        esp_restart();
-      }
+    wireless_publish_discover(SYSTEM_KEY, &signal_strength_discovery);
+    publish_event_t event;
+    err = wireless_wait_for_publish(&event, 30000 / portTICK_PERIOD_MS);
+    if (err || event.err) {
+      ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
+      esp_restart();
     }
 
     // send discovery for each sensor
-    for (Sensor *sensor : sensors) {
+    for (sensor_t *sensor : sensors) {
       // publish each discovery topic
       const discovery_t *discoveries;
       const int num_discoveries = sensor->get_discovery(discoveries);
-      ESP_LOGD(TAG, "The %s has %i discoveries.", sensor->get_name(), 
-        num_discoveries);
       for (int i = 0; i < num_discoveries; ++i) { 
-        publish_event_t event;
         wireless_publish_discover(sensor->get_name(), &discoveries[i]);
         err = wireless_wait_for_publish(&event, 30000 / portTICK_PERIOD_MS);
         if (err || event.err) {
@@ -140,17 +132,16 @@ extern "C" void app_main(void) {
     int signal_strength;
     err = wireless_get_rssi(&signal_strength);
     if (!err) {
-      cJSON *wireless = cJSON_CreateObject();
-      cJSON_AddNumberToObject(wireless, SIGNAL_STRENGTH_KEY, signal_strength);
-      wireless_publish_state(SYSTEM_KEY, wireless);
-      cJSON_Delete(wireless);
+      cJSON *payload = cJSON_CreateObject();
+      cJSON_AddNumberToObject(payload, SIGNAL_STRENGTH_KEY, signal_strength);
+      wireless_publish_state(SYSTEM_KEY, payload);
+      cJSON_Delete(payload);
 
       // publish the setup data
-      publish_event_t event;
       // TODO: ensure this message gets to the broker
       err = wireless_wait_for_publish(&event, 10000 / portTICK_PERIOD_MS);
       if (err || event.err) {
-        ESP_LOGE(TAG, "An error occurred sending setup data.");
+        ESP_LOGE(TAG, "An error occurred sending setup data");
       }
     }
 
@@ -159,15 +150,17 @@ extern "C" void app_main(void) {
     device_is_setup = true;
 
   } else {
+    // wake up and get ready to publish data
+
     // track if an error occurred and number of publishes
     bool error_occurred = false;
     int num_publishes = 0;
 
-    ESP_LOGI(TAG, "Readying sensors");
-    for (Sensor *sensor : sensors) {
+    ESP_LOGI(TAG, "Readying sensors...");
+    for (sensor_t *sensor : sensors) {
       err = sensor->ready();
       if (err) {
-        ESP_LOGE(TAG, "An error occurred readying %s (%x).", 
+        ESP_LOGE(TAG, "An error occurred readying %s (0x%x)", 
           sensor->get_name(), err);
         error_occurred = true;
       }
@@ -182,7 +175,7 @@ extern "C" void app_main(void) {
     wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER);
 
     // create sensor data array
-    const int num_sensors = sizeof(sensors) / sizeof(Sensor *);
+    const int num_sensors = sizeof(sensors) / sizeof(sensor_t *);
     sensor_data_t data[num_sensors + 1] = {};
     for (int i = 0; i <= num_sensors; ++i) {
       data[i].payload = cJSON_CreateObject();
@@ -201,7 +194,7 @@ extern "C" void app_main(void) {
     for (int i = 0; i < num_sensors; ++i) {
       err = sensors[i]->get_data(data[i].payload);
       if (err) {
-        ESP_LOGE(TAG, "An error occurred getting data from %s (%x).", 
+        ESP_LOGE(TAG, "An error occurred getting data from the %s (0x%x)", 
           sensors[i]->get_name(), err);
         data[i].err = err;
         error_occurred = true;
@@ -209,10 +202,10 @@ extern "C" void app_main(void) {
     }
 
     // put sensors to sleep
-    for (Sensor *sensor : sensors) {
+    for (sensor_t *sensor : sensors) {
       err = sensor->sleep();
       if (err) { 
-        ESP_LOGE(TAG, "An error occurred putting the %s to sleep (%x).", 
+        ESP_LOGE(TAG, "An error occurred putting the %s to sleep (0x%x)", 
           sensor->get_name(), err);
         error_occurred = true;
       }

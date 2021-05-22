@@ -25,7 +25,7 @@
 
 #define NOISE_KEY "noise"
 
-class sph0645_t : public Sensor {
+class sph0645_t : public sensor_t {
 private:
   const discovery_t discovery[1] {
         {
@@ -125,7 +125,7 @@ private:
   }
   
 public:
-  sph0645_t() : Sensor("sph0645") {
+  sph0645_t() : sensor_t("sph0645") {
   }
 
   int get_discovery(const discovery_t *&discovery) const {

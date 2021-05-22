@@ -8,7 +8,7 @@
 #define PM_2_5_KEY  "pm_2_5"
 #define PM_10_KEY   "pm_10"
 
-class pms5003_t : public Sensor {
+class pms5003_t : public sensor_t {
 private:
   const discovery_t discovery[2] {
         {
@@ -60,7 +60,7 @@ private:
 
 
 public:
-  pms5003_t() : Sensor("pms5003") {
+  pms5003_t() : sensor_t("pms5003") {
   }
 
   int get_discovery(const discovery_t *&discovery) const {

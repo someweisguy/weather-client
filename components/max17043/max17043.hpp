@@ -6,7 +6,7 @@
 
 #define BATTERY_KEY   "battery"
 
-class max17043_t : public Sensor {
+class max17043_t : public sensor_t {
 private:
   // max17043 register addresses
   const static uint8_t COMMAND_REGISTER = 0xfe;
@@ -29,7 +29,7 @@ private:
     };
   
 public:
-  max17043_t(uint8_t i2c_address) : Sensor("max17043"), 
+  max17043_t(uint8_t i2c_address) : sensor_t("max17043"), 
       i2c_address(i2c_address) {
   }
 

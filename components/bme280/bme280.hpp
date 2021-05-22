@@ -12,7 +12,7 @@
 #define HUMIDITY_KEY    "humidity"
 #define DEW_POINT_KEY   "dew_point"
 
-class bme280_t : public Sensor {
+class bme280_t : public sensor_t {
 private:
   // bme280 register addresses
   const static uint8_t RESET_REGISTER       = 0xe0;
@@ -161,7 +161,7 @@ private:
   }
 
 public:
-  bme280_t(const uint8_t i2c_address, const double elevation_m) : Sensor("bme280"),
+  bme280_t(const uint8_t i2c_address, const double elevation_m) : sensor_t("bme280"),
       i2c_address(i2c_address), elevation_m(elevation_m) {
   }
 

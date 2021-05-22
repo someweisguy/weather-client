@@ -4,12 +4,12 @@
 #include "esp_log.h"
 #include "cJSON.h"
 
-class Sensor {
+class sensor_t {
 protected:
   const char *name;
 
 public:
-  Sensor(const char* name) : name(name) {
+  sensor_t(const char* name) : name(name) {
     // do nothing...
   }
 
