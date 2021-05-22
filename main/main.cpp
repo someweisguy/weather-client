@@ -306,10 +306,7 @@ extern "C" void app_main(void) {
   ESP_LOGI(TAG, "Going to sleep...");
   const int wake_early_us = 32 * 1e6; 
   int sleep_time_us = time_to_next_state_us() - wake_early_us;
-  if (sleep_time_us < 10000) {
-    // not enough time - skip this measurement period
-    sleep_time_us += 5 * 60 * 1e6;
-  }
+  if (sleep_time_us < 10000) sleep_time_us += 5 * 60 * 1e6; // skip
 
   esp_deep_sleep(sleep_time_us);
 }
