@@ -150,13 +150,13 @@ esp_err_t wireless_start(const char *ssid, const char *password,
   } else if (strcmp((char *)wifi_config.sta.ssid, ssid) == 0 && 
         strcmp((char *)wifi_config.sta.password, password) == 0) {
     // found wifi credentials in nvs
-    ESP_LOGI(TAG, "Found credentials for SSID \"%s\" in non-volatile storage", 
+    ESP_LOGD(TAG, "Found credentials for SSID \"%s\" in non-volatile storage", 
       wifi_config.sta.ssid);
   }
   else
   {
     // no wifi credentials found
-    ESP_LOGI(TAG, "Copying new WiFi credentials to driver");
+    ESP_LOGD(TAG, "Copying new WiFi credentials to driver");
     memcpy(wifi_config.sta.ssid, ssid, 32);
     memcpy(wifi_config.sta.password, password, 64);
   }
@@ -386,7 +386,6 @@ int wireless_publish_discover(const char *sensor_name, const discovery_t *discov
   cJSON_AddNumberToObject(json, "qos", 2);
   
   // get the state topic
-  // [STATE_PREFIX]/[mac_address]/[sensor_name]/data
   char state_topic[strlen(STATE_PREFIX) + strlen(sensor_name) + 21];
   snprintf(state_topic, sizeof(state_topic), "%s/%llx/%s/state", 
     STATE_PREFIX, mac, sensor_name);
