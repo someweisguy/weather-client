@@ -19,7 +19,7 @@
 
 #define WIFI_DISCONNECTED   BIT(0)
 #define WIFI_CONNECTED      BIT(1)
-#define WIFI_FATAL_ERROR    BIT(2)
+#define WIFI_STOPPED        BIT(2)
 #define MQTT_DISCONNECTED   BIT(3)
 #define MQTT_CONNECTED      BIT(4)
 #define SNTP_SYNCHRONIZED   BIT(5)
@@ -70,6 +70,7 @@ static void wifi_handler(void *args, esp_event_base_t base, int event,
   if (base == WIFI_EVENT) {
     if (event == WIFI_EVENT_STA_START) {
       ESP_LOGI(TAG, "Connecting to WiFi...");
+      xEventGroupClearBits(wireless_event_group, WIFI_STOPPED);
       esp_wifi_connect();
     } else if (event == WIFI_EVENT_STA_DISCONNECTED) {
       wifi_event_sta_disconnected_t *wifi_data = (wifi_event_sta_disconnected_t *)data;
@@ -78,36 +79,30 @@ static void wifi_handler(void *args, esp_event_base_t base, int event,
         ESP_LOGI(TAG, "Attempting to reconnect to WiFi...");
         esp_wifi_connect();
       }
-
-      // signal wifi disconnection
       xEventGroupClearBits(wireless_event_group, WIFI_CONNECTED);
       xEventGroupSetBits(wireless_event_group, WIFI_DISCONNECTED);
+    } else if (event == WIFI_EVENT_STA_STOP) {
+      ESP_LOGD(TAG, "WiFi stopped");
+      xEventGroupSetBits(wireless_event_group, WIFI_STOPPED);
     }
   } else if (event == IP_EVENT_STA_GOT_IP) {
-    // signal wifi connection
-    ESP_LOGI(TAG, "WiFi connected!");
+    ESP_LOGI(TAG, "WiFi connected");
+    xEventGroupClearBits(wireless_event_group, WIFI_DISCONNECTED);
+    xEventGroupSetBits(wireless_event_group, WIFI_CONNECTED);
 
     // check if mqtt should be initialized
     if (mqtt_client == NULL) {
-      const char *broker = args;
-
-      // init the publish queue
+      // create the publish queue and initialize mqtt
       publish_queue = xQueueCreate(10, sizeof(publish_event_t));
-
-      // configure and initialize mqtt
+      const char *broker = args;
       esp_mqtt_client_config_t mqtt_config = { .host = broker, .keepalive = 45 };
       mqtt_client = esp_mqtt_client_init(&mqtt_config);
 
-      // register mqtt event handlers
+      // register event handlers and connect to mqtt
       esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, 
         mqtt_handler, NULL);
-
-      // connect to mqtt
       esp_mqtt_client_start(mqtt_client);
     }
-
-    xEventGroupClearBits(wireless_event_group, WIFI_DISCONNECTED);
-    xEventGroupSetBits(wireless_event_group, WIFI_CONNECTED);
   }
 }
 
@@ -147,19 +142,11 @@ esp_err_t wireless_start(const char *ssid, const char *password,
     // handle error
     ESP_LOGE(TAG, "An error occurred getting the WiFi credentials");
     return err;
-  } else if (strcmp((char *)wifi_config.sta.ssid, ssid) == 0 && 
-        strcmp((char *)wifi_config.sta.password, password) == 0) {
-    // found wifi credentials in nvs
-    ESP_LOGD(TAG, "Found credentials for SSID \"%s\" in non-volatile storage", 
-      wifi_config.sta.ssid);
   }
-  else
-  {
-    // no wifi credentials found
-    ESP_LOGD(TAG, "Copying new WiFi credentials to driver");
-    memcpy(wifi_config.sta.ssid, ssid, 32);
-    memcpy(wifi_config.sta.password, password, 64);
-  }
+  
+  // copy wifi credentials to config
+  memcpy(wifi_config.sta.ssid, ssid, 32);
+  memcpy(wifi_config.sta.password, password, 64);
 
   // register wifi event handlers
   esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_MASK_ALL, 
@@ -180,9 +167,11 @@ esp_err_t wireless_wait_for_connect(TickType_t timeout) {
   const EventBits_t wireless_status = xEventGroupWaitBits(wireless_event_group, 
     WIFI_CONNECTED | MQTT_CONNECTED, pdFALSE, pdTRUE, timeout);
   if (!(wireless_status & (WIFI_CONNECTED | MQTT_CONNECTED))) {
-    // timed out waiting for wifi and mqtt to connect
-    if (!(wireless_status & WIFI_CONNECTED)) ESP_LOGE(TAG, "WiFi timed out");
-    else ESP_LOGE(TAG, "MQTT timed out");
+    if (!(wireless_status & WIFI_CONNECTED)) {
+      ESP_LOGE(TAG, "WiFi timed out waiting to connect");
+    } else {
+      ESP_LOGE(TAG, "MQTT timed out waiting to connect");
+    }
     return ESP_ERR_TIMEOUT;
   }
 
@@ -190,29 +179,37 @@ esp_err_t wireless_wait_for_connect(TickType_t timeout) {
 }
 
 esp_err_t wireless_stop(TickType_t timeout) {
-  if (wireless_event_group == NULL)
-    return ESP_OK;
+  if (wireless_event_group == NULL) return ESP_OK;
+  const TickType_t start_tick = xTaskGetTickCount();
 
   // disconnect and stop mqtt
   ESP_LOGI(TAG, "Stopping MQTT...");
   esp_mqtt_client_destroy(mqtt_client);
-  // set the disconnected bit and clear the connected bit
   xEventGroupClearBits(wireless_event_group, MQTT_CONNECTED);
   xEventGroupSetBits(wireless_event_group, MQTT_DISCONNECTED);
 
-  // disconnect and stop wifi
+  // disconnect the wifi client
   ESP_LOGI(TAG, "Stopping WiFi...");
   esp_wifi_disconnect();
-  const EventBits_t wifi_status = xEventGroupWaitBits(wireless_event_group,
+  EventBits_t wifi_status = xEventGroupWaitBits(wireless_event_group,
     WIFI_DISCONNECTED, pdFALSE, pdFALSE, timeout);
   if (!(wifi_status & WIFI_DISCONNECTED)) {
-    // timed out waiting for wifi to disconnect
-    ESP_LOGE(TAG, "WiFi timed out");
+    ESP_LOGE(TAG, "WiFi timed out waiting to disconnect");
     return ESP_ERR_TIMEOUT;
   }
-  esp_wifi_stop();
-  esp_wifi_deinit();
+  timeout -= xTaskGetTickCount() - start_tick;
 
+  // stop the wifi client
+  esp_wifi_stop();
+  wifi_status = xEventGroupWaitBits(wireless_event_group, WIFI_STOPPED,
+    pdFALSE, pdFALSE, timeout);
+  if (!(wifi_status & WIFI_STOPPED)) {
+    ESP_LOGE(TAG, "WiFi timed out waiting to stop");
+    return ESP_ERR_TIMEOUT;
+  }
+
+  // free resources
+  esp_wifi_deinit();
   netif = NULL;
 
   return ESP_OK;
@@ -230,7 +227,7 @@ esp_err_t wireless_synchronize_time(const char *server, TickType_t timeout) {
     SNTP_SYNCHRONIZED, pdTRUE, pdFALSE, timeout);
   if (!(sntp_status & SNTP_SYNCHRONIZED)) {
     // timed out waiting for sntp to disconnect
-    ESP_LOGE(TAG, "SNTP timed out");
+    ESP_LOGE(TAG, "SNTP timed out waiting to synchronize");
     return ESP_ERR_TIMEOUT;
   }
 
@@ -251,7 +248,7 @@ esp_err_t wireless_get_location(double *latitude, double *longitude,
   // send the latitude/longitude request
   esp_err_t err = esp_http_client_perform(client);
   if (err) {
-    ESP_LOGE(TAG, "Unable to send latitude/longitude request (%x)", err);
+    ESP_LOGE(TAG, "Unable to send latitude/longitude request (0x%x)", err);
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
     return err;
@@ -259,9 +256,8 @@ esp_err_t wireless_get_location(double *latitude, double *longitude,
 
   // read the lat/long response into a buffer
   status_code = esp_http_client_get_status_code(client);
-  if (status_code != 200) {
-    ESP_LOGW(TAG, "Latitude/longitude response status code: %i", status_code);
-  }
+  if (status_code != 200) ESP_LOGW(TAG, "Latitude/longitude HTTP status: %i", 
+    status_code);
   response_len = esp_http_client_read(client, response_buffer, buffer_size);
   esp_http_client_close(client);
 
@@ -285,7 +281,7 @@ esp_err_t wireless_get_location(double *latitude, double *longitude,
   // send the elevation request
   err = esp_http_client_perform(client);
   if (err) {
-    ESP_LOGE(TAG, "Unable to send elevation request (%x)", err);
+    ESP_LOGE(TAG, "Unable to send elevation request (0x%x)", err);
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
     return err;
@@ -293,9 +289,8 @@ esp_err_t wireless_get_location(double *latitude, double *longitude,
 
   // read the elevation response into a buffer
   status_code = esp_http_client_get_status_code(client);
-  if (status_code != 200) {
-    ESP_LOGW(TAG, "Elevation response status code: %i", status_code);
-  }
+  if (status_code != 200) ESP_LOGW(TAG, "Elevation HTTP status: %i", 
+    status_code);
   response_len = esp_http_client_read(client, response_buffer, buffer_size);
   response_buffer[response_len + 1] = 0; // null terminate
   esp_http_client_close(client);
@@ -338,9 +333,7 @@ esp_err_t wireless_get_rssi(int *rssi) {
 
 static int wireless_publish(const char *topic, const cJSON* json, 
     int qos, bool retain) {
-  if (mqtt_client == NULL) {
-    return -1;
-  }
+  if (mqtt_client == NULL) return -1;
 
   // publish the message to mqtt
   int msg_id; 
@@ -356,9 +349,8 @@ static int wireless_publish(const char *topic, const cJSON* json,
 }
 
 int wireless_publish_discover(const char *sensor_name, const discovery_t *discovery) {
-  if (sensor_name == NULL || discovery == NULL || mqtt_client == NULL) {
+  if (sensor_name == NULL || discovery == NULL || mqtt_client == NULL)
     return -1;
-  }
 
   // get mac address for device id
   uint64_t mac = 0;
@@ -409,14 +401,14 @@ int wireless_publish_discover(const char *sensor_name, const discovery_t *discov
   cJSON_AddStringToObject(device, "identifiers", device_id);
   cJSON_AddItemToObject(json, "device", device);
 
-  // get a legal name to use for the discovery topic
+  // get a legal object id to use for the discovery topic
   char legal_name[strlen(discovery->config.name) + 1];
   snprintf(legal_name, sizeof(legal_name), "%s", discovery->config.name);
   for (char *c = legal_name; *c != '\0'; ++c) {
     if (!(isalnum(*c) || *c == '-' || *c == '_')) *c = '_';
   }
 
-  // [DISCOVER_PREFIX]/sensor/[mac_address]/[sensor_name]-[entity_name]/config
+  // get the discovery topic
   char discover_topic[strlen(DISCOVER_PREFIX) + strlen(sensor_name) 
     + strlen(discovery->config.name) + 30];
   snprintf(discover_topic, sizeof(discover_topic), "%s/%s/%llx/%s-%s/config",
@@ -430,23 +422,20 @@ int wireless_publish_discover(const char *sensor_name, const discovery_t *discov
 }
 
 int wireless_publish_state(const char *sensor_name, cJSON *payload) {
-  if (sensor_name == NULL || payload == NULL || mqtt_client == NULL) {
+  if (sensor_name == NULL || payload == NULL || mqtt_client == NULL)
     return -1;
-  }
 
   // get mac address for device id
   uint64_t mac = 0;
   esp_efuse_mac_get_default((uint8_t *)&mac);
 
   // get the state topic
-  // [STATE_PREFIX]/[mac_address]/[sensor_name]/state
   char state_topic[strlen(STATE_PREFIX) + strlen(sensor_name) + 21];
   snprintf(state_topic, sizeof(state_topic), "%s/%llx/%s/state", 
     STATE_PREFIX, mac, sensor_name);
 
   // publish the data
-  const int qos = 2;
-  const int msg_id = wireless_publish(state_topic, payload, qos, false);
+  const int msg_id = wireless_publish(state_topic, payload, 2, false);
 
   return msg_id;
 }
@@ -454,6 +443,7 @@ int wireless_publish_state(const char *sensor_name, cJSON *payload) {
 esp_err_t wireless_wait_for_publish(publish_event_t *event, TickType_t timeout) { 
   // block until mqtt publishes or times out
   if (xQueueReceive(publish_queue, event, timeout) == pdFALSE) {
+    ESP_LOGE(TAG, "MQTT timed out waiting for publish");
     return ESP_ERR_TIMEOUT;
   }
 
