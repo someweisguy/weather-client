@@ -20,7 +20,6 @@ typedef struct {
   } config;
 } discovery_t;
 
-
 typedef struct {
   esp_err_t err;
   int msg_id;
