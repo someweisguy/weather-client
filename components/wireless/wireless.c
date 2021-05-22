@@ -49,7 +49,7 @@ static void mqtt_handler(void *args, esp_event_base_t base, int event,
 
   } else if (event == MQTT_EVENT_PUBLISHED) {
     esp_mqtt_event_t *event_data = (esp_mqtt_event_t *)data;
-    ESP_LOGI(TAG, "MQTT message %i published!", event_data->msg_id);
+    ESP_LOGI(TAG, "MQTT message %i published", event_data->msg_id);
 
     // send a publish success event to the mqtt queue
     publish_event_t event = { .err = ESP_OK, .msg_id = event_data->msg_id };
@@ -57,7 +57,7 @@ static void mqtt_handler(void *args, esp_event_base_t base, int event,
 
   } else if (event == MQTT_EVENT_ERROR) {
     esp_mqtt_event_t *event_data = (esp_mqtt_event_t *)data;
-    ESP_LOGE(TAG, "MQTT message %i failed!", event_data->msg_id);
+    ESP_LOGE(TAG, "MQTT message %i failed", event_data->msg_id);
 
     // send a publish failure event to the mqtt queue
     publish_event_t event = { .err = ESP_FAIL, .msg_id = event_data->msg_id };
@@ -107,7 +107,7 @@ static void wifi_handler(void *args, esp_event_base_t base, int event,
 }
 
 static void sntp_callback(struct timeval *tv) {
-  ESP_LOGI(TAG, "Synchronized time with SNTP server!");
+  ESP_LOGI(TAG, "Synchronized time with SNTP server");
   setenv("TZ", "PST8PDT", 1);
   tzset();
   xEventGroupSetBits(wireless_event_group, SNTP_SYNCHRONIZED);
@@ -140,7 +140,7 @@ esp_err_t wireless_start(const char *ssid, const char *password,
   err = esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config);
   if (err) {
     // handle error
-    ESP_LOGE(TAG, "An error occurred getting the WiFi credentials");
+    ESP_LOGE(TAG, "An error occurred getting the WiFi configuration");
     return err;
   }
   
@@ -168,9 +168,9 @@ esp_err_t wireless_wait_for_connect(TickType_t timeout) {
     WIFI_CONNECTED | MQTT_CONNECTED, pdFALSE, pdTRUE, timeout);
   if (!(wireless_status & (WIFI_CONNECTED | MQTT_CONNECTED))) {
     if (!(wireless_status & WIFI_CONNECTED)) {
-      ESP_LOGE(TAG, "WiFi timed out waiting to connect");
+      ESP_LOGE(TAG, "Timed out waiting for WiFi to connect");
     } else {
-      ESP_LOGE(TAG, "MQTT timed out waiting to connect");
+      ESP_LOGE(TAG, "Timed out waiting for MQTT to connect");
     }
     return ESP_ERR_TIMEOUT;
   }
@@ -194,7 +194,7 @@ esp_err_t wireless_stop(TickType_t timeout) {
   EventBits_t wifi_status = xEventGroupWaitBits(wireless_event_group,
     WIFI_DISCONNECTED, pdFALSE, pdFALSE, timeout);
   if (!(wifi_status & WIFI_DISCONNECTED)) {
-    ESP_LOGE(TAG, "WiFi timed out waiting to disconnect");
+    ESP_LOGE(TAG, "Timed out waiting for WiFi to disconnect");
     return ESP_ERR_TIMEOUT;
   }
   timeout -= xTaskGetTickCount() - start_tick;
@@ -204,7 +204,7 @@ esp_err_t wireless_stop(TickType_t timeout) {
   wifi_status = xEventGroupWaitBits(wireless_event_group, WIFI_STOPPED,
     pdFALSE, pdFALSE, timeout);
   if (!(wifi_status & WIFI_STOPPED)) {
-    ESP_LOGE(TAG, "WiFi timed out waiting to stop");
+    ESP_LOGE(TAG, "Timed out waiting for WiFi to stop");
     return ESP_ERR_TIMEOUT;
   }
 
@@ -227,7 +227,7 @@ esp_err_t wireless_synchronize_time(const char *server, TickType_t timeout) {
     SNTP_SYNCHRONIZED, pdTRUE, pdFALSE, timeout);
   if (!(sntp_status & SNTP_SYNCHRONIZED)) {
     // timed out waiting for sntp to disconnect
-    ESP_LOGE(TAG, "SNTP timed out waiting to synchronize");
+    ESP_LOGE(TAG, "Timed out waiting for SNTP to synchronize");
     return ESP_ERR_TIMEOUT;
   }
 
