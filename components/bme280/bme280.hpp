@@ -224,7 +224,7 @@ public:
       100 / portTICK_PERIOD_MS);
     if (err) return err;
     
-    // h4 is little endian, h5 shares 4 bits with h4, and both are 12 bits long
+    // h4 is little endian, h5 shares 4 bits with h4, both are 12 bits long
     dig.h4 = (((dig.h4 & 0xfff) >> 8) | (dig.h4 << 4)) & 0xfff;
     dig.h5 = (dig.h5 >> 4) & 0xfff;
 
@@ -254,11 +254,11 @@ public:
     int32_t adc_H = raw_data[6] << 8 | raw_data[7];
 
     const int32_t t_fine = get_t_fine(adc_T); // needed to compensate data
-    double celsius, humidity; // needed for dew point and pressure
+    float celsius, humidity; // needed for dew point and pressure
 
     // get temperature value
     if (adc_T != 0x80000) {
-      double temperature = compensate_temperature(t_fine) / 100.0; // C
+      float temperature = compensate_temperature(t_fine) / 100.0; // C
       celsius = temperature; // use for dew point calculation
       temperature = (temperature * 9.0 / 5.0) + 32; // convert to F
 
@@ -270,10 +270,10 @@ public:
 
     // get pressure value
     if (adc_P != 0x80000) {
-      double pressure = compensate_pressure(t_fine, adc_P) / 256.0; // Pa
+      float pressure = compensate_pressure(t_fine, adc_P) / 256.0; // Pa
 
       // convert pressure at sea level to pressure at current elevation
-      const double M = 0.02897,          // molar mass of Eath's air (kg/mol)
+      const float M = 0.02897,          // molar mass of Eath's air (kg/mol)
                    g = 9.807665,         // gravitational constant (m/s^2)
                    R = 8.314462,         // universal gas constant (J/mol*K)
                    K = celsius + 273.15; // temperature in Kelvin
@@ -292,9 +292,9 @@ public:
 
     // calculate the dew point
     if (adc_T != 0x80000 && adc_H != 0x800) {
-      const double gamma = log(fmax(humidity, DBL_MIN) / 100.0) 
+      const float gamma = log(fmax(humidity, DBL_MIN) / 100.0) 
         + ((17.62 * celsius) / (243.12 + celsius));
-      double dew_point = (243.12 * gamma) / (17.32 - gamma); // C
+      float dew_point = (243.12 * gamma) / (17.32 - gamma); // C
       dew_point = (dew_point * 9.0 / 5.0) + 32; // convert to F
       
       cJSON_AddNumberToObject(json, DEW_POINT_KEY, dew_point);

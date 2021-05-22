@@ -234,8 +234,8 @@ esp_err_t wireless_synchronize_time(const char *server, TickType_t timeout) {
   return ESP_OK;
 }
 
-esp_err_t wireless_get_location(double *latitude, double *longitude, 
-    double *elevation_m) {
+esp_err_t wireless_get_location(float *latitude, float *longitude, 
+    float *elevation_m) {
   // declare http buffer parameters
   const int buffer_size = 512;
   int response_len, status_code;
@@ -269,7 +269,7 @@ esp_err_t wireless_get_location(double *latitude, double *longitude,
     return ESP_FAIL;
   }
   cJSON *node = cJSON_GetObjectItem(root, "loc");
-  sscanf(node->valuestring, "%lf,%lf", latitude, longitude);
+  sscanf(node->valuestring, "%f,%f", latitude, longitude);
   cJSON_Delete(root);
 
   // reconfigure the client for the elevation request
@@ -311,7 +311,7 @@ esp_err_t wireless_get_location(double *latitude, double *longitude,
     }
     node = cJSON_GetObjectItem(node, nodes[i]);
   }
-  *elevation_m = node->valuedouble;
+  *elevation_m = (float)(node->valuedouble);
   cJSON_Delete(root);
 
   return ESP_OK;

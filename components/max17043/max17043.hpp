@@ -72,7 +72,7 @@ public:
     if (err) return err;
 
     // calculate the value from the raw data
-    double battery = raw_data[0] + (raw_data[1] / 256.0);
+    float battery = raw_data[0] + (raw_data[1] / 256.0);
 
     cJSON_AddNumberToObject(json, BATTERY_KEY, battery);
 

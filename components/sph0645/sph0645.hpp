@@ -56,12 +56,12 @@ private:
 
     // get number of samples and i2s output value at 94dB SPL
     const size_t num_samples = SAMPLE_RATE / 1000 * SAMPLE_LENGTH; 
-    const double mic_ref_amp = pow10(MIC_SENSITIVITY / 20.0) * 
+    const float mic_ref_amp = pow10(MIC_SENSITIVITY / 20.0) * 
       ((1 << (MIC_BITS - 1)) - 1);
 
     // declare accumulators
     uint64_t acc_samples = 0;
-    double acc_sum_sqr = 0;
+    float acc_sum_sqr = 0;
 
     // track whether the delay state has been initialized
     bool delay_state_uninitialized = true;
@@ -91,8 +91,8 @@ private:
       }
 
       // calculate volume relative to mic_ref_amp
-      const double rms_z = sqrt(static_cast<double>(sum_sqr_z) / num_samples);
-      const double dBz = MIC_OFFSET_DB + MIC_REF_DB + 20 * 
+      const float rms_z = sqrt(sum_sqr_z / num_samples);
+      const float dBz = MIC_OFFSET_DB + MIC_REF_DB + 20 * 
         log10(rms_z / mic_ref_amp);
 
       // handle acoustic overload or data below noise floor
@@ -105,8 +105,8 @@ private:
 
       if (acc_samples >= SAMPLE_RATE * SAMPLE_PERIOD / 1000.0) {
         // calculate c-weighted rms
-        const double rms_c = sqrt(acc_sum_sqr / acc_samples);
-        const double dBc = MIC_OFFSET_DB + MIC_REF_DB + 20 * 
+        const float rms_c = sqrt(acc_sum_sqr / acc_samples);
+        const float dBc = MIC_OFFSET_DB + MIC_REF_DB + 20 * 
           log10(rms_c / mic_ref_amp);
 
         // Add the data to the currently running data
@@ -170,7 +170,7 @@ public:
     if (!xSemaphoreTake(microphone_cxt.semaphore, 500 / portTICK_PERIOD_MS)) {
       return ESP_FAIL;
     }
-    double avg = microphone_cxt.sum / microphone_cxt.num_samples;
+    float avg = microphone_cxt.sum / microphone_cxt.num_samples;
     //const float min = microphone_cxt.min;
     //const float max = microphone_cxt.max;
     xSemaphoreGive(microphone_cxt.semaphore);

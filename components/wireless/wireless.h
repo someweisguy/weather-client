@@ -34,8 +34,8 @@ esp_err_t wireless_stop(TickType_t timeout);
 
 esp_err_t wireless_synchronize_time(const char *server, TickType_t timeout);
 
-esp_err_t wireless_get_location(double *latitude, double *longitude, 
-    double *elevation_m);
+esp_err_t wireless_get_location(float *latitude, float *longitude, 
+    float *elevation_m);
 
 esp_err_t wireless_get_rssi(int *rssi);
 

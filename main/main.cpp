@@ -20,7 +20,7 @@
 
 static const char *TAG = "main";
 RTC_DATA_ATTR bool device_is_setup;
-RTC_DATA_ATTR double latitude, longitude, elevation_m;
+RTC_DATA_ATTR float latitude, longitude, elevation_m;
 RTC_DATA_ATTR time_t last_time_sync_ts;
 
 static sensor_t *sensors[] = { new bme280_t(0x76, elevation_m), 
