@@ -210,6 +210,7 @@ esp_err_t wireless_stop(TickType_t timeout) {
     ESP_LOGE(TAG, "WiFi timed out");
     return ESP_ERR_TIMEOUT;
   }
+  esp_wifi_stop();
   esp_wifi_deinit();
 
   netif = NULL;
