@@ -162,11 +162,12 @@ extern "C" void app_main(void) {
 
     // create sensor data array
     const int num_sensors = sizeof(sensors) / sizeof(sensor_t *);
-    sensor_data_t data[num_sensors + 1] = {};
-    for (int i = 0; i <= num_sensors; ++i) {
+    const int num_data = num_sensors + 1;
+    sensor_data_t data[num_data] = {};
+    for (int i = 0; i < num_data; ++i) {
       data[i].payload = cJSON_CreateObject();
       if (i < num_sensors) data[i].name = sensors[i]->get_name();
-      else data[num_sensors].name = SYSTEM_KEY;
+      else data[i].name = SYSTEM_KEY;
     }
 
     // wait until 15s before measurement to start wifi and mqtt
@@ -202,7 +203,7 @@ extern "C" void app_main(void) {
       }
     }
 
-    // publish data to mqtt broker
+    // publish sensor data to mqtt broker
     int num_publishes = 0;
     for (int i = 0; i < num_sensors; ++i) {
       if (!data[i].err) {
@@ -243,14 +244,14 @@ extern "C" void app_main(void) {
       publish_event_t event;
       err = wireless_wait_for_publish(&event, timeout);
       if (err == ESP_ERR_TIMEOUT) {
-        ESP_LOGE(TAG, "%i payload(s) remaining", num_publishes);
+        ESP_LOGE(TAG, "%i payload(s) were not delivered", num_publishes);
         error_occurred = true;
         break;
       }
 
       // determine which message was received on the event
       int recvd_idx = -1;
-      for (int i = 0; i < sizeof(data) / sizeof(sensor_data_t); ++i) {
+      for (int i = 0; i < num_data; ++i) {
         if (event.msg_id == data[i].msg_id) {
           recvd_idx = i;
           break;
