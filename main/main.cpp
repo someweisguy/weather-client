@@ -31,6 +31,7 @@ typedef struct {
   const char *name;
   esp_err_t err;
   int msg_id;
+  bool done_sending;
   cJSON *payload;
 } sensor_data_t;
 
@@ -226,6 +227,7 @@ extern "C" void app_main(void) {
           data[i].msg_id = wireless_publish_state(data[i].name, 
             data[i].payload);
         } while (data[i].msg_id <= 0 && retries--);
+        data[i].done_sending = false;
         ++num_publishes;
       }
     } 
@@ -248,7 +250,7 @@ extern "C" void app_main(void) {
 
       // wait for each message to publish
       while (num_publishes) {
-        timeout -= xTaskGetTickCount() - start_tick; // update timeout
+        timeout -= (xTaskGetTickCount() - start_tick);
 
         publish_event_t event;
         err = wireless_wait_for_publish(&event, timeout);
@@ -257,8 +259,10 @@ extern "C" void app_main(void) {
             // message published successfully
             for (sensor_data_t &datum : data) {
               if (event.msg_id == datum.msg_id) {
-                datum.msg_id = -1;
-                --num_publishes;
+                if (datum.done_sending == false) {
+                  datum.done_sending = true;
+                  --num_publishes;
+                }
                 break;
               }
             }
@@ -273,25 +277,6 @@ extern "C" void app_main(void) {
                 break;
               }
             }
-
-          } else if (event.ret == BROKER_DISCONNECTED) {
-            // mqtt disconnected, all unsent messages should be resent
-            err = wireless_wait_for_connect(timeout);
-            if (err) {
-              ESP_LOGE(TAG, "%i publish(es) timed out.", num_publishes);
-              error_occurred = true;
-              break;
-            }
-            int num_republishes = 0;
-            for (sensor_data_t &datum : data) {
-              if (datum.msg_id > 0) {
-                // message hasn't been delivered so republish it
-                datum.msg_id = wireless_publish_state(datum.name, 
-                  datum.payload);
-                ++num_republishes;
-              }
-            }
-            ESP_LOGW(TAG, "Republished %i payloads.", num_republishes);
           }
 
         } else if (err == ESP_ERR_TIMEOUT) {
