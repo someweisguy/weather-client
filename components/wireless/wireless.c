@@ -30,6 +30,7 @@ static esp_netif_t *netif;
 static esp_mqtt_client_handle_t mqtt_client;
 static EventGroupHandle_t wireless_event_group;
 static QueueHandle_t publish_queue;
+static char *http_output_buffer;
 
 static void mqtt_handler(void *args, esp_event_base_t base, int event, 
     void *data) {
@@ -111,6 +112,27 @@ static void sntp_callback(struct timeval *tv) {
   setenv("TZ", "PST8PDT", 1);
   tzset();
   xEventGroupSetBits(wireless_event_group, SNTP_SYNCHRONIZED);
+}
+
+static esp_err_t http_event_handler(esp_http_client_event_t *event) {
+  if (event->event_id == HTTP_EVENT_ON_DATA) {
+    const int content_length = esp_http_client_get_content_length(event->client);
+    ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d content-length=%d", 
+      event->data_len, content_length);
+    if (http_output_buffer == NULL) {
+      if (content_length > 0) http_output_buffer = malloc(content_length + 1);
+      else http_output_buffer = malloc(event->data_len + 1);
+      http_output_buffer[0] = '\0';
+    }
+    strncat(http_output_buffer, event->data, event->data_len);
+    ESP_LOGD(TAG, "%s", http_output_buffer);
+  } else if (event->event_id == HTTP_EVENT_DISCONNECTED) {
+    ESP_LOGD(TAG, "HTTP_EVENT_DISCONNECTED");
+  } else if (event->event_id == HTTP_EVENT_ERROR) {
+    ESP_LOGE(TAG, "HTTP_EVENT_ERROR");
+  }
+
+  return ESP_OK;
 }
 
 esp_err_t wireless_start(const char *ssid, const char *password, 
@@ -236,13 +258,10 @@ esp_err_t wireless_synchronize_time(const char *server, TickType_t timeout) {
 
 esp_err_t wireless_get_location(float *latitude, float *longitude, 
     float *elevation_m) {
-  // declare http buffer parameters
-  const int buffer_size = 512;
-  int response_len, status_code;
-  char response_buffer[buffer_size];
-
   // configure the http client, set lat/long request url
-  esp_http_client_config_t config = {.buffer_size = 1024, .url = "http://ipinfo.io/json"};
+  esp_http_client_config_t config = {
+    .url = "http://ipinfo.io/json",
+    .event_handler = http_event_handler };
   esp_http_client_handle_t client = esp_http_client_init(&config);
 
   // send the latitude/longitude request
@@ -255,14 +274,15 @@ esp_err_t wireless_get_location(float *latitude, float *longitude,
   }
 
   // read the lat/long response into a buffer
-  status_code = esp_http_client_get_status_code(client);
+  int status_code = esp_http_client_get_status_code(client);
   if (status_code != 200) ESP_LOGW(TAG, "Latitude/longitude HTTP status: %i", 
     status_code);
-  response_len = esp_http_client_read(client, response_buffer, buffer_size);
   esp_http_client_close(client);
 
   // parse the lat/long response
-  cJSON *root = cJSON_Parse(response_buffer);
+  cJSON *root = cJSON_Parse(http_output_buffer);
+  free(http_output_buffer);
+  http_output_buffer = NULL;
   if (root == NULL || !cJSON_HasObjectItem(root, "loc")) {
     ESP_LOGE(TAG, "Unable to parse latitude/longitude response");
     esp_http_client_cleanup(client);
@@ -273,7 +293,7 @@ esp_err_t wireless_get_location(float *latitude, float *longitude,
   cJSON_Delete(root);
 
   // reconfigure the client for the elevation request
-  const char *fmt = "http://nationalmap.gov/epqs/pqs.php?x=%.6lf&y=%.6lf&units=Meters&output=json";
+  const char *fmt = "http://nationalmap.gov/epqs/pqs.php?x=%.6f&y=%.6f&units=Meters&output=json";
   char url[strlen(fmt) + (11 * 2)];
   snprintf(url, sizeof(url), fmt, *longitude, *latitude);
   esp_http_client_set_url(client, url);
@@ -291,14 +311,14 @@ esp_err_t wireless_get_location(float *latitude, float *longitude,
   status_code = esp_http_client_get_status_code(client);
   if (status_code != 200) ESP_LOGW(TAG, "Elevation HTTP status: %i", 
     status_code);
-  response_len = esp_http_client_read(client, response_buffer, buffer_size);
-  response_buffer[response_len + 1] = 0; // null terminate
   esp_http_client_close(client);
-  esp_http_client_cleanup(client); // cleanup resources
+  esp_http_client_cleanup(client);
 
   // parse the elevation response
   const char* nodes[] = {"USGS_Elevation_Point_Query_Service", "Elevation_Query", "Elevation"};
-  root = cJSON_Parse(response_buffer);
+  root = cJSON_Parse(http_output_buffer);
+  free(http_output_buffer);
+  http_output_buffer = NULL;
   if (root == NULL) {
     ESP_LOGE(TAG, "Unable to parse elevation response");
     return ESP_FAIL;
