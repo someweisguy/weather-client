@@ -114,8 +114,7 @@ extern "C" void app_main(void) {
       const int num_discoveries = sensor->get_discovery(discoveries);
       for (int i = 0; i < num_discoveries; ++i) { 
         wireless_publish_discover(sensor->get_name(), &discoveries[i]);
-        // TODO: publish discovery asynchronously
-        err = wireless_wait_for_publish(&event, 30000 / portTICK_PERIOD_MS);
+        err = wireless_wait_for_publish(&event, 10000 / portTICK_PERIOD_MS);
         if (err || event.err) {
           ESP_LOGE(TAG, "An error occurred sending discovery. Restarting...");
           esp_restart();
@@ -134,7 +133,7 @@ extern "C" void app_main(void) {
       cJSON_Delete(payload);
 
       // publish the setup data
-      err = wireless_wait_for_publish(&event, 30000 / portTICK_PERIOD_MS);
+      err = wireless_wait_for_publish(&event, 60000 / portTICK_PERIOD_MS);
       if (err || event.err) {
         ESP_LOGE(TAG, "An error occurred sending setup data. Restarting...");
         esp_restart();
@@ -150,16 +149,6 @@ extern "C" void app_main(void) {
     bool error_occurred = false;
     TickType_t timeout = 60000 / portTICK_PERIOD_MS;
 
-    ESP_LOGI(TAG, "Readying sensors...");
-    for (sensor_t *sensor : sensors) {
-      err = sensor->ready();
-      if (err) {
-        ESP_LOGE(TAG, "An error occurred readying %s (0x%x)", 
-          sensor->get_name(), err);
-        error_occurred = true;
-      }
-    }
-
     // create sensor data array
     const int num_sensors = sizeof(sensors) / sizeof(sensor_t *);
     const int num_data = num_sensors + 1;
@@ -168,6 +157,17 @@ extern "C" void app_main(void) {
       data[i].payload = cJSON_CreateObject();
       if (i < num_sensors) data[i].name = sensors[i]->get_name();
       else data[i].name = SYSTEM_KEY;
+    }
+
+    ESP_LOGI(TAG, "Readying sensors...");
+    for (int i = 0; i < num_sensors; ++i) {
+      err = sensors[i]->ready();
+      if (err) {
+        ESP_LOGE(TAG, "An error occurred readying %s (0x%x)", 
+          sensors[i]->get_name(), err);
+        error_occurred = true;
+        data[i].err = err;
+      }
     }
 
     // wait until 15s before measurement to start wifi and mqtt
@@ -184,6 +184,7 @@ extern "C" void app_main(void) {
     // get sensor data
     ESP_LOGI(TAG, "Getting sensor data");
     for (int i = 0; i < num_sensors; ++i) {
+      if (data[i].err) continue;
       err = sensors[i]->get_data(data[i].payload);
       if (err) {
         ESP_LOGE(TAG, "An error occurred getting data from the %s (0x%x)", 
