@@ -30,7 +30,6 @@ typedef struct {
   const char *name;
   esp_err_t err;
   int msg_id;
-  bool done_sending;
   cJSON *payload;
 } sensor_data_t;
 
@@ -205,7 +204,6 @@ extern "C" void app_main(void) {
     }
 
     // publish sensor data to mqtt broker
-    int num_publishes = 0;
     for (int i = 0; i < num_sensors; ++i) {
       if (!data[i].err) {
         int retries = 5;
@@ -213,7 +211,6 @@ extern "C" void app_main(void) {
           data[i].msg_id = wireless_publish_state(data[i].name, 
             data[i].payload);
         } while (data[i].msg_id <= 0 && retries--);
-        if (data[i].msg_id >= 0) ++num_publishes;
       }
     } 
 
@@ -232,11 +229,12 @@ extern "C" void app_main(void) {
         signal_strength);
       data[num_sensors].msg_id = wireless_publish_state(SYSTEM_KEY, 
         data[num_sensors].payload);
-      ++num_publishes;
     }
 
+    const int starting_outbox_size = wireless_get_outbox_size();
+
     // wait for each message to publish
-    while (num_publishes) {
+    while (wireless_get_outbox_size()) {
       const TickType_t now_tick = xTaskGetTickCount();
       timeout -= now_tick - start_tick;
       start_tick = now_tick;
@@ -245,7 +243,9 @@ extern "C" void app_main(void) {
       publish_event_t event;
       err = wireless_wait_for_publish(&event, timeout);
       if (err == ESP_ERR_TIMEOUT) {
-        ESP_LOGE(TAG, "%i payload(s) were not delivered", num_publishes);
+        const int ending_outbox_size = wireless_get_outbox_size();
+        ESP_LOGE(TAG, "One or more payloads were not delivered (starting outbox: %i, ending: %i)", 
+          starting_outbox_size, ending_outbox_size);
         error_occurred = true;
         break;
       }
@@ -261,13 +261,7 @@ extern "C" void app_main(void) {
       if (recvd_idx == -1) continue;
 
       // handle the publish event
-      if (event.err == ESP_OK) {
-        // message published successfully
-        if (data[recvd_idx].done_sending == false) {
-          data[recvd_idx].done_sending = true;
-          --num_publishes;
-        }
-      } else if (event.err == ESP_FAIL) {
+      if (event.err == ESP_FAIL) {
         // message failed to publish
         ESP_LOGW(TAG, "Republishing %s payload...", data[recvd_idx].name);
         data[recvd_idx].msg_id = wireless_publish_state(data[recvd_idx].name, 
