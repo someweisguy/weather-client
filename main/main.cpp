@@ -251,22 +251,18 @@ extern "C" void app_main(void) {
       }
 
       // determine which message was received on the event
-      int recvd_idx = -1;
       for (int i = 0; i < num_data; ++i) {
         if (event.msg_id == data[i].msg_id) {
-          recvd_idx = i;
+          if (event.err) {
+            // message failed to publish
+            ESP_LOGW(TAG, "Republishing %s payload...", data[i].name);
+            data[i].msg_id = wireless_publish_state(data[i].name, 
+              data[i].payload);
+          }
           break;
         }
       }
-      if (recvd_idx == -1) continue;
 
-      // handle the publish event
-      if (event.err == ESP_FAIL) {
-        // message failed to publish
-        ESP_LOGW(TAG, "Republishing %s payload...", data[recvd_idx].name);
-        data[recvd_idx].msg_id = wireless_publish_state(data[recvd_idx].name, 
-          data[recvd_idx].payload);
-      }
     }
     wireless_stop(10000 / portTICK_PERIOD_MS);
     for (sensor_data_t &datum : data) cJSON_Delete(datum.payload);
