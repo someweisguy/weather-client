@@ -45,6 +45,8 @@ int wireless_publish_state(const char *sensor_name, cJSON *payload);
 
 esp_err_t wireless_wait_for_publish(publish_event_t *event, TickType_t timeout);
 
+int wireless_get_outbox_size();
+
 #ifdef __cplusplus
 }
 #endif

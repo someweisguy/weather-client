@@ -469,3 +469,7 @@ esp_err_t wireless_wait_for_publish(publish_event_t *event, TickType_t timeout) 
 
   return ESP_OK;
 }
+
+int wireless_get_outbox_size() {
+  return esp_mqtt_client_get_outbox_size(mqtt_client);
+}
