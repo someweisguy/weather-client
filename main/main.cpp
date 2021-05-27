@@ -264,14 +264,7 @@ extern "C" void app_main(void) {
       }
 
     }
-    wireless_stop(10000 / portTICK_PERIOD_MS);
     for (sensor_data_t &datum : data) cJSON_Delete(datum.payload);
-
-    // check if an error occurred between reading sensors and publishing data
-    if (error_occurred) {
-      ESP_LOGW(TAG, "Restarting...");
-      esp_restart();
-    }
 
     // check if the clock needs to be resynchronized
     const int time_sync_period_s = 89400;
@@ -283,6 +276,14 @@ extern "C" void app_main(void) {
         esp_restart();
       }
       time(&last_time_sync_ts);
+    }
+
+    wireless_stop(10000 / portTICK_PERIOD_MS);
+
+    // check if an error occurred between reading sensors and publishing data
+    if (error_occurred) {
+      ESP_LOGW(TAG, "Restarting...");
+      esp_restart();
     }
   }
 
