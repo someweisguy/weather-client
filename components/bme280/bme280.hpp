@@ -33,7 +33,7 @@ private:
   const static discovery_t discoveries[];
 
   const uint8_t i2c_address;
-  const double elevation_m;
+  const float elevation_m;
   struct {
     uint16_t t1;
     int16_t t2;
@@ -119,7 +119,7 @@ private:
   }
 
 public:
-  bme280_t(const uint8_t i2c_address, const double elevation_m) : 
+  bme280_t(const uint8_t i2c_address, const float elevation_m) : 
       sensor_t("bme280", discoveries, 4), 
       i2c_address(i2c_address), elevation_m(elevation_m) {
     // do nothing...
