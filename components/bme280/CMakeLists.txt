@@ -1,6 +1,6 @@
 idf_component_register(
-    SRCS "bme280.hpp"
+    SRCS "bme280.cpp"
     INCLUDE_DIRS "."
-    REQUIRES
-    PRIV_REQUIRES serial
+    REQUIRES sensor serial
+    PRIV_REQUIRES
 )

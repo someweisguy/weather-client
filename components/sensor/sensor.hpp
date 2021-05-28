@@ -3,21 +3,28 @@
 #include "esp_system.h"
 #include "esp_log.h"
 #include "cJSON.h"
+#include "wireless.h"
 
 class sensor_t {
 protected:
   const char *name;
+  const discovery_t *discoveries;
+  const size_t num_discoveries;
 
 public:
-  sensor_t(const char* name) : name(name) {
-    // do nothing...
+  sensor_t(const char* name, const discovery_t discoveries[], 
+      size_t num_discoveries) : name(name), discoveries(discoveries),
+      num_discoveries(num_discoveries) {
   }
 
   const char *get_name() const {
     return name;
   }
 
-  virtual int get_discovery(const discovery_t *&discovery) const = 0;
+  int get_discovery(const discovery_t *&discoveries) const {
+    discoveries = this->discoveries;
+    return num_discoveries;
+  }
 
   virtual esp_err_t setup() = 0;
 

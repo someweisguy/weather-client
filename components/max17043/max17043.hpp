@@ -2,7 +2,9 @@
 
 #include "esp_system.h"
 #include "cJSON.h"
+#include "sensor.hpp"
 #include "serial.h"
+#include "wireless.h"
 
 #define BATTERY_KEY   "battery"
 
@@ -13,29 +15,16 @@ private:
   const static uint8_t CONFIG_REGISTER  = 0x0c;
   const static uint8_t SOC_REGISTER     = 0x04;
 
+  static const discovery_t discoveries[];
+
+
   const uint8_t i2c_address;
-  const discovery_t discovery[1] {
-        {
-          .topic = "sensor/battery",
-          .config = {
-            .device_class = "battery",
-            .force_update = true,
-            .icon = nullptr,
-            .name = "Battery",
-            .unit_of_measurement = "%",
-            .value_template = "{{ value_json." BATTERY_KEY " | round(0) }}"
-          }
-        }
-    };
   
 public:
-  max17043_t(uint8_t i2c_address) : sensor_t("max17043"), 
+  max17043_t(uint8_t i2c_address) : 
+      sensor_t("max17043", discoveries, 1), 
       i2c_address(i2c_address) {
-  }
-
-  int get_discovery(const discovery_t *&discovery) const {
-    discovery = this->discovery;
-    return sizeof(this->discovery) / sizeof(discovery_t);
+    // do nothing...
   }
 
   esp_err_t setup() {

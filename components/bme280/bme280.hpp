@@ -4,6 +4,7 @@
 #include <float.h>
 #include "cJSON.h"
 #include <math.h>
+#include "sensor.hpp"
 #include "serial.h"
 #include <string.h>
 
@@ -27,55 +28,12 @@ private:
   const static uint8_t CTRL_HUM_REGISTER    = 0xf2;
   const static uint8_t CTRL_MEAS_REGISTER   = 0xf4;
   const static uint8_t STATUS_REGISTER      = 0xf3;
+  
+  
+  const static discovery_t discoveries[];
 
   const uint8_t i2c_address;
   const double elevation_m;
-  const discovery_t discovery[4] = {
-      {
-        .topic = "sensor/temperature",
-        .config = {
-          .device_class = "temperature",
-          .force_update = true,
-          .icon = "mdi:thermometer",
-          .name = "Temperature",
-          .unit_of_measurement = "°F",
-          .value_template = "{{ value_json." TEMPERATURE_KEY " | round(1) }}"
-        },
-      },
-      {
-        .topic = "sensor/pressure",
-        .config = {
-          .device_class = "pressure",
-          .force_update = true,
-          .icon = "mdi:gauge",
-          .name = "Pressure",
-          .unit_of_measurement = "inHg",
-          .value_template = "{{ value_json." PRESSURE_KEY " | round(2) }}"
-        },
-      },
-      {
-        .topic = "sensor/humidity",
-        .config = {
-          .device_class = "humidity",
-          .force_update = true,
-          .icon = "mdi:water-percent",
-          .name = "Humidity",
-          .unit_of_measurement = "%",
-          .value_template = "{{ value_json." HUMIDITY_KEY " | round(1) }}"
-        }, 
-      },
-      {
-        .topic = "sensor/dew_point",
-        .config = {
-          .device_class = nullptr,
-          .force_update = true,
-          .icon = "mdi:weather-fog",
-          .name = "Dew Point",
-          .unit_of_measurement = "°F",
-          .value_template = "{{ value_json." DEW_POINT_KEY " | round(1) }}"
-        },
-      }
-    };
   struct {
     uint16_t t1;
     int16_t t2;
@@ -161,13 +119,10 @@ private:
   }
 
 public:
-  bme280_t(const uint8_t i2c_address, const double elevation_m) : sensor_t("bme280"),
+  bme280_t(const uint8_t i2c_address, const double elevation_m) : 
+      sensor_t("bme280", discoveries, 4), 
       i2c_address(i2c_address), elevation_m(elevation_m) {
-  }
-
-  int get_discovery(const discovery_t *&discovery) const {
-    discovery = this->discovery;
-    return sizeof(this->discovery) / sizeof(discovery_t);
+    // do nothing...
   }
 
   esp_err_t setup() {
@@ -274,9 +229,9 @@ public:
 
       // convert pressure at sea level to pressure at current elevation
       const float M = 0.02897,          // molar mass of Eath's air (kg/mol)
-                   g = 9.807665,         // gravitational constant (m/s^2)
-                   R = 8.314462,         // universal gas constant (J/mol*K)
-                   K = celsius + 273.15; // temperature in Kelvin
+                  g = 9.807665,         // gravitational constant (m/s^2)
+                  R = 8.314462,         // universal gas constant (J/mol*K)
+                  K = celsius + 273.15; // temperature in Kelvin
       pressure = pressure * exp((M * g) / (R * K) * elevation_m);
       pressure /= 3386.3886666667; // convert to inHg
 
@@ -302,10 +257,4 @@ public:
 
     return ESP_OK;
   }
-
-  esp_err_t sleep() {
-    // don't need to do anything here
-    // the bme280 automatically returns to sleep after forced mode measurement
-    return ESP_OK;
-  }  
 };

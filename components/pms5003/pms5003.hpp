@@ -1,39 +1,19 @@
 #pragma once
 
 #include "esp_system.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "cJSON.h"
+#include "sensor.hpp"
 #include "serial.h"
+#include "wireless.h"
 
 #define PM_2_5_KEY  "pm_2_5"
 #define PM_10_KEY   "pm_10"
 
 class pms5003_t : public sensor_t {
 private:
-  const discovery_t discovery[2] {
-        {
-          .topic = "sensor/pm2_5",
-          .config = {
-            .device_class = nullptr,
-            .force_update = true,
-            .icon = "mdi:smog",
-            .name = "PM 2.5",
-            .unit_of_measurement = "μg/m³",
-            .value_template = "{{ value_json."  PM_2_5_KEY " }}"
-          }
-        },
-        {
-          .topic = "sensor/pm10",
-          .config = {
-            .device_class = nullptr, 
-            .force_update = true, 
-            .icon = "mdi:smog", 
-            .name = "PM 10", 
-            .unit_of_measurement = "μg/m³", 
-            .value_template = "{{ value_json." PM_10_KEY " }}"
-          }
-        }
-    };
+  static const discovery_t discoveries[];
   
   struct pms_data_t { 
     uint16_t start_word;
@@ -60,12 +40,8 @@ private:
 
 
 public:
-  pms5003_t() : sensor_t("pms5003") {
-  }
-
-  int get_discovery(const discovery_t *&discovery) const {
-    discovery = this->discovery;
-    return sizeof(this->discovery) / sizeof(discovery_t);
+  pms5003_t() : sensor_t("pms5003", discoveries, 2) {
+    // do nothing...
   }
 
   esp_err_t setup() override {

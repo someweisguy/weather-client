@@ -1,6 +1,6 @@
 idf_component_register(
     SRCS ""
     INCLUDE_DIRS "."
-    REQUIRES json
+    REQUIRES wireless json
     PRIV_REQUIRES
 )

@@ -7,7 +7,9 @@
 #include "cJSON.h"
 #include <math.h>
 #include "serial.h"
+#include "sensor.hpp"
 #include "sos_iir_filter.h"
+#include "wireless.h"
 
 #define SAMPLE_LENGTH 125
 #define SAMPLE_PERIOD 1000
@@ -27,19 +29,9 @@
 
 class sph0645_t : public sensor_t {
 private:
-  const discovery_t discovery[1] {
-        {
-          .topic = "sensor/noise",
-          .config = {
-            .device_class = nullptr,
-            .force_update = true,
-            .icon = "mdi:volume-high",
-            .name = "Noise Pollution",
-            .unit_of_measurement = "dB",
-            .value_template = "{{ value_json." NOISE_KEY " | round(1) }}"
-          }
-        }
-    };
+  const static discovery_t discoveries[];
+
+
   TaskHandle_t mic_task_handle = nullptr;
   struct context_t {
     float *samples;
@@ -125,12 +117,8 @@ private:
   }
   
 public:
-  sph0645_t() : sensor_t("sph0645") {
-  }
-
-  int get_discovery(const discovery_t *&discovery) const {
-    discovery = this->discovery;
-    return sizeof(this->discovery) / sizeof(discovery_t);
+  sph0645_t() : sensor_t("sph0645", discoveries, 1) {
+    // do nothing...
   }
 
   esp_err_t setup() {
@@ -171,8 +159,6 @@ public:
       return ESP_FAIL;
     }
     float avg = microphone_cxt.sum / microphone_cxt.num_samples;
-    //const float min = microphone_cxt.min;
-    //const float max = microphone_cxt.max;
     xSemaphoreGive(microphone_cxt.semaphore);
 
     // return failure if microphone fails
@@ -193,5 +179,4 @@ public:
     
     return ESP_OK;
   }
-
 };

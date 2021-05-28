@@ -2,6 +2,8 @@
 #include "esp_log.h"
 #include "esp_sleep.h"
 #include "esp_system.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <sys/time.h>
 
 #include "secrets.h"
@@ -111,6 +113,7 @@ extern "C" void app_main(void) {
       // publish each discovery for every sensor
       const discovery_t *discoveries;
       const int num_discoveries = sensor->get_discovery(discoveries);
+      ESP_LOGI(TAG, "Got %i discoveries for %s", num_discoveries, sensor->get_name());
       for (int i = 0; i < num_discoveries; ++i) { 
         wireless_publish_discover(sensor->get_name(), &discoveries[i]);
         err = wireless_wait_for_publish(&event, 10000 / portTICK_PERIOD_MS);
