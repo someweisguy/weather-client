@@ -65,24 +65,32 @@ public:
     esp_err_t err = rtc_gpio_set_level(power_rtc_gpio, 1);
     if (err) return err;
 
-    // put the sensor in passive mode
-    vTaskDelay(1500 / portTICK_PERIOD_MS);
-    const uint8_t passive_cmd[] = {0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70};
-    err = serial_uart_write(passive_cmd, sizeof(passive_cmd),
-      100 / portTICK_PERIOD_MS);
-    if (err) return err;
+    auto set_passive_mode = [](void *args) {
+      // wait for sensor to wake up
+      vTaskDelay(1500 / portTICK_PERIOD_MS);
+
+      // set to passive mode
+      const uint8_t passive_cmd[] = {0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70};
+      serial_uart_write(passive_cmd, sizeof(passive_cmd), 
+        100 / portTICK_PERIOD_MS);
+
+      vTaskDelete(nullptr);
+    };
+
+    // create the task to set the pms5003 to passive mode
+    xTaskCreate(set_passive_mode, "pms5003_set_passive_mode", 2048, nullptr, 0,
+      nullptr);
 
     return ESP_OK;
   }
 
   esp_err_t get_data(cJSON *json) override {
     // flush the uart rx buffer
-    esp_err_t err = serial_uart_flush();
-    if (err) return err; 
+    serial_uart_flush();
 
     // force a measurement
     const uint8_t read_cmd[] = {0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71};
-    err = serial_uart_write(read_cmd, sizeof(read_cmd),
+    esp_err_t err = serial_uart_write(read_cmd, sizeof(read_cmd),
       100 / portTICK_PERIOD_MS);
     if (err) return err;
 
