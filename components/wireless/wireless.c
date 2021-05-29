@@ -34,7 +34,9 @@ static char *http_output_buffer;
 
 static void mqtt_handler(void *args, esp_event_base_t base, int event, 
     void *data) {
-  if (event == MQTT_EVENT_CONNECTED) {
+  if (event == MQTT_EVENT_BEFORE_CONNECT) {
+    // do nothing
+  } else if (event == MQTT_EVENT_CONNECTED) {
     ESP_LOGI(TAG, "MQTT connected!");
 
     // set the connected bit and clear the disconnected bit
@@ -62,6 +64,12 @@ static void mqtt_handler(void *args, esp_event_base_t base, int event,
 
     // send a publish failure event to the mqtt queue
     publish_event_t event = { .err = ESP_FAIL, .msg_id = event_data->msg_id };
+    xQueueSendToBack(publish_queue, &event, 10000 / portTICK_PERIOD_MS);
+  } else {
+    ESP_LOGW(TAG, "Unhandled MQTT event (%i)", event);
+
+    // send a queue event to allow the main task to process events
+    publish_event_t event = { .err = ESP_ERR_NOT_SUPPORTED, .msg_id = -1 };
     xQueueSendToBack(publish_queue, &event, 10000 / portTICK_PERIOD_MS);
   }
 }

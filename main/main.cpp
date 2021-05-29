@@ -152,7 +152,7 @@ extern "C" void app_main(void) {
 
     // create sensor data array
     const int num_sensors = sizeof(sensors) / sizeof(sensor_t *);
-    const int num_data = num_sensors + 1;
+    const int num_data = num_sensors + 1; // include wifi rssi
     sensor_data_t data[num_data] = {};
     for (int i = 0; i < num_data; ++i) {
       data[i].payload = cJSON_CreateObject();
@@ -254,10 +254,13 @@ extern "C" void app_main(void) {
         break;
       }
 
+      // no need to process data if msg_id is invalid
+      if (event.msg_id <= 0) continue;
+
       // determine which message was received on the event
       for (int i = 0; i < num_data; ++i) {
         if (event.msg_id == data[i].msg_id) {
-          if (event.err) {
+          if (event.err == ESP_FAIL) {
             // message failed to publish
             ESP_LOGW(TAG, "Republishing %s payload...", data[i].name);
             data[i].msg_id = wireless_publish_state(data[i].name, 
