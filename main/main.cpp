@@ -148,7 +148,7 @@ extern "C" void app_main(void) {
   } else {
     // wake up and get ready to publish data
     bool error_occurred = false;
-    TickType_t timeout = 60000 / portTICK_PERIOD_MS;
+    TickType_t timeout = 60000 / portTICK_PERIOD_MS - 1;
 
     // create sensor data array
     const int num_sensors = sizeof(sensors) / sizeof(sensor_t *);
@@ -178,8 +178,10 @@ extern "C" void app_main(void) {
     wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER);
 
     // wait until measurement window
+    /* wait one extra tick in order to err on the side of the 5 minute mark 
+    rather than the 4 minute and 59 second mark */
     wait_time_ms = time_to_next_state_us() / 1000;
-    vTaskDelay(wait_time_ms / portTICK_PERIOD_MS);
+    vTaskDelay(wait_time_ms / portTICK_PERIOD_MS + 1);
     TickType_t start_tick = xTaskGetTickCount();
 
     // get sensor data
