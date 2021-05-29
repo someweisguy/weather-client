@@ -33,7 +33,7 @@ private:
   const static discovery_t discoveries[];
 
   const uint8_t i2c_address;
-  const float elevation_m;
+  const float *elevation_m;
   struct {
     uint16_t t1;
     int16_t t2;
@@ -119,7 +119,7 @@ private:
   }
 
 public:
-  bme280_t(const uint8_t i2c_address, const float elevation_m) : 
+  bme280_t(const uint8_t i2c_address, const float *elevation_m) : 
       sensor_t("bme280", discoveries, 4), 
       i2c_address(i2c_address), elevation_m(elevation_m) {
     // do nothing...
@@ -232,7 +232,7 @@ public:
                   g = 9.807665,         // gravitational constant (m/s^2)
                   R = 8.314462,         // universal gas constant (J/mol*K)
                   K = celsius + 273.15; // temperature in Kelvin
-      pressure = pressure * exp((M * g) / (R * K) * elevation_m);
+      pressure = pressure * exp((M * g) / (R * K) * (*elevation_m));
       pressure /= 3386.3886666667; // convert to inHg
 
       cJSON_AddNumberToObject(json, PRESSURE_KEY, pressure);
