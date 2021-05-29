@@ -1,3 +1,4 @@
+#include "driver/gpio.h"
 #include "cJSON.h"
 #include "esp_log.h"
 #include "esp_sleep.h"
@@ -26,7 +27,7 @@ RTC_DATA_ATTR float latitude, longitude, elevation_m;
 RTC_DATA_ATTR time_t last_time_sync_ts;
 
 static sensor_t *sensors[] = { new bme280_t(0x76, &elevation_m), 
-  new pms5003_t(), new max17043_t(0x36), new sph0645_t() };
+  new pms5003_t(GPIO_NUM_14), new max17043_t(0x36), new sph0645_t() };
 
 typedef struct {
   const char *name;

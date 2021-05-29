@@ -1,5 +1,6 @@
 #pragma once
 
+#include "driver/rtc_io.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -15,6 +16,8 @@ class pms5003_t : public sensor_t {
 private:
   static const discovery_t discoveries[];
   
+
+  gpio_num_t power_rtc_gpio;
   struct pms_data_t { 
     uint16_t start_word;
     uint16_t len;
@@ -40,31 +43,30 @@ private:
 
 
 public:
-  pms5003_t() : sensor_t("pms5003", discoveries, 2) {
+  pms5003_t(gpio_num_t power_rtc_gpio) : sensor_t("pms5003", discoveries, 2), 
+      power_rtc_gpio(power_rtc_gpio) {
     // do nothing...
   }
 
   esp_err_t setup() override {
-    // put the sensor to sleep
-    const uint8_t sleep_cmd[] = {0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73};
-    esp_err_t err = serial_uart_write(sleep_cmd, sizeof(sleep_cmd),
-      100 / portTICK_PERIOD_MS);
+    // setup the rtc gpio for the power ic
+    rtc_gpio_init(power_rtc_gpio);
+    rtc_gpio_set_direction(power_rtc_gpio, RTC_GPIO_MODE_OUTPUT_ONLY);
+
+    // turn off the power for the sensor
+    esp_err_t err = rtc_gpio_set_level(power_rtc_gpio, 0);
     if (err) return err;
 
     return ESP_OK;
   }
 
   esp_err_t ready() override {
-    // wake up the sensor
-    const uint8_t wake_cmd[] = {0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74};
-    esp_err_t err = serial_uart_write(wake_cmd, sizeof(wake_cmd), 
-      100 / portTICK_PERIOD_MS);
+    // turn on the power for the sensor
+    esp_err_t err = rtc_gpio_set_level(power_rtc_gpio, 1);
     if (err) return err;
 
-    // allow sensor to process previous command
-    vTaskDelay(1500 / portTICK_PERIOD_MS);
-
     // put the sensor in passive mode
+    vTaskDelay(1500 / portTICK_PERIOD_MS);
     const uint8_t passive_cmd[] = {0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70};
     err = serial_uart_write(passive_cmd, sizeof(passive_cmd),
       100 / portTICK_PERIOD_MS);
@@ -110,10 +112,8 @@ public:
   }
 
   esp_err_t sleep() override {
-    // put the sensor to sleep
-    const uint8_t sleep_cmd[] = {0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73};
-    esp_err_t err = serial_uart_write(sleep_cmd, sizeof(sleep_cmd), 
-      100 / portTICK_PERIOD_MS);
+    // turn off the power for the sensor
+    esp_err_t err = rtc_gpio_set_level(power_rtc_gpio, 0);
     if (err) return err;
 
     return ESP_OK;
