@@ -237,6 +237,7 @@ extern "C" void app_main(void) {
     }
 
     const int starting_outbox_size = wireless_get_outbox_size();
+    int recvd_events = 0;
 
     // wait for each message to publish
     while (wireless_get_outbox_size()) {
@@ -249,11 +250,17 @@ extern "C" void app_main(void) {
       err = wireless_wait_for_publish(&event, timeout);
       if (err == ESP_ERR_TIMEOUT) {
         const int ending_outbox_size = wireless_get_outbox_size();
+        if (!ending_outbox_size) {
+          ESP_LOGW(TAG, "All payloads have already been published (events: %i)",
+            recvd_events);
+          break;
+        }
         ESP_LOGE(TAG, "One or more payloads were not delivered (starting outbox: %i, ending: %i)", 
           starting_outbox_size, ending_outbox_size);
         error_occurred = true;
         break;
       }
+      recvd_events++;
 
       // no need to process data if msg_id is invalid
       if (event.msg_id <= 0) continue;
