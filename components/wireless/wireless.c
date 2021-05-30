@@ -117,8 +117,6 @@ static void wifi_handler(void *args, esp_event_base_t base, int event,
 
 static void sntp_callback(struct timeval *tv) {
   ESP_LOGI(TAG, "Synchronized time with SNTP server");
-  setenv("TZ", "PST8PDT", 1);
-  tzset();
   xEventGroupSetBits(wireless_event_group, SNTP_SYNCHRONIZED);
 }
 

@@ -43,6 +43,10 @@ static inline int time_to_next_state_us() {
 }
 
 extern "C" void app_main(void) {
+  // set timezone for ease of debugging
+  setenv("TZ", "PST8PDT,M3.2.0,M11.1.0", 1);
+  tzset();
+
   // initialize serial services
   // TODO: move individual serial start functions to sensor init
   esp_err_t err = serial_start();
