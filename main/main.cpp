@@ -153,7 +153,6 @@ extern "C" void app_main(void) {
   } else {
     // wake up and get ready to publish data
     bool error_occurred = false;
-    TickType_t timeout = 60000 / portTICK_PERIOD_MS - 1;
 
     // create sensor data array
     const int num_sensors = sizeof(sensors) / sizeof(sensor_t *);
@@ -212,23 +211,28 @@ extern "C" void app_main(void) {
       }
     }
 
+    // wait until wifi is connected
+    TickType_t timeout = (60000 / portTICK_PERIOD_MS) - 1;
+    err = wireless_wait_for_connect(timeout);
+    if (err) {
+      ESP_LOGE(TAG, "Restarting...");
+      esp_restart();
+    }  
+
     // publish sensor data to mqtt broker
+    int num_payloads = 0;
     for (int i = 0; i < num_sensors; ++i) {
       if (!data[i].err) {
         int retries = 5;
         do {
           data[i].msg_id = wireless_publish_state(data[i].name, 
             data[i].payload);
-        } while (data[i].msg_id <= 0 && retries--);
+        } while (data[i].msg_id <= 0 && --retries);
+        if (data[i].msg_id <= 0) ESP_LOGE(TAG, "Unable to publish payload for %s", 
+          data[i].name);
+        else num_payloads++;
       }
     } 
-
-    // wait until wifi is connected
-    err = wireless_wait_for_connect(timeout);
-    if (err) {
-      ESP_LOGE(TAG, "Restarting...");
-      esp_restart();
-    }  
 
     // get information about the wifi signal strength
     int signal_strength;
@@ -255,8 +259,8 @@ extern "C" void app_main(void) {
       if (err == ESP_ERR_TIMEOUT) {
         const int ending_outbox_size = wireless_get_outbox_size();
         if (!ending_outbox_size) {
-          ESP_LOGW(TAG, "All payloads have already been published (events: %i)",
-            recvd_events);
+          ESP_LOGW(TAG, "All payloads have already been published (payloads: %i, events: %i)",
+            num_payloads, recvd_events);
           break;
         }
         ESP_LOGE(TAG, "One or more payloads were not delivered (starting outbox: %i, ending: %i)", 
