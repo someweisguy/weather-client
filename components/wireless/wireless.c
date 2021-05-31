@@ -102,7 +102,11 @@ static void wifi_handler(void *args, esp_event_base_t base, int event,
       // create the publish queue and initialize mqtt
       publish_queue = xQueueCreate(10, sizeof(publish_event_t));
       const char *broker = args;
-      esp_mqtt_client_config_t mqtt_config = { .host = broker, .keepalive = 45 };
+      esp_mqtt_client_config_t mqtt_config = { 
+        .host = broker, 
+        .port = 1883, 
+        .keepalive = 20 
+      };
       mqtt_client = esp_mqtt_client_init(&mqtt_config);
 
       // register event handlers and connect to mqtt
