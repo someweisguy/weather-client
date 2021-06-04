@@ -293,12 +293,9 @@ extern "C" void app_main(void) {
     const int time_sync_period_s = 89400;
     if (time(nullptr) > last_time_sync_ts + time_sync_period_s) {
       ESP_LOGI(TAG, "Re-synchronizing time...");
-      err = wireless_synchronize_time(SNTP_SERVER, 15000 / portTICK_PERIOD_MS);
-      if (err) {
-        ESP_LOGE(TAG, "Restarting...");
-        esp_restart();
-      }
-      time(&last_time_sync_ts);
+      err = wireless_synchronize_time(SNTP_SERVER, 60000 / portTICK_PERIOD_MS);
+      if (err) error_occurred = true;
+      else time(&last_time_sync_ts);
     }
 
     wireless_stop(10000 / portTICK_PERIOD_MS);
