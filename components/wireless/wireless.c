@@ -106,6 +106,7 @@ static void wifi_handler(void *args, esp_event_base_t base, int event,
         .host = broker, 
         .port = 1883, 
         .keepalive = 20,
+        .transport = MQTT_TRANSPORT_OVER_TCP,
         .disable_clean_session = true
       };
       mqtt_client = esp_mqtt_client_init(&mqtt_config);
