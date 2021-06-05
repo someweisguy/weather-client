@@ -22,9 +22,9 @@
 #define SIGNAL_STRENGTH_KEY "signal_strength"
 
 static const char *TAG = "main";
-RTC_DATA_ATTR bool device_is_setup;
-RTC_DATA_ATTR float latitude, longitude, elevation_m;
-RTC_DATA_ATTR time_t last_time_sync_ts;
+static RTC_DATA_ATTR bool device_is_setup;
+static RTC_DATA_ATTR float latitude, longitude, elevation_m;
+static RTC_DATA_ATTR time_t last_time_sync_ts;
 
 // declare space to store the sensors
 static const int num_sensors = 4;
