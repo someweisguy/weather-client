@@ -54,11 +54,16 @@ extern "C" void app_main(void) {
     wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER);
 
     // declare the sensors that the station will be using
+    static RTC_DATA_ATTR bme280_t bme280 {0x76, &elevation_m};
+    static RTC_DATA_ATTR pms5003_t pms5003 {GPIO_NUM_14};
+    static RTC_DATA_ATTR max17043_t max17043 {0x36};
+    static RTC_DATA_ATTR sph0645_t sph0645 {};
+
     int sensor_idx = 0;
-    sensors[sensor_idx++] = new bme280_t(0x76, &elevation_m);
-    sensors[sensor_idx++] = new pms5003_t(GPIO_NUM_14);
-    sensors[sensor_idx++] = new max17043_t(0x36);
-    sensors[sensor_idx++] = new sph0645_t();
+    sensors[sensor_idx++] = &bme280;
+    sensors[sensor_idx++] = &pms5003;
+    sensors[sensor_idx++] = &max17043;
+    sensors[sensor_idx++] = &sph0645;
 
     ESP_LOGI(TAG, "Initializing sensors...");
     for (sensor_t *sensor : sensors) {
