@@ -26,8 +26,9 @@ RTC_DATA_ATTR bool device_is_setup;
 RTC_DATA_ATTR float latitude, longitude, elevation_m;
 RTC_DATA_ATTR time_t last_time_sync_ts;
 
-RTC_DATA_ATTR int num_sensors;
-RTC_DATA_ATTR sensor_t *sensors[4];
+// declare space to store the sensors
+static const int num_sensors = 4;
+static RTC_DATA_ATTR sensor_t *sensors[num_sensors];
 
 static inline int time_to_next_state_us() {
   struct timeval tv;
@@ -53,11 +54,11 @@ extern "C" void app_main(void) {
     wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER);
 
     // declare the sensors that the station will be using
-    num_sensors = 0;
-    sensors[num_sensors++] = new bme280_t(0x76, &elevation_m);
-    sensors[num_sensors++] = new pms5003_t(GPIO_NUM_14);
-    sensors[num_sensors++] = new max17043_t(0x36);
-    sensors[num_sensors++] = new sph0645_t();
+    int sensor_idx = 0;
+    sensors[sensor_idx++] = new bme280_t(0x76, &elevation_m);
+    sensors[sensor_idx++] = new pms5003_t(GPIO_NUM_14);
+    sensors[sensor_idx++] = new max17043_t(0x36);
+    sensors[sensor_idx++] = new sph0645_t();
 
     ESP_LOGI(TAG, "Initializing sensors...");
     for (sensor_t *sensor : sensors) {
