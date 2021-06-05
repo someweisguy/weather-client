@@ -135,33 +135,8 @@ public:
     err = wait_bme_ready();
     if (err) return err;
 
-    // write config register
-    // sets normal mode measurements to 1000ms, iir off, i2c mode on
-    const uint8_t config_cmd = 0x80;
-    err = serial_i2c_write(i2c_address, CONFIG_REGISTER, &config_cmd, 1, true, 
-      100 / portTICK_PERIOD_MS);
-    if (err) return err;
-
-    // write ctrl_hum register
-    // sets humidity oversampling to x1
-    const uint8_t ctrl_hum_cmd = 0x1;
-    err = serial_i2c_write(i2c_address, CTRL_HUM_REGISTER, &ctrl_hum_cmd, 1, 
-      true, 100 / portTICK_PERIOD_MS);
-    if (err) return err;
-
-    // write ctrl_meas register (must be done after writing ctrl_hum)
-    // sets pressure and temperature oversampling to x1 and enables sleep mode
-    const uint8_t ctrl_meas_cmd = 0x24;
-    err = serial_i2c_write(i2c_address, CONFIG_REGISTER, &ctrl_meas_cmd, 1,
-      true, 100 / portTICK_PERIOD_MS);
-    if (err) return err;
-    
-    return ESP_OK;
-  }
-
-  esp_err_t ready() {
     // read the calibration data
-    esp_err_t err = serial_i2c_read(i2c_address, T1_TRIM_REGISTER, &(dig.t1),
+    err = serial_i2c_read(i2c_address, T1_TRIM_REGISTER, &(dig.t1),
       24, 100 / portTICK_PERIOD_MS);
     if (err) return err;
     err = serial_i2c_read(i2c_address, H1_TRIM_REGISTER, &(dig.h1), 1, 
@@ -183,6 +158,27 @@ public:
     dig.h4 = (((dig.h4 & 0xfff) >> 8) | (dig.h4 << 4)) & 0xfff;
     dig.h5 = (dig.h5 >> 4) & 0xfff;
 
+    // write config register
+    // sets normal mode measurements to 1000ms, iir off, i2c mode on
+    const uint8_t config_cmd = 0x80;
+    err = serial_i2c_write(i2c_address, CONFIG_REGISTER, &config_cmd, 1, true, 
+      100 / portTICK_PERIOD_MS);
+    if (err) return err;
+
+    // write ctrl_hum register
+    // sets humidity oversampling to x1
+    const uint8_t ctrl_hum_cmd = 0x1;
+    err = serial_i2c_write(i2c_address, CTRL_HUM_REGISTER, &ctrl_hum_cmd, 1, 
+      true, 100 / portTICK_PERIOD_MS);
+    if (err) return err;
+
+    // write ctrl_meas register (must be done after writing ctrl_hum)
+    // sets pressure and temperature oversampling to x1 and enables sleep mode
+    const uint8_t ctrl_meas_cmd = 0x24;
+    err = serial_i2c_write(i2c_address, CONFIG_REGISTER, &ctrl_meas_cmd, 1,
+      true, 100 / portTICK_PERIOD_MS);
+    if (err) return err;
+    
     return ESP_OK;
   }
   
