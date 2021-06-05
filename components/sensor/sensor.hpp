@@ -13,6 +13,9 @@ typedef struct {
 } sensor_data_t;
 
 class sensor_t {
+private: 
+  static int num_sensors;
+
 protected:
   const char *name;
   const discovery_t *discoveries;
@@ -22,10 +25,15 @@ public:
   sensor_t(const char* name, const discovery_t discoveries[], 
       size_t num_discoveries) : name(name), discoveries(discoveries),
       num_discoveries(num_discoveries) {
+    ++num_sensors;
   }
 
   const char *get_name() const {
     return name;
+  }
+
+  int get_num_sensors() {
+    return num_sensors;
   }
 
   int get_discovery(const discovery_t *&discoveries) const {
