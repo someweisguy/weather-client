@@ -5,6 +5,13 @@
 #include "cJSON.h"
 #include "wireless.h"
 
+typedef struct {
+  const char *name;
+  esp_err_t err;
+  int msg_id;
+  cJSON *payload;
+} sensor_data_t;
+
 class sensor_t {
 protected:
   const char *name;
