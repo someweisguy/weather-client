@@ -71,7 +71,6 @@ extern "C" void app_main(void) {
       if (err) {
         ESP_LOGE(TAG, "An error occurred initializing %s (0x%x).",
           sensor->get_name(), err);
-        //esp_restart();
       }
     }
 
