@@ -26,15 +26,8 @@ RTC_DATA_ATTR bool device_is_setup;
 RTC_DATA_ATTR float latitude, longitude, elevation_m;
 RTC_DATA_ATTR time_t last_time_sync_ts;
 
-static sensor_t *sensors[] = { new bme280_t(0x76, &elevation_m), 
-  new pms5003_t(GPIO_NUM_14), new max17043_t(0x36), new sph0645_t() };
-
-typedef struct {
-  const char *name;
-  esp_err_t err;
-  int msg_id;
-  cJSON *payload;
-} sensor_data_t;
+RTC_DATA_ATTR int num_sensors;
+RTC_DATA_ATTR sensor_t *sensors[4];
 
 static inline int time_to_next_state_us() {
   struct timeval tv;
@@ -58,6 +51,13 @@ extern "C" void app_main(void) {
   if (!device_is_setup) {
     // do initial device setup
     wireless_start(WIFI_SSID, WIFI_PASSWORD, MQTT_BROKER);
+
+    // declare the sensors that the station will be using
+    num_sensors = 0;
+    sensors[num_sensors++] = new bme280_t(0x76, &elevation_m);
+    sensors[num_sensors++] = new pms5003_t(GPIO_NUM_14);
+    sensors[num_sensors++] = new max17043_t(0x36);
+    sensors[num_sensors++] = new sph0645_t();
 
     ESP_LOGI(TAG, "Initializing sensors...");
     for (sensor_t *sensor : sensors) {
@@ -155,7 +155,6 @@ extern "C" void app_main(void) {
     bool error_occurred = false;
 
     // create sensor data array
-    const int num_sensors = sizeof(sensors) / sizeof(sensor_t *);
     const int num_data = num_sensors + 1; // include wifi rssi
     sensor_data_t data[num_data] = {};
     for (int i = 0; i < num_data; ++i) {
