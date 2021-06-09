@@ -465,7 +465,7 @@ int wireless_publish_state(const char *sensor_name, cJSON *payload) {
     STATE_PREFIX, mac, sensor_name);
 
   // publish the data
-  const int msg_id = wireless_publish(state_topic, payload, 2, false);
+  const int msg_id = wireless_publish(state_topic, payload, 2, true);
 
   return msg_id;
 }
